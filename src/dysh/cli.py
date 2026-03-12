@@ -14,11 +14,7 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
-from dysh.fits import GBTOnline, gbtfitsload, index_file, sdfitsload
-from dysh.fits.gbtfitsload import _parse_sdfits_status_file
 from dysh.log import logger
-from dysh.shell import main as shell_main
-from dysh.util.online_simulator import simulate_session
 
 
 def format_size(size_bytes):
@@ -47,6 +43,8 @@ def get_total_size(filepath):
 
 def cmd_info(args):
     """Display information about a FITS file."""
+    from dysh.fits import gbtfitsload, index_file, sdfitsload
+
     filepath = Path(args.file)
     if not filepath.exists():
         logger.error(f"File not found: {filepath}")
@@ -109,6 +107,8 @@ def cmd_info(args):
 
 def cmd_index(args):
     """Create or display index file for a FITS file."""
+    from dysh.fits import index_file, sdfitsload
+
     filepath = Path(args.file)
     if not filepath.exists():
         logger.error(f"File not found: {filepath}")
@@ -176,6 +176,8 @@ def cmd_index(args):
 
 def cmd_summary(args):
     """Display detailed summary of a FITS file."""
+    from dysh.fits import gbtfitsload, index_file
+
     filepath = Path(args.file)
     if not filepath.exists():
         logger.error(f"File not found: {filepath}")
@@ -260,6 +262,8 @@ def cmd_summary(args):
 
 def cmd_shell(args):
     """Launch dysh IPython shell."""
+    from dysh.shell import main as shell_main
+
     # Reconstruct sys.argv for the shell command
     # Remove 'shell' subcommand but keep all other arguments
     original_argv = sys.argv.copy()
@@ -274,6 +278,9 @@ def cmd_shell(args):
 
 def cmd_online(args):
     """Monitor live GBT observations."""
+    from dysh.fits import GBTOnline
+    from dysh.fits.gbtfitsload import _parse_sdfits_status_file
+
     # Determine sdfits_root for session checking
     if "SDFITS_DATA" in os.environ:
         sdfits_root = os.environ["SDFITS_DATA"]
@@ -497,6 +504,8 @@ def cmd_online(args):
 
 def cmd_simulate_online(args):
     """Simulate SDFITS session creation for testing online mode."""
+    from dysh.util.online_simulator import simulate_session
+
     try:
         print(f"Simulating session: {args.source_dir} → {args.output_dir}")
         print(f"Mode: {args.mode}, interval: {args.interval}s, speedup: {args.speedup}x")
@@ -531,6 +540,8 @@ def main():
     # that look like options (e.g., --colors, --profile) - argparse tries to parse them
     # at the parent level before REMAINDER gets a chance to capture them.
     if len(sys.argv) > 1 and sys.argv[1] == "shell":
+        from dysh.shell import main as shell_main
+
         # Pass everything after 'shell' directly to the shell's parser
         original_argv = sys.argv.copy()
         sys.argv = [sys.argv[0], *sys.argv[2:]]  # Remove 'shell' from argv
