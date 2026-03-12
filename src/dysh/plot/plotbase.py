@@ -148,7 +148,7 @@ class PlotBase:
         # col 1
         self.axis.annotate(f"Scan(s) {self.fmt_scans():>10}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
         self.axis.annotate(f"{s.meta['DATE-OBS'][:10]}", (hcoords[0], vcoords[1]), xycoords=xyc, size=fsize_small)
-        self.axis.annotate(f"{s.meta['OBSERVER']}", (hcoords[0], vcoords[2]), xycoords=xyc, size=fsize_small)
+        self.axis.annotate(f"{s.meta.get('OBSERVER', '')}", (hcoords[0], vcoords[2]), xycoords=xyc, size=fsize_small)
 
         # col 2
         ljust = 4  # Left justify the column names by this amount.

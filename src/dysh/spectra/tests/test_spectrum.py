@@ -427,6 +427,15 @@ class TestSpectrum:
         assert np.all(trimmed_sp.flux == self.ps0.flux[s])
         assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[s]).value < tol)
 
+    def test_slice_without_wcs(self):
+        s = Spectrum.fake_spectrum(use_wcs=False, seed=1)
+        trimmed = s[100:200]
+
+        assert np.all(trimmed.flux == s.flux[100:200])
+        assert np.all(trimmed.mask == s.mask[100:200])
+        assert np.all(trimmed.spectral_axis == s.spectral_axis[100:200])
+        assert trimmed.meta["CRPIX1"] == 1.0
+
     def test_radiometer(self):
         """Test the radiometer equation"""
         # radiometer test over a flat portion of the standard getps()

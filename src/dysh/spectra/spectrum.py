@@ -1860,6 +1860,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 idx = int(np.round(idxs[0]))
             return idx
 
+        def q2idx_axis(q, spectral_axis):
+            """Quantity to index using the realized spectral axis."""
+            if "velocity" in u.get_physical_type(q):
+                eq = get_spectral_equivalency(spectral_axis.doppler_rest, spectral_axis.doppler_convention)
+                with u.set_enabled_equivalencies(eq):
+                    axis = spectral_axis.to(q.unit)
+            elif "length" in u.get_physical_type(q):
+                with u.set_enabled_equivalencies(u.spectral()):
+                    axis = spectral_axis.to(q.unit)
+            elif "frequency" in u.get_physical_type(q):
+                axis = spectral_axis.to(q.unit)
+            else:
+                raise UnitTypeError(f"Cannot slice Spectrum with quantity of type {u.get_physical_type(q)!r}")
+            return int(np.argmin(np.abs(axis - q)))
+
         def vel2idx(vel, wcs, spectral_axis, coo, sto):
             eq = get_spectral_equivalency(spectral_axis.doppler_rest, spectral_axis.doppler_convention)
             # Make `vel` a `SpectralCoord`.
@@ -1883,37 +1898,47 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 )
 
             spectral_axis = self.spectral_axis
-            # Use the WCS to convert from world to pixel values.
             wcs = self.wcs
-            # We need a sky location to convert incorporating velocity shifts.
-            try:
-                coo = SkyCoord(
-                    wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
-                    wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
-                    frame=self.meta["RADESYS"].lower(),
-                )
-            except UnitTypeError:
-                # Assume spatial coordinates are in axes 1 and 2.
-                coo = SkyCoord(
-                    wcs.wcs.crval[1] * wcs.wcs.cunit[1],
-                    wcs.wcs.crval[2] * wcs.wcs.cunit[2],
-                    frame=self.meta["RADESYS"].lower(),
-                )
-
-            # Same for the Stokes axis.
-            sto = StokesCoord(0)
             start = item.start
             stop = item.stop
+            use_legacy_wcs = hasattr(wcs, "wcs")
+
+            if isinstance(start, u.Quantity) or isinstance(stop, u.Quantity):
+                if use_legacy_wcs:
+                    # We need a sky location to convert incorporating velocity shifts.
+                    try:
+                        coo = SkyCoord(
+                            wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
+                            wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
+                            frame=self.meta["RADESYS"].lower(),
+                        )
+                    except UnitTypeError:
+                        # Assume spatial coordinates are in axes 1 and 2.
+                        coo = SkyCoord(
+                            wcs.wcs.crval[1] * wcs.wcs.cunit[1],
+                            wcs.wcs.crval[2] * wcs.wcs.cunit[2],
+                            frame=self.meta["RADESYS"].lower(),
+                        )
+                    sto = StokesCoord(0)
+                else:
+                    coo = None
+                    sto = None
 
             # Start.
             if isinstance(start, u.Quantity):
-                start_idx = q2idx(start, wcs, spectral_axis, coo, sto)
+                if use_legacy_wcs:
+                    start_idx = q2idx(start, wcs, spectral_axis, coo, sto)
+                else:
+                    start_idx = q2idx_axis(start, spectral_axis)
             else:
                 start_idx = start
 
             # Stop.
             if isinstance(stop, u.Quantity):
-                stop_idx = q2idx(stop, wcs, spectral_axis, coo, sto)
+                if use_legacy_wcs:
+                    stop_idx = q2idx(stop, wcs, spectral_axis, coo, sto)
+                else:
+                    stop_idx = q2idx_axis(stop, spectral_axis)
             else:
                 stop_idx = stop
 
@@ -1935,24 +1960,40 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ):
             start_idx, stop_idx = np.sort([start_idx, stop_idx])
 
-        # Slicing uses NumPY ordering by default.
-        sliced_wcs = wcs[0:1, 0:1, 0:1, start_idx:stop_idx]
-
         new_flux = self.flux[start_idx:stop_idx]
+        new_mask = self.mask[start_idx:stop_idx]
+        new_axis = self.spectral_axis[start_idx:stop_idx]
 
         # Update meta.
         meta = self.meta.copy()
-        head = sliced_wcs.to_header()
-        for k in ["CRPIX1", "CRVAL1"]:
-            meta[k] = head[k]
+        meta["CRPIX1"] = 1.0
+        if len(new_axis):
+            try:
+                meta["CRVAL1"] = new_axis[0].to_value(meta.get("CUNIT1", "Hz"))
+            except Exception:
+                pass
         meta["BANDWID"] = abs(meta["CDELT1"]) * len(new_flux)  # Hz
 
-        # New Spectrum.
-        new_spectrum = self.make_spectrum(
-            Masked(new_flux, self.mask[start_idx:stop_idx]),
-            meta=meta,
-            observer_location=Observatory[meta.get("TELESCOP", "GBT")],
-        )
+        if hasattr(wcs, "wcs"):
+            # Slicing uses NumPY ordering by default.
+            sliced_wcs = wcs[0:1, 0:1, 0:1, start_idx:stop_idx]
+            head = sliced_wcs.to_header()
+            for k in ["CRPIX1", "CRVAL1"]:
+                meta[k] = head[k]
+            new_spectrum = self.make_spectrum(
+                Masked(new_flux, new_mask),
+                meta=meta,
+                observer_location=Observatory[meta.get("TELESCOP", "GBT")],
+            )
+        else:
+            new_spectrum = self._make_spectrum_from_axis(
+                Masked(new_flux, new_mask),
+                spectral_axis=new_axis,
+                meta=meta,
+                observer=self.observer,
+                target=self.target,
+                wcs=wcs,
+            )
         new_spectrum._weights = self._weights[start_idx:stop_idx]
         return new_spectrum
 
