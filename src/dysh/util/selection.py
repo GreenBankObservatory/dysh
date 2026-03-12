@@ -1335,9 +1335,9 @@ class Flag(SelectionBase):
         self._flag_channel_selection[idx] = ALL_CHANNELS
         self._selection_rules[idx].loc[:, "CHAN"] = ALL_CHANNELS
         self._channel_selection = None  # unused for flagging
-       
-    def _create_flag_file_rep(self, fileobj, ignore_vegas=False, **kwargs ):
- 
+
+    def _create_flag_file_rep(self, fileobj, ignore_vegas=False, **kwargs):
+
         # GBTIDL flag files two sections [header] and [flags]
         # In the [header] section is information about file creation.
         # The [flags] section containes the flag table
@@ -1375,7 +1375,7 @@ class Flag(SelectionBase):
         # Because the table header and table row delimeters are different,
         # Table.read() can't work.  So construct it row by row.
         self._flag_file_rep = []
-        
+
         f = open(fileobj)
         lines = f.read().splitlines()  # gets rid of \n
         f.close()
@@ -1452,7 +1452,7 @@ class Flag(SelectionBase):
                 if kwargs is not None:
                     vdict.update(**kwargs)
                 self._flag_file_rep.append(vdict)
-                
+
     def read(self, fileobj, ignore_vegas=False, **kwargs):
         """Read a GBTIDL flag file and instantiate Flag object.
 
@@ -1473,7 +1473,7 @@ class Flag(SelectionBase):
 
         """
         self._create_flag_file_rep(fileobj, ignore_vegas, **kwargs)
-        
+
         if len(self._flag_file_rep) == 0:
             logger.warning(f"No flag found rules in file {fileobj}")
         for vdict in self._flag_file_rep:
