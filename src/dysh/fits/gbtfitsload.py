@@ -1434,14 +1434,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             logger.warning(
                 f"Can't determine VEGAS spur locations because one or more VSP keywords are missing from the FITS header {k}"
             )
-            
+
     @log_call_to_history
-    def flag_vegas_spurs(self, flag_central=False, selection:Selection = None):
+    def flag_vegas_spurs(self, flag_central=False, selection: Selection = None):
         """
         Flag VEGAS SPUR channels.
-        
+
         **Note:** It is generally more efficient, to use `flag_vegas=True` in calibration
-        routines than to call this method directly without a `Selection` which will force 
+        routines than to call this method directly without a `Selection` which will force
         a read of all the rows in the SDFITS file(s).  Passing `flag_vegas=True` to calibration
         routines will only read the rows being calibrated.
 
@@ -1451,7 +1451,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Whether to flag the central VEGAS spur location or not.
             The GBO SDFITS writer by default replaces the value at the central SPUR with the average of the
             two adjacent channels, and hence the central channel is not typically flagged.
-            
+
         selection : Selection
             A Selection object which will indicate which rows to flag. If None, then all rows
             are flagged.
@@ -1463,14 +1463,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         if selection is None:
             # If selection is None, then this method is not being called from a calibration
-            # routine, so we need to read full index from the SDFITS binary table to ensure 
+            # routine, so we need to read full index from the SDFITS binary table to ensure
             # that VSP* are present.
             # If the state were hybrid then some VSP* could be NaN, and if index_source
             # VSP* would not be present in any rows.
-            if list(set(self._index_state))!="fits":
+            if list(set(self._index_state)) != "fits":
                 self.load_all()
-            selection =self._selection
-            
+            selection = self._selection
+
         if not self.is_vegas():
             logger.warning(
                 "This does not appear to be VEGAS data. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. Will attempt it anyway."
@@ -1478,14 +1478,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         try:
             df = selection.groupby(["FITSINDEX", "BINTABLE"])
             for _i, ((fi, bi), g) in enumerate(df):
-                #print(f"###inner loop {_i} {fi} {bi}")
+                # print(f"###inner loop {_i} {fi} {bi}")
                 vsprval = g["VSPRVAL"].to_numpy()
                 vspdelt = g["VSPDELT"].to_numpy()
                 vsprpix = g["VSPRPIX"].to_numpy()
                 rows = g["ROW"].to_numpy()
                 maxnchan = self._sdf[fi].nchan(bi) - 1
                 spurs = calc_vegas_spurs(vsprval, vspdelt, vsprpix, maxnchan, flag_central)
-                #print(f"{spurs[0]=}")                                            
+                # print(f"{spurs[0]=}")
                 if spurs.shape[0] != len(rows):
                     raise ValueError(f"spurs array length {spurs.shape[0]} != selected number of rows {len(rows)}")
                 else:
@@ -1495,7 +1495,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         mask = np.full(maxnchan + 1, False)
                         mask[a[~a.mask]] = True
                         p.append(mask)
-                    #print(f"###masking {rows=}, mask={np.array(p)}")
+                    # print(f"###masking {rows=}, mask={np.array(p)}")
                     self._sdf[fi]._additional_channel_mask[bi].or_rows(rows, np.array(p))
         except KeyError as k:
             logger.warning(
@@ -2055,7 +2055,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         vane : None
             Used to suppress info message about use of TSYS column in case this is being used to make a `~dysh.spectra.vane.VaneSpectrum`.
-        flag_vegas: bool 
+        flag_vegas: bool
             If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
@@ -2274,8 +2274,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
-        flag_vegas: bool 
-            If True, VEGAS spurs will be flagged for the row(s) being calibrated. 
+        flag_vegas: bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2545,7 +2545,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
-        flag_vegas: bool 
+        flag_vegas: bool
             If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
@@ -2708,7 +2708,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_atm: float | None = None,
         t_bkg: float | None = None,
         t_warm: float | None = None,
-        flag_vegas: bool = False,        
+        flag_vegas: bool = False,
         **kwargs,
     ):
         """
@@ -2782,7 +2782,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
-        flag_vegas: bool 
+        flag_vegas: bool
             If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
@@ -3064,8 +3064,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
-        flag_vegas: bool 
-            If True, VEGAS spurs will be flagged for the row(s) being calibrated. 
+        flag_vegas: bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -3398,7 +3398,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         vane: int | VaneSpectrum | None = None,
         t_atm: float | None = None,
         t_bkg: float | None = None,
-        t_warm: float | None = None,        
+        t_warm: float | None = None,
         flag_vegas: bool = False,
         **kwargs,
     ):
@@ -3472,7 +3472,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
-        flag_vegas: bool 
+        flag_vegas: bool
             If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
@@ -4683,7 +4683,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Background temperature in K.
         apply_flags : bool, optional
             If True, apply flags before deriving the system temperature.
-        flag_vegas: bool 
+        flag_vegas: bool
             If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         Returns
         -------
