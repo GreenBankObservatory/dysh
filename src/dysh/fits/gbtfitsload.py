@@ -1712,37 +1712,37 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         logger.debug(f"Lazy loading full rows for {len(df)} selected rows (missing: {missing_cols})...")
 
         # Group rows by FITSINDEX (which SDFITSLoad they belong to)
-        # and load full rows from FITS
-        result_dfs = []
+        # and load the missing FITS columns only for the requested rows.
+        # For selective operations like gettp/getsigref, loading whole
+        # bintables creates a large avoidable pandas/index rebuild tax.
+        any_rows_loaded = False
 
         for fitsindex, group in df.groupby("FITSINDEX"):
             sdf = self._sdf[int(fitsindex)]
 
             # Only load if this SDFITSLoad was loaded from .index file or is in hybrid mode
             if getattr(sdf, "_index_source", None) not in ("index_file", "hybrid"):
-                result_dfs.append(group)
                 continue
 
             bintable = self._get_bintable(group)
-
-            # Load ALL rows for this sdf/bintable (not just the selected subset)
-            # so that subsequent calls won't find NaN values in other rows
-            # and trigger redundant load+rebuild cycles.
             all_rows_df = sdf.index(bintable=bintable)
-            all_rows = all_rows_df["ROW"].to_numpy()
-            rows = all_rows
+            if force:
+                rows = all_rows_df["ROW"].to_numpy()
+            else:
+                rows = pd.unique(group["ROW"])
 
             # Load full rows from FITS
             fits_df = sdf.load_full_rows(rows, bintable, columns=columns_to_load or None)
 
             if len(fits_df) == 0:
-                result_dfs.append(group)
                 continue
+            any_rows_loaded = True
 
             # IMPORTANT: Also update the underlying SDFITSLoad's _index
             # This is needed because Scan classes access sdf.index() directly
             # We need to add new columns to ALL SDFITSLoads, not just this one,
             # because later operations might access different SDFITSLoads
+            indices = all_rows_df.index[all_rows_df["ROW"].isin(rows)]
             for col in fits_df.columns:
                 col_dtype = fits_df[col].dtype
                 # Add column to ALL underlying SDFITSLoads if missing
@@ -1757,12 +1757,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         else:
                             # Float columns: use NaN with the same dtype
                             other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=col_dtype)
-                # Update the specific rows we loaded in the current SDFITSLoad
-                # Note Index is not always equal to ROW if there are multiple binary tables,
-                # so we need to isolate the DataFrame Index for the specific rows and binary table.
-                dfbin = sdf.index(bintable=bintable)
-                dfrows = dfbin["ROW"].isin(rows)
-                indices = dfbin[dfrows].index
                 sdf._index.loc[indices, col] = fits_df[col].values  # noqa: PD011
             # Mark that we've started loading from FITS (hybrid mode)
             if force:
@@ -1770,31 +1764,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             else:
                 sdf._index_source = "hybrid"
 
-            # Track columns that are now fully loaded for all rows
-            self._fully_loaded_columns.update(c.upper() for c in fits_df.columns)
+            # Only mark columns as fully loaded when we actually loaded the whole bintable.
+            if force or len(rows) == len(all_rows_df):
+                self._fully_loaded_columns.update(c.upper() for c in fits_df.columns)
 
-            # Re-select the originally requested rows from the updated sdf index
-            # since we loaded all rows but only need to return the selected subset
-            selected_rows = group["ROW"].to_numpy()
-            selected_df = sdf.index(bintable=bintable)
-            selected_mask = selected_df["ROW"].isin(selected_rows)
-            merged = selected_df[selected_mask].copy()
+        if not any_rows_loaded:
+            return df
 
-            # Preserve the original DataFrame index
-            merged.index = group.index
-
-            # Add columns from .index that aren't in FITS (like FITSINDEX, ROW)
-            for col in group.columns:
-                if col not in merged.columns:
-                    merged[col] = group[col].values  # noqa: PD011
-
-            result_dfs.append(merged)
-
-        result = pd.concat(result_dfs, axis=0)
-        # Restore original row order
-        result = result.loc[df.index]
-
-        logger.debug(f"   Loaded full rows. DataFrame now has {len(result.columns)} columns")
+        logger.debug(f"   Loaded full rows. DataFrame now has {len(self._selection.columns)} columns")
 
         # Update self._selection with the newly loaded columns so that other code
         # paths that access self._index (which returns self._selection) will see them.
@@ -1803,12 +1780,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # rebuilt selection instead of returning the pre-fixup DataFrame.
         self._rebuild_merged_index()
         self._update_radesys()
-        if set(result.index).issubset(self._selection.index):
-            refreshed = self._selection.loc[result.index].copy()
+        if set(df.index).issubset(self._selection.index):
+            refreshed = self._selection.loc[df.index].copy()
             refreshed = refreshed.loc[df.index]
             return refreshed
 
-        return result
+        return df
 
     def _rebuild_merged_index(self):
         """

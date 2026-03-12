@@ -2491,6 +2491,37 @@ class TestIndexFileLazyLoading:
         assert len(requested_columns) == 1
         assert {"TCAL", "TSYS", "EXPOSURE", "DURATION", "CDELT1"}.issubset(set(requested_columns[0]))
 
+    def test_load_full_rows_if_needed_only_loads_selected_rows(self, monkeypatch):
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        loaded_rows = []
+        original_load_full_rows = underlying_sdf.load_full_rows
+
+        def spy_load_full_rows(rows, bintable=0, exclude_data=True, columns=None):
+            loaded_rows.append(tuple(rows))
+            return original_load_full_rows(rows, bintable=bintable, exclude_data=exclude_data, columns=columns)
+
+        monkeypatch.setattr(underlying_sdf, "load_full_rows", spy_load_full_rows)
+
+        test_df = pd.DataFrame(
+            {
+                "ROW": [0, 1, 2],
+                "FITSINDEX": [0, 0, 0],
+                "SCAN": [1, 1, 1],
+                "BINTABLE": [0, 0, 0],
+            }
+        )
+
+        sdf._load_full_rows_if_needed(test_df, ["TCAL", "TSYS"])
+
+        assert loaded_rows == [(0, 1, 2)]
+        assert "TCAL" not in sdf._fully_loaded_columns
+        assert "TSYS" not in sdf._fully_loaded_columns
+
     def test_lazy_load_updates_selection(self):
         """
         Test that _load_full_rows_if_needed updates self._selection with new columns.
