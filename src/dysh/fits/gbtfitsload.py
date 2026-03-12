@@ -70,6 +70,8 @@ except ImportError:
 _SCAN_LAZY_METADATA_COLUMNS = (
     "TCAL",
     "TSYS",
+    "TWARM",
+    "TAMBIENT",
     "EXPOSURE",
     "DURATION",
     "CDELT1",

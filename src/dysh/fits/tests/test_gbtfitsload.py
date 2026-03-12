@@ -2578,3 +2578,24 @@ class TestIndexFileLazyLoading:
             assert result is not None
         except KeyError as e:
             pytest.fail(f"getsigref failed with KeyError (lazy loading issue): {e}")
+
+    def test_lazy_load_vanecal_preserves_warm_metadata(self):
+        """
+        Test that vanecal lazy loading retains Argus warm-load metadata.
+
+        This is a regression test for the metadata-subset optimization dropping
+        TWARM/TAMBIENT, which caused vanecal() to fail with KeyError: 'TWARM'
+        when loading from .index files.
+        """
+        sdf_file = f"{self.data_dir}/AGBT21B_024_14/AGBT21B_024_14_test"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, index_file_threshold=0, flag_vegas=False)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=0, plnum=0)
+        if not Path("/users/rmaddale/bin/getForecastValues").is_file():
+            assert tsys == pytest.approx(212.62577140649026)
+        else:
+            assert tsys == pytest.approx(221.82213493114335)
