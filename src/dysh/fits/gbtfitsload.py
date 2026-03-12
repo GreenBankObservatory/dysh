@@ -352,6 +352,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             logger.info(f"Loaded {lsdf} FITS files")
         self.add_history(f"Project ID: {self.projectID}", add_time=True)
         self._qd_corrected = False
+        self._fully_loaded_columns = set()
         if self._any_index_file():
             logger.info(
                 "Index loaded from .index file (44/93 columns). "
@@ -1630,15 +1631,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if not has_index_loaded:
             return df  # All data loaded from FITS, columns should exist if valid
 
-        # Check which columns are missing
-        missing_cols = [c for c in required_columns if c.upper() not in df.columns]
+        # Check which columns are missing (skip columns already fully loaded)
+        missing_cols = [
+            c for c in required_columns if c.upper() not in df.columns and c.upper() not in self._fully_loaded_columns
+        ]
 
         # In hybrid mode, also check if the selected rows have NaN in any required column
         # (columns may exist but specific rows may not have been loaded yet)
+        # Skip this check for columns we know are fully loaded.
         rows_need_loading = False
         if not missing_cols:
             for col in required_columns:
                 col_upper = col.upper()
+                if col_upper in self._fully_loaded_columns:
+                    continue
                 if col_upper in df.columns and df[col_upper].isna().any():
                     rows_need_loading = True
                     break
@@ -1661,8 +1667,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 result_dfs.append(group)
                 continue
 
-            rows = group["ROW"].to_numpy()
             bintable = self._get_bintable(group)
+
+            # Load ALL rows for this sdf/bintable (not just the selected subset)
+            # so that subsequent calls won't find NaN values in other rows
+            # and trigger redundant load+rebuild cycles.
+            all_rows_df = sdf.index(bintable=bintable)
+            all_rows = all_rows_df["ROW"].to_numpy()
+            rows = all_rows
 
             # Load full rows from FITS
             fits_df = sdf.load_full_rows(rows, bintable)
@@ -1702,9 +1714,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             else:
                 sdf._index_source = "hybrid"
 
-            # Merge: start with FITS data, then overlay .index data for columns that exist in both
-            # This ensures FITS data wins for any columns that might be different
-            merged = fits_df.copy()
+            # Track columns that are now fully loaded for all rows
+            self._fully_loaded_columns.update(c.upper() for c in fits_df.columns)
+
+            # Re-select the originally requested rows from the updated sdf index
+            # since we loaded all rows but only need to return the selected subset
+            selected_rows = group["ROW"].to_numpy()
+            selected_df = sdf.index(bintable=bintable)
+            selected_mask = selected_df["ROW"].isin(selected_rows)
+            merged = selected_df[selected_mask].copy()
 
             # Preserve the original DataFrame index
             merged.index = group.index
@@ -1911,7 +1929,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             kwargs["SCAN"] = list(scans_to_add)
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
-        ps_selection = copy.deepcopy(self._selection)
+        ps_selection = self._selection._lightweight_copy()
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final

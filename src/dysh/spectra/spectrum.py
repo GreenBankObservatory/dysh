@@ -5,6 +5,9 @@ The Spectrum class to contain and manipulate spectra.
 import warnings
 from copy import deepcopy
 
+# from astropy.nddata import StdDevUncertainty
+from functools import lru_cache
+
 import astropy.units as u
 import numpy as np
 import pandas as pd
@@ -63,7 +66,39 @@ from . import (
     spectral_region_to_unit,
 )
 
-# from astropy.nddata import StdDevUncertainty
+
+@lru_cache(maxsize=32)
+def _cached_wcs_template(crpix1, ctype1, cdelt1, cunit1, ctype2, cunit2, ctype3, cunit3, ctype4, crval4):
+    """Build a WCS object from invariant header keys and cache it.
+
+    Within a scan, only CRVAL1/2/3 and DATE-OBS vary between spectra.
+    The invariant keys (CTYPE, CDELT, CUNIT, CRPIX, CTYPE4/CRVAL4)
+    produce the same WCS structure, so we cache and deepcopy+patch.
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=FITSFixedWarning)
+        warnings.filterwarnings("ignore", category=VerifyWarning)
+        header = {
+            "CRPIX1": crpix1,
+            "CTYPE1": ctype1,
+            "CDELT1": cdelt1,
+            "CUNIT1": cunit1,
+            "CTYPE2": ctype2,
+            "CUNIT2": cunit2,
+            "CTYPE3": ctype3,
+            "CUNIT3": cunit3,
+        }
+        # Placeholders for varying keys — will be patched per spectrum
+        header["CRVAL1"] = 0.0
+        header["CRVAL2"] = 0.0
+        header["CRVAL3"] = 0.0
+        header["DATE-OBS"] = "2000-01-01T00:00:00"
+        if ctype4 is not None:
+            header["CTYPE4"] = ctype4
+        if crval4 is not None:
+            header["CRVAL4"] = crval4
+        return WCS(header=header)
+
 
 # Spectrum attributes to be ignored by Spectrum._copy_attributes
 IGNORE_ON_COPY = [
@@ -1462,6 +1497,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # Skip warnings FITS keywords longer than 8 chars or containing
                 # illegal characters (like _).
                 warnings.filterwarnings("ignore", category=VerifyWarning)
+                # All WCS meta keys — CTYPE4 and CRVAL4 are required if present in
+                # the original expectation (legacy behavior raises KeyError if missing).
                 wcs_meta_keys = [
                     "CRPIX1",
                     "CTYPE1",
@@ -1475,7 +1512,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     "CTYPE3",
                     "CUNIT3",
                     # Data from 2005 have CRVAL4 but not CTYPE4
-                    # src/dysh/testdata/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits'
                     "CTYPE4",
                     "CRVAL4",
                     "DATE-OBS",
@@ -1484,7 +1520,32 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     wcs_meta = {k: _meta[k] for k in wcs_meta_keys}
                 except KeyError as exc:
                     raise KeyError(f"Missing item for {exc} in meta.") from exc
-                wcs = WCS(header=wcs_meta)
+                try:
+                    # Try cached WCS template approach: build from invariant keys,
+                    # deepcopy (much cheaper than parsing headers), and patch varying values.
+                    template = _cached_wcs_template(
+                        crpix1=_meta["CRPIX1"],
+                        ctype1=_meta["CTYPE1"],
+                        cdelt1=_meta["CDELT1"],
+                        cunit1=_meta["CUNIT1"],
+                        ctype2=_meta["CTYPE2"],
+                        cunit2=_meta["CUNIT2"],
+                        ctype3=_meta["CTYPE3"],
+                        cunit3=_meta["CUNIT3"],
+                        ctype4=_meta.get("CTYPE4"),
+                        crval4=_meta.get("CRVAL4"),
+                    )
+                    wcs = deepcopy(template)
+                    # Patch the varying values
+                    wcs.wcs.crval[0] = _meta["CRVAL1"]
+                    if wcs.naxis >= 2:
+                        wcs.wcs.crval[1] = _meta["CRVAL2"]
+                    if wcs.naxis >= 3:
+                        wcs.wcs.crval[2] = _meta["CRVAL3"]
+                    wcs.wcs.dateobs = _meta["DATE-OBS"]
+                except Exception:
+                    # Fallback to full WCS construction
+                    wcs = WCS(header=wcs_meta)
                 # It would probably be safer to add NAXISi to meta.
                 if wcs.naxis > 3:
                     wcs.array_shape = (0, 0, 0, len(data))

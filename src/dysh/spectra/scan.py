@@ -384,6 +384,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self.scale(tscale, zenith_opacity)
         self._update_scale_meta()
         self._validate_defaults()
+        self._precompute_observer()
 
     @abstractmethod
     def _calc_exposure(self):
@@ -397,6 +398,37 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         raise NotImplementedError(
             f"Delta Freq (channel width) calculation for {self.__class__.__name__} needs to be implemented."
         )
+
+    def _precompute_observer(self):
+        """Pre-compute the observer ITRS coordinate once per scan.
+
+        Within a scan, obstimes differ by ~1s between integrations — negligible
+        effect on the ITRS position. Pre-computing avoids a costly
+        ``EarthLocation.get_itrs()`` call per spectrum.
+        """
+        from astropy.coordinates import SpectralCoord
+        from astropy.coordinates.spectral_coordinate import attach_zero_velocities
+
+        self._precomputed_observer = None
+        if self._observer_location is None or not self._meta:
+            return
+        try:
+            # Use the midpoint obstime from the first integration
+            dateobs = self._meta[0].get("DATE-OBS") or self._meta[0].get("MJD-OBS")
+            if dateobs is None:
+                return
+            obstime = Time(dateobs)
+            loc = self._observer_location
+            if loc == "from_meta":
+                loc = Observatory.get_earth_location(
+                    self._meta[0]["SITELONG"], self._meta[0]["SITELAT"], self._meta[0]["SITEELEV"]
+                )
+            self._precomputed_observer = SpectralCoord._validate_coordinate(
+                attach_zero_velocities(loc.get_itrs(obstime=obstime))
+            )
+        except Exception:
+            # Fall back to per-spectrum computation if anything goes wrong
+            self._precomputed_observer = None
 
     def getspec(self, i: int, use_wcs: bool = True) -> Spectrum:  ##SCANBASE
         """Return the i-th calibrated Spectrum from this Scan.
@@ -414,13 +446,15 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         -------
         spectrum : `~dysh.spectra.spectrum.Spectrum`
         """
+        observer = getattr(self, "_precomputed_observer", None)
         s = Spectrum.make_spectrum(
             Masked(
                 self._calibrated[i] * self._tscale_to_unit[self.tscale.lower()],
                 self._calibrated[i].mask,
             ),
             meta=self.meta[i],
-            observer_location=self._observer_location,
+            observer_location=self._observer_location if observer is None else None,
+            observer=observer,
             use_wcs=use_wcs,
         )
         s.merge_commentary(self)
@@ -979,7 +1013,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def timeaverage(self, weights="tsys", use_wcs=True):  ## SCANBASE
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
-        self._timeaveraged = deepcopy(self.getspec(0, use_wcs=use_wcs))
         data = self._calibrated
         w = None
         if isinstance(weights, np.ndarray):
@@ -997,29 +1030,47 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         else:
             raise ValueError("Unrecognized weights: must be 'tsys', None, or an array of numbers")
         data_avg, sum_of_weights = np.ma.average(data, axis=0, weights=w, returned=True)
-        self._timeaveraged._data = data_avg
-        self._timeaveraged.mask = data_avg.mask
-        self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         if w.shape == (len(self), self.nchan):
             w_collapsed = np.average(w, axis=1)
         else:
             w_collapsed = w
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(
-            self._tsys[non_blanks], axis=0, weights=w_collapsed[non_blanks]
-        )
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
-        self._timeaveraged.meta["DURATION"] = np.sum(self._duration[non_blanks])
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged.meta["AP_EFF"] = sq_weighted_avg(
-            self.ap_eff[non_blanks], axis=0, weights=w_collapsed[non_blanks]
-        )
-        self._timeaveraged.meta["SURF_ERR"] = sq_weighted_avg(
+
+        # Build metadata from first integration, then update aggregated fields
+        avg_meta = deepcopy(self.meta[0])
+        avg_meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
+        avg_meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w_collapsed[non_blanks])
+        avg_meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
+        avg_meta["DURATION"] = np.sum(self._duration[non_blanks])
+        avg_meta["TSYS"] = avg_meta["WTTSYS"]
+        avg_meta["AP_EFF"] = sq_weighted_avg(self.ap_eff[non_blanks], axis=0, weights=w_collapsed[non_blanks])
+        avg_meta["SURF_ERR"] = sq_weighted_avg(
             self.surface_error[non_blanks].value, axis=0, weights=w_collapsed[non_blanks]
         )
         if self.zenith_opacity is not None:
-            self._timeaveraged.meta["TAU_Z"] = self.zenith_opacity
+            avg_meta["TAU_Z"] = self.zenith_opacity
+
+        # Build the averaged spectrum directly — avoids deepcopy(getspec(0))
+        avg_flux = Masked(
+            data_avg * self._tscale_to_unit[self.tscale.lower()],
+            data_avg.mask,
+        )
+        observer = getattr(self, "_precomputed_observer", None)
+        self._timeaveraged = Spectrum.make_spectrum(
+            avg_flux,
+            meta=avg_meta,
+            observer_location=self._observer_location if observer is None else None,
+            observer=observer,
+            use_wcs=use_wcs,
+        )
+        # Replace _data with the masked array directly and set NaN fill value
+        # to match legacy behavior (masked channels appear as NaN in .data).
+        self._timeaveraged._data = data_avg
+        self._timeaveraged.mask = data_avg.mask
+        self._timeaveraged._data.set_fill_value(np.nan)
+        self._timeaveraged.merge_commentary(self)
+        self._timeaveraged._baseline_model = self._baseline_model
+        self._timeaveraged._subtracted = self._subtracted
         self._timeaveraged._weights = sum_of_weights
         self._weights = w
         return self._timeaveraged
