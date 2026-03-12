@@ -727,10 +727,12 @@ class TestSpectrum:
         avg = average_spectra((self.ps0, self.ps1))
         avg2 = self.ps0.average(self.ps1)
         compare_spectrum(avg, avg2, ignore_history=True, ignore_comments=True)
+        assert np.all(avg.spectral_axis == self.ps0.spectral_axis)
 
         avg = average_spectra((self.ps0, self.ps1), align=True)
         compare_spectrum(ps0_org, self.ps0, ignore_history=True, ignore_comments=True)
         compare_spectrum(ps1_org, self.ps1, ignore_history=True, ignore_comments=True)
+        assert np.all(avg.spectral_axis == self.ps0.spectral_axis)
 
     def test_spectrum_with_frame(self):
         """Regression test for issue #401 to ensure Spectrum.with_frame functions as advertised.

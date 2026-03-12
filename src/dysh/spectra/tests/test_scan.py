@@ -5,6 +5,7 @@ from astropy.io import fits
 
 import dysh.util as util
 from dysh.fits import gbtfitsload
+from dysh.spectra import core
 
 
 class TestPSScan:
@@ -549,6 +550,26 @@ class TestScanBase:
         assert np.all(tp.weights[: channel[0]] == pytest.approx(tp_sb[0].tsys_weight.sum()))
         # Channel selection in dysh is inclusive of the upper edge.
         assert np.all(tp.weights[channel[1] + 1 :] == pytest.approx(tp_sb[0].tsys_weight.sum()))
+        assert np.all(tp.spectral_axis == tp_sb[0].getspec(0).spectral_axis)
+
+    def test_timeaverage_single_scanblock_matches_scan(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        tp_sb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+
+        scan_avg = tp_sb[0].timeaverage()
+        block_avg = tp_sb.timeaverage()
+
+        assert np.all(block_avg.spectral_axis == scan_avg.spectral_axis)
+        assert np.all(block_avg.flux == scan_avg.flux)
+        assert block_avg.meta["EXPOSURE"] == scan_avg.meta["EXPOSURE"]
+        assert block_avg.meta["TSYS"] == pytest.approx(scan_avg.meta["TSYS"])
+        expected_weights = np.where(
+            scan_avg.mask,
+            0.0,
+            core.tsys_weight(scan_avg.meta["EXPOSURE"], scan_avg.meta["CDELT1"], scan_avg.meta["TSYS"]),
+        )
+        assert np.all(block_avg.weights == pytest.approx(expected_weights))
 
 
 class TestTPScan:

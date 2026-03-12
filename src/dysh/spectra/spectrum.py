@@ -30,7 +30,6 @@ from scipy.stats import anderson
 from specutils import Spectrum as Spectrum1D
 
 from dysh.log import logger
-from dysh.spectra import core
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
@@ -45,15 +44,12 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..line import SpectralLineSearch
-from ..line.search import _default_columns_to_return, all_cats
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
-from ..plot import specplot as sp
 from ..util import (
-    docstring_parameter,
     minimum_string_match,
 )
 from ..util.docstring_manip import copy_docstring
+from . import core
 from . import (
     FWHM_TO_STDDEV,
     available_smooth_methods,
@@ -97,6 +93,18 @@ def _cached_wcs_template(crpix1, ctype1, cdelt1, cunit1, ctype2, cunit2, ctype3,
         if crval4 is not None:
             header["CRVAL4"] = crval4
         return WCS(header=header)
+
+
+def _get_spectrum_plot():
+    from ..plot import specplot
+
+    return specplot.SpectrumPlot
+
+
+def _get_spectral_line_search():
+    from ..line import SpectralLineSearch
+
+    return SpectralLineSearch
 
 
 # Spectrum attributes to be ignored by Spectrum._copy_attributes
@@ -336,11 +344,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """Show the baseline model"""
         print(f"baseline model {self._baseline_model}")
 
-    @copy_docstring(sp.SpectrumPlot.plot)
     def plot(self, **kwargs):
         """ """
 
-        self._plotter = sp.SpectrumPlot(self, **kwargs)
+        plotter_cls = _get_spectrum_plot()
+        self._plotter = plotter_cls(self, **kwargs)
         self._plotter.plot(**kwargs)
         return self._plotter
 
@@ -1500,6 +1508,35 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # @todo   fix for radiometer equation"EXPOSURE" "TSYS": "CDELT1"
         return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"], use_wcs=use_wcs)
 
+    @classmethod
+    def _make_spectrum_from_axis(cls, data, spectral_axis, meta, observer=None, wcs=None):
+        """Construct a Spectrum from an existing spectral axis template.
+
+        This avoids recomputing the channel-to-world transform when the
+        spectral grid is already known.
+        """
+        _meta = deepcopy(meta)
+        target = None
+        try:
+            target = make_target(_meta)
+        except Exception:
+            target = deepcopy(getattr(spectral_axis, "target", None))
+        if observer is None:
+            observer = deepcopy(getattr(spectral_axis, "observer", None))
+        kwargs = {
+            "flux": data,
+            "spectral_axis": deepcopy(spectral_axis),
+            "meta": _meta,
+            "observer": observer,
+            "target": target,
+        }
+        if hasattr(data, "mask"):
+            kwargs["mask"] = data.mask
+        spectrum = cls(**kwargs)
+        if wcs is not None:
+            spectrum._wcs = deepcopy(wcs)
+        return spectrum
+
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
     def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, observer=None):
@@ -2032,7 +2069,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         end_freq = self.spectral_axis.quantity[-1].to("Hz", equivalencies=u.spectral())
         return Quantity(np.sort([start_freq.value, end_freq.value]), unit=start_freq.unit)
 
-    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
     def query_lines(
         self,
         chemical_name: str | None = None,
@@ -2084,7 +2120,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         minf, maxf = self._min_max_freq()
-        return SpectralLineSearch.query_lines(
+        spectral_line_search = _get_spectral_line_search()
+        return spectral_line_search.query_lines(
             min_frequency=minf,
             max_frequency=maxf,
             intensity_lower_limit=intensity_lower_limit,
@@ -2094,7 +2131,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
             redshift=self.redshift,
         )
 
-    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
     def recomb(self, line, cat: str = "gbtrecomb", columns: str | list | None = None) -> Table:
         """
         Search for recombination lines of H, He, and C in the frequency range of this Spectrum. The redshift value in the attribute `Spectrum.redshift` will be applied.
@@ -2121,11 +2157,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         minf, maxf = self._min_max_freq()
-        return SpectralLineSearch.recomb(
+        spectral_line_search = _get_spectral_line_search()
+        return spectral_line_search.recomb(
             min_frequency=minf, max_frequency=maxf, line=line, cat=cat, columns=columns, redshift=self.redshift
         )
 
-    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
     def recomball(self, cat: str = "gbtrecomb", columns: str | list | None = None) -> Table:
         """
         Fetch all recombination lines of H, He, C in the frequency range of this Spectrum from the catalog. The redshift value in the attribute `Spectrum.redshift` will be applied.
@@ -2149,7 +2185,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         minf, maxf = self._min_max_freq()
-        return SpectralLineSearch.recomball(min_frequency=minf, max_frequency=maxf, cat=cat, redshift=self.redshift)
+        spectral_line_search = _get_spectral_line_search()
+        return spectral_line_search.recomball(min_frequency=minf, max_frequency=maxf, cat=cat, redshift=self.redshift)
 
     def meta_as_table(self):
         """
@@ -2495,7 +2532,16 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     elif numpols >= 3:  # 3 or more pols, invalid
         new_meta["CRVAL4"] = 0
 
-    averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
+    if hasattr(spectra[0].wcs, "wcs"):
+        averaged = Spectrum._make_spectrum_from_axis(
+            Masked(data * units, data.mask),
+            spectral_axis=spectra[0].spectral_axis,
+            meta=new_meta,
+            observer=observer,
+            wcs=spectra[0].wcs,
+        )
+    else:
+        averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
     averaged._weights = sum_of_weights
     if history is not None:
         # Keep previous history first.

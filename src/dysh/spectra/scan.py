@@ -15,8 +15,6 @@ from astropy.table import Table, vstack
 from astropy.time import Time
 from astropy.utils.masked import Masked
 
-from dysh.spectra import core
-
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
 from ..plot import scanplot as sp
@@ -33,6 +31,7 @@ from .core import (
     sq_weighted_avg,
     tsys_weight,
 )
+from . import core
 from .spectrum import Spectrum, average_spectra
 from .vane import VaneSpectrum
 
@@ -1389,10 +1388,26 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                 w = weights[index : index + scan.nint]
                 index += scan.nint
                 self._timeaveraged.append(scan.timeaverage(w, use_wcs=use_wcs))
-            s = average_spectra(self._timeaveraged, weights="spectral")
         else:
             for scan in self.data:
                 self._timeaveraged.append(scan.timeaverage(weights, use_wcs=use_wcs))
+        if len(self._timeaveraged) == 1 and use_wcs:
+            s = self._timeaveraged[0]
+            if ary:
+                s._weights = deepcopy(s.weights)
+            elif weights == "tsys":
+                s._weights = np.where(
+                    s.mask,
+                    0.0,
+                    core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"]),
+                )
+            elif weights is None:
+                s._weights = np.where(s.mask, 0.0, 1.0)
+            else:
+                s._weights = deepcopy(s.weights)
+        elif ary:
+            s = average_spectra(self._timeaveraged, weights="spectral")
+        else:
             s = average_spectra(self._timeaveraged, weights=weights)
         s.merge_commentary(self)
         return s
@@ -1730,9 +1745,9 @@ class TPScan(ScanBase):
         self._tsys = None
         self._calrows = calrows
         # all cal=T states where sig=sigstate
-        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
+        self._refonrows = np.intersect1d(self._calrows["ON"], self._scanrows).tolist()
         # all cal=F states where sig=sigstate
-        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
+        self._refoffrows = np.intersect1d(self._calrows["OFF"], self._scanrows).tolist()
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)[
             :, self._channel_slice
         ]
@@ -2045,9 +2060,9 @@ class PSScan(ScanBase):
         else:
             self._bintable_index = bintable
         # noise diode on, signal position
-        self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
+        self._sigonrows = np.intersect1d(self._calrows["ON"], self._scanrows["ON"]).tolist()
         # noise diode off, signal position
-        self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
+        self._sigoffrows = np.intersect1d(self._calrows["OFF"], self._scanrows["ON"]).tolist()
         self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigonrows)[
             :, self._channel_slice
         ]
@@ -2074,9 +2089,9 @@ class PSScan(ScanBase):
             self._nrows = len(self._sigoffrows)
         else:
             # noise diode on, reference position
-            self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
+            self._refonrows = np.intersect1d(self._calrows["ON"], self._scanrows["OFF"]).tolist()
             # noise diode off, reference position
-            self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
+            self._refoffrows = np.intersect1d(self._calrows["OFF"], self._scanrows["OFF"]).tolist()
             self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)[
                 :, self._channel_slice
             ]

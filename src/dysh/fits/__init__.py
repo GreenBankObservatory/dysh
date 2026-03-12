@@ -1,4 +1,6 @@
-"""Classes and functions for importing SDFITS files"""
+"""Classes and functions for importing SDFITS files."""
+
+from importlib import import_module
 
 try:
     import fitsio  # noqa: F401
@@ -7,10 +9,9 @@ try:
 except ImportError:
     HAS_FITSIO = False
 
-# Configuration options follow.
-# These need to come after the global config variables, as some of the
-# submodules use them.
 from dysh import config as _config
+
+from . import core
 
 
 class Conf(_config.ConfigNamespace):
@@ -26,26 +27,44 @@ class Conf(_config.ConfigNamespace):
 
 conf = Conf()
 
-from dysh.fits.core import *
-from dysh.fits.gb20mfitsload import GB20MFITSLoad  # noqa:F401
-from dysh.fits.gbtfitsload import GBTBackend  # noqa:F401
-from dysh.fits.gbtfitsload import GBTFITSLoad  # noqa:F401
-from dysh.fits.gbtfitsload import GBTOffline  # noqa:F401
-from dysh.fits.gbtfitsload import GBTOnline  # noqa:F401
-from dysh.fits.lazyflag import LazyFlagArray, LazyFlagContainer  # noqa:F401
-from dysh.fits.sdfitsload import SDFITSLoad  # noqa:F401
+_EXPORTS = {
+    "GB20MFITSLoad": (".gb20mfitsload", "GB20MFITSLoad"),
+    "GBTBackend": (".gbtfitsload", "GBTBackend"),
+    "GBTFITSLoad": (".gbtfitsload", "GBTFITSLoad"),
+    "GBTOffline": (".gbtfitsload", "GBTOffline"),
+    "GBTOnline": (".gbtfitsload", "GBTOnline"),
+    "LazyFlagArray": (".lazyflag", "LazyFlagArray"),
+    "LazyFlagContainer": (".lazyflag", "LazyFlagContainer"),
+    "SDFITSLoad": (".sdfitsload", "SDFITSLoad"),
+}
 
-from . import core
+_MODULE_EXPORTS = {
+    "core": ".core",
+    "gb20mfitsload": ".gb20mfitsload",
+    "gbtfitsload": ".gbtfitsload",
+    "lazyflag": ".lazyflag",
+    "sdfitsload": ".sdfitsload",
+}
 
 __all__ = (
-    ["Conf", "conf"]
+    ["Conf", "conf", "HAS_FITSIO"]
     + core.__all__
-    + [
-        "GB20MFITSLoad",
-        "GBTBackend",
-        "GBTFITSLoad",
-        "GBTOffline",
-        "GBTOnline",
-        "SDFITSLoad",
-    ]
+    + list(_EXPORTS)
+    + list(_MODULE_EXPORTS)
 )
+
+
+def __getattr__(name):
+    if name in core.__all__:
+        return getattr(core, name)
+    if name in _EXPORTS:
+        module_name, attr_name = _EXPORTS[name]
+        module = import_module(module_name, __name__)
+        value = getattr(module, attr_name)
+        globals()[name] = value
+        return value
+    if name in _MODULE_EXPORTS:
+        module = import_module(_MODULE_EXPORTS[name], __name__)
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

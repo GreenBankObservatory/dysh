@@ -219,6 +219,7 @@ class DTime:
         # print("PJT state",self.state)
 
         n = len(self.stats)
+        total_ms = 0.0
         if debug:
             print(f"Found {n} entries")
             for i in range(n):
@@ -226,6 +227,7 @@ class DTime:
 
         for i in range(1, n):
             dt = (self.stats[i][1] - self.stats[i - 1][1]) / 1e6  # in ms, @todo check units
+            total_ms += dt
             if debug:
                 print(self.stats[i][0], dt)
             if self.table is not None:
@@ -255,6 +257,7 @@ class DTime:
             else:
                 print(f"# Dysh Benchmark: {self.benchname}")
                 self.table.pprint_all()
+                print(f"DYSH_BENCH_SCRIPT_MS={total_ms:.3f}")
 
         if self.profile:
             self.pr.disable()

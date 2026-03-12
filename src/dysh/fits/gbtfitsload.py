@@ -2023,14 +2023,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
+        scan_groups = {scan_value: group for scan_value, group in _sf.groupby("SCAN", sort=False)}
         for scan in scans:
-            _sifdf = select_from("SCAN", scan, _sf)
-            if len(_sifdf) == 0:
+            _sifdf = scan_groups.get(scan)
+            if _sifdf is None or len(_sifdf) == 0:
                 continue
-            dfcalT = select_from("CAL", "T", _sifdf)
-            dfcalF = select_from("CAL", "F", _sifdf)
-            calrows["ON"] = dfcalT["ROW"].to_numpy()
-            calrows["OFF"] = dfcalF["ROW"].to_numpy()
+            cal_mask = _sifdf["CAL"].to_numpy()
+            on_mask = cal_mask == "T"
+            off_mask = cal_mask == "F"
+            calrows["ON"] = _sifdf.loc[on_mask, "ROW"].to_numpy()
+            calrows["OFF"] = _sifdf.loc[off_mask, "ROW"].to_numpy()
             if len(calrows["ON"]) != len(calrows["OFF"]):
                 if len(calrows["ON"]) > 0:
                     raise Exception(f"unbalanced calrows {len(calrows['ON'])} != {len(calrows['OFF'])}")
@@ -2038,16 +2040,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # they are not in kwargs and in SDFITS header
             # they are not booleans but chars
             if sig is not None:
-                _sifdf = select_from("SIG", TF[sig], _sifdf)
+                _sifdf = _sifdf.loc[_sifdf["SIG"].to_numpy() == TF[sig]]
             if _bintable is None:
                 _bintable = self._get_bintable(_sifdf)
             if t_cal is not None:
                 _tcal = t_cal
             else:
-                _tcal = self._get_tcal(dfcalF["TCAL"])
+                _tcal = self._get_tcal(_sifdf.loc[off_mask if sig is None else (_sifdf["CAL"].to_numpy() == "F"), "TCAL"])
             if len(calrows["ON"]) == 0:
                 if tsys is None:
-                    _tsys = dfcalF["TSYS"].to_numpy()
+                    _tsys = _sifdf.loc[_sifdf["CAL"].to_numpy() == "F", "TSYS"].to_numpy()
                     if vane is None:
                         logger.info("Using TSYS column")
                     logger.debug(f"Scan: {scan}")
@@ -2305,18 +2307,26 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             tsys = _parse_tsys(tsys, scans)  # Put it in a known format.
 
         scanblock = ScanBlock()
+        fits_groups = {fitsindex: group for fitsindex, group in _sf.groupby("FITSINDEX", sort=False)}
         for i in range(len(self._sdf)):
-            _df = select_from("FITSINDEX", i, _sf)
-            if len(_df) == 0:
+            _df = fits_groups.get(i)
+            if _df is None or len(_df) == 0:
                 continue
             if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                 logger.debug(f"scans {scans} not found, continuing")
                 continue
             rows = {}
+            scan_groups = {scan_value: group for scan_value, group in _df.groupby("SCAN", sort=False)}
+            cal_mask = _df["CAL"].to_numpy()
+            calrows = {
+                "ON": list(_df.loc[cal_mask == "T", "ROW"]),
+                "OFF": list(_df.loc[cal_mask == "F", "ROW"]),
+            }
+            dfoncalF_cache = {}
 
             for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
-                _ondf = select_from("SCAN", on, _df)
-                _offdf = select_from("SCAN", off, _df)
+                _ondf = scan_groups.get(on, _df.iloc[0:0])
+                _offdf = scan_groups.get(off, _df.iloc[0:0])
                 if _bintable is None:
                     _bintable = self._get_bintable(_ondf)
                 rows["ON"] = list(_ondf["ROW"])
@@ -2326,16 +2336,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         raise Exception(f"{key} scans not found in scan list {scans}")
                 # do not pass scan list here. We need all the cal rows. They will
                 # be intersected with scan rows in PSScan
-                calrows = {}
-                dfcalT = select_from("CAL", "T", _df)
-                dfcalF = select_from("CAL", "F", _df)
-                calrows["ON"] = list(dfcalT["ROW"])
-                calrows["OFF"] = list(dfcalF["ROW"])
                 d = {"ON": on, "OFF": off}
                 if len(calrows["ON"]) == 0 or nocal:
                     _nocal = True
                     if tsys is None:
-                        dfoncalF = select_from("CAL", "F", _ondf)
+                        dfoncalF = dfoncalF_cache.get(on)
+                        if dfoncalF is None:
+                            dfoncalF = _ondf.loc[_ondf["CAL"].to_numpy() == "F"]
+                            dfoncalF_cache[on] = dfoncalF
                         _tsys = dfoncalF["TSYS"].to_numpy()
                         if vane is None:
                             logger.info("Using TSYS column")
