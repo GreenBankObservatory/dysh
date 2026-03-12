@@ -1483,7 +1483,7 @@ class SDFITSLoad:
         else:
             missing_keys = [k for k in items if k not in self._index.columns]
 
-        if missing_keys and self._index_source == "index_file":
+        if missing_keys and self._index_source in ("index_file", "hybrid"):
             logger.debug(
                 f"Column(s) {missing_keys} not available in .index file. "
                 f"Triggering full FITS index load to access all columns..."
