@@ -916,3 +916,162 @@ class TestSparrow3Ported:
             assert act == exp, (
                 f"Data row {i} (INDEX={999999 + i}, ROW={999997 + i}) does not match sparrow3 expected output"
             )
+
+
+class TestMultiFileVegas:
+    """Tests for writing index data from multi-file VEGAS observations.
+
+    Real VEGAS data has multiple FITS files (one per bank: A, B, C, D),
+    each with different IFNUMs, polarizations, and frequencies. The index
+    must handle varying FILE, EXTENSION, POLARIZATION, PROCEDURE, CENTFREQ,
+    and other columns across rows.
+    """
+
+    def test_write_multifile_roundtrip(self, tmp_path):
+        """Test writing and reading an index with multi-file VEGAS-like data."""
+        # Simulate 4 VEGAS banks (A, B, C, D) with 2 scans, 2 pols each
+        rows = []
+        files = [
+            "AGBT18B_354_03.raw.vegas.A.fits",
+            "AGBT18B_354_03.raw.vegas.B.fits",
+            "AGBT18B_354_03.raw.vegas.C.fits",
+            "AGBT18B_354_03.raw.vegas.D.fits",
+        ]
+        # Each bank has different CRVAL1/CRPIX1/CDELT1 (different tunings)
+        bank_freqs = [
+            (1.40e9, 512.0, 1464.84375),  # Bank A
+            (1.42e9, 512.0, 1464.84375),  # Bank B
+            (1.44e9, 512.0, 1464.84375),  # Bank C
+            (1.46e9, 512.0, 1464.84375),  # Bank D
+        ]
+        idx = 0
+        for bank_i, (filename, (crval1, crpix1, cdelt1)) in enumerate(zip(files, bank_freqs, strict=True)):
+            for scan in (6, 7):
+                for crval4 in (-1, -2):  # RR, LL polarizations
+                    rows.append(
+                        {
+                            "INDEX": idx,
+                            "FILE": filename,
+                            "EXTENSION": 1,
+                            "ROW": idx,
+                            "OBJECT": "W49N",
+                            "OBSMODE": "OffOn:PSWITCHON:TPWCAL" if scan == 6 else "OffOn:PSWITCHOFF:TPWCAL",
+                            "OBSID": "Observation:1",
+                            "PROJID": "AGBT18B_354_03",
+                            "SCAN": scan,
+                            "CRVAL4": crval4,
+                            "CRVAL1": crval1,
+                            "CRPIX1": crpix1,
+                            "CDELT1": cdelt1,
+                            "NUMCHN": 1024,
+                            "PLNUM": 0 if crval4 == -1 else 1,
+                            "IFNUM": bank_i,
+                            "FEED": 1,
+                            "FDNUM": 0,
+                            "INTNUM": 0,
+                            "PROCSEQN": 1,
+                            "SIG": True,
+                            "CAL": False,
+                            "SAMPLER": f"A{bank_i}_0",
+                            "AZIMUTH": 202.26,
+                            "ELEVATIO": 66.45,
+                            "CRVAL2": 287.755,
+                            "CRVAL3": 14.136,
+                            "TRGTLONG": 287.755,
+                            "TRGTLAT": 14.136,
+                            "SUBREF_STATE": 1,
+                            "LST": 45123.0,
+                            "RESTFREQ": 1.42040575e9,
+                            "VELOCITY": 0.0,
+                            "FREQRES": 1464.84375,
+                            "DATE-OBS": "2018-12-15T06:12:00.00",
+                            "TIMESTAMP": "2018_12_15_06:12:00",
+                            "BANDWID": 1.5e6,
+                            "EXPOSURE": 30.0,
+                            "TSYS": 25.0,
+                        }
+                    )
+                    idx += 1
+
+        df = pd.DataFrame(rows)
+        metadata = create_index_metadata(observer="Test", backend="VEGAS")
+
+        # Write
+        index_path = tmp_path / "test.index"
+        write_index(index_path, metadata, df)
+
+        # Read back
+        _read_metadata, df_read = read_index(index_path)
+
+        # Verify all 16 rows survived
+        assert len(df_read) == 16
+
+        # Verify FILE column has 4 distinct values
+        assert df_read["FILE"].nunique() == 4
+
+        # Verify POLARIZATION derived correctly from CRVAL4
+        pol_values = set(df_read["POL"].unique())
+        assert pol_values == {"RR", "LL"}
+
+        # Verify PROCEDURE extracted from OBSMODE
+        proc_values = set(df_read["PROCEDURE"].unique())
+        assert proc_values == {"OffOn"}
+
+        # Verify CENTFREQ computed (not just CRVAL1) and varies across banks
+        assert df_read["CENTFREQ"].nunique() == 4
+
+        # Verify PROJECT mapped from PROJID
+        assert all(df_read["PROJECT"] == "AGBT18B_354_03")
+
+        # Verify SOURCE mapped from OBJECT
+        assert all(df_read["SOURCE"] == "W49N")
+
+        # Verify SIG/CAL booleans roundtripped
+        assert df_read["SIG"].all()
+        assert not df_read["CAL"].any()
+
+    def test_write_real_vegas_data(self, testdata_dir, tmp_path):
+        """Test writing an index from real multi-bank VEGAS FITS data."""
+        vegas_dir = testdata_dir / "AGBT18B_354_03" / "AGBT18B_354_03.raw.vegas"
+        if not vegas_dir.exists():
+            pytest.skip(f"VEGAS testdata not found: {vegas_dir}")
+
+        from dysh.fits.gbtfitsload import GBTFITSLoad
+
+        loader = GBTFITSLoad(str(vegas_dir))
+        df = loader._selection
+
+        metadata = create_index_metadata(
+            observer=df["OBSERVER"].iloc[0] if "OBSERVER" in df.columns else "Unknown",
+            backend=df["BACKEND"].iloc[0] if "BACKEND" in df.columns else "VEGAS",
+        )
+
+        # Write index
+        index_path = tmp_path / "AGBT18B_354_03.raw.vegas.index"
+        write_index(index_path, metadata, df)
+
+        # Read it back
+        _meta, df_read = read_index(index_path)
+
+        # Should have all rows
+        assert len(df_read) == len(df)
+
+        # Should have all 43 standard columns
+        assert len(df_read.columns) == 43
+
+        # Key columns should survive roundtrip
+        assert df_read["SCAN"].nunique() == df["SCAN"].nunique()
+        assert df_read["IFNUM"].nunique() == df["IFNUM"].nunique()
+
+        # POLARIZATION should be derived from CRVAL4
+        if "CRVAL4" in df.columns:
+            assert "POL" in df_read.columns
+            expected_pols = set(df["CRVAL4"].apply(_get_polarization).unique())
+            actual_pols = set(df_read["POL"].unique())
+            assert actual_pols == expected_pols
+
+        # Written file should be parseable by parse_sdfits_index_file too
+        from dysh.fits.index_file import parse_sdfits_index_file
+
+        df_parsed = parse_sdfits_index_file(index_path)
+        assert len(df_parsed) == len(df)
