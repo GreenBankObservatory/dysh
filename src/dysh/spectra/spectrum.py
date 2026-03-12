@@ -443,6 +443,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
              r1 = sp0[1000:2000].radiometer()
 
+        Note that the current `~dysh.fits.gbtfitsload.GBTFITSLoad.getsigref` function
+        may not set the exposure time correctly, and thus come up with the wrong
+        result from the radiometer function.
+        See issue #800 https://github.com/GreenBankObservatory/dysh/issues/800
+
+
         Parameters
         ----------
         roll : int
