@@ -2501,6 +2501,31 @@ class TestIndexFileLazyLoading:
             "If this fails, _rebuild_merged_index() is not being called in _load_full_rows_if_needed."
         )
 
+    def test_lazy_load_returns_post_fixup_metadata(self, monkeypatch):
+        """Test that returned rows reflect metadata fixups applied after rebuild."""
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        test_df = pd.DataFrame(
+            {
+                "ROW": [0, 1, 2],
+                "FITSINDEX": [0, 0, 0],
+                "SCAN": [1, 1, 1],
+                "BINTABLE": [0, 0, 0],
+            }
+        )
+
+        def fake_update_radesys():
+            sdf._selection.loc[test_df.index, "RADESYS"] = "unit_test_frame"
+
+        monkeypatch.setattr(sdf, "_update_radesys", fake_update_radesys)
+
+        result_df = sdf._load_full_rows_if_needed(test_df, ["TCAL", "TSYS"])
+        assert list(result_df["RADESYS"]) == ["unit_test_frame", "unit_test_frame", "unit_test_frame"]
+
     def test_lazy_load_dtype_compatibility(self):
         """
         Test that lazy loading preserves correct dtypes for both string and numeric columns.

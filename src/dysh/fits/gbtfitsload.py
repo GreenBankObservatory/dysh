@@ -1787,9 +1787,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         logger.debug(f"   Loaded full rows. DataFrame now has {len(result.columns)} columns")
 
         # Update self._selection with the newly loaded columns so that other code
-        # paths that access self._index (which returns self._selection) will see them
+        # paths that access self._index (which returns self._selection) will see them.
+        # Some metadata fixups, such as RADESYS normalization, happen on the merged
+        # index after the FITS rows are loaded, so refresh the returned rows from the
+        # rebuilt selection instead of returning the pre-fixup DataFrame.
         self._rebuild_merged_index()
         self._update_radesys()
+        if set(result.index).issubset(self._selection.index):
+            refreshed = self._selection.loc[result.index].copy()
+            refreshed = refreshed.loc[df.index]
+            return refreshed
 
         return result
 
