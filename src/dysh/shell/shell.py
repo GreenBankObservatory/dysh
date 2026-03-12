@@ -82,6 +82,7 @@ def init_shell(
 
     from dysh.fits.gbtfitsload import GBTFITSLoad, GBTOffline, GBTOnline
     from dysh.util.files import dysh_data
+    from dysh.spectra.spectrum import Spectrum
 
     user_ns = {
         "pd": pd,
@@ -91,6 +92,7 @@ def init_shell(
         "GBTOnline": GBTOnline,
         "GBTOffline": GBTOffline,
         "dysh_data": dysh_data,
+        "Spectrum": Spectrum,
     }
 
     user_ns_origin = [
