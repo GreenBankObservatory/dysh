@@ -294,7 +294,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     """
 
     @log_call_to_history
-    def __init__(self, fileobj, source=None, hdu=None, skipflags=True, flag_vegas=True, **kwargs):
+    def __init__(self, fileobj, source=None, hdu=None, skipflags=True, flag_vegas=False, **kwargs):
         kwargs_opts = {
             "fix_ka": True,
             "index_file_threshold": 0,  # 100 * 1024 * 1024,  # 100 MB default

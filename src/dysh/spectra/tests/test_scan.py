@@ -245,7 +245,7 @@ class TestPSScan:
     def test_vane(self, data_dir):
         """Test for getps with vane."""
         data_path = f"{data_dir}/TGBT24B_615_01/TGBT24B_615_01.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(data_path)
+        sdf = gbtfitsload.GBTFITSLoad(data_path, flag_vegas=True)
         pssb = sdf.getps(scan=86, ifnum=0, plnum=0, fdnum=10, vane=84, zenith_opacity=0.14, t_atm=268.85)
         psta = pssb.timeaverage()
         stats = psta.stats()
@@ -482,7 +482,7 @@ class TestSubBeamNod:
         """Test for subbeamnod with vane."""
         sdf_file = f"{data_dir}/AGBT18B_357_04/AGBT18B_357_04.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, skipflags=True)
-        sbnsb = sdf.subbeamnod(scan=3, vane=1, ifnum=0, plnum=0, fdnum=10, zenith_opacity=0.1, t_atm=257.90)
+        sbnsb = sdf.subbeamnod(scan=3, vane=1, ifnum=0, plnum=0, fdnum=10, zenith_opacity=0.1, t_atm=257.90, flag_vegas=True)
         sbnta = sbnsb.timeaverage()
         stats = sbnta.stats()
         assert stats["mean"].value == pytest.approx(-0.09412889, abs=1e-4)
@@ -505,7 +505,7 @@ class TestWeights:
         # for all rows in the SDFITS File.  Using the index file would cause flag_vegas() to do nothing
         # because is_vegas() can't determine if it is vegas or not.  So weights will be different
         # using index file or SDFITS file.  See https://github.com/GreenBankObservatory/dysh/issues/1023
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file, index_file_threshold=100000000)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, index_file_threshold=100000000, flag_vegas=True)
         sb = sdf.getfs(scan=6, fdnum=0, plnum=0, ifnum=0)
         w = np.ones((3, sb.nchan))
         x = sb.timeaverage(weights=w)
@@ -945,7 +945,7 @@ class TestNodScan:
 
     def test_vane(self):
         fits_path = util.get_project_testdata() / "AGBT22A_325_23/AGBT22A_325_23.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path,flag_vegas=True)
         nodsb = sdf.getnod(ifnum=0, plnum=0, vane=43, t_atm=265.48, zenith_opacity=0.21)
         assert nodsb[0].tsys.mean() == 195.85427050034397
         assert nodsb[1].tsys.mean() == 185.7013266638696
