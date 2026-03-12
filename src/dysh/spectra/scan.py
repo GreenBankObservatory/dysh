@@ -15,7 +15,7 @@ from astropy.table import Table, vstack
 from astropy.time import Time
 from astropy.utils.masked import Masked
 
-from ..coordinates import Observatory
+from ..coordinates import Observatory, make_target
 from ..log import HistoricalBase, log_call_to_history, logger
 from ..util import isot_to_mjd, minimum_string_match
 from ..util.docstring_manip import copy_docstring
