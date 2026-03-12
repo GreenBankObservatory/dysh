@@ -2594,8 +2594,5 @@ class TestIndexFileLazyLoading:
         if underlying_sdf._index_source != "index_file":
             pytest.skip("Did not load from index file")
 
-        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=0, plnum=0)
-        if not Path("/users/rmaddale/bin/getForecastValues").is_file():
-            assert tsys == pytest.approx(212.62577140649026)
-        else:
-            assert tsys == pytest.approx(221.82213493114335)
+        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=0, plnum=0, tcal=272)
+        assert tsys == pytest.approx(221.7994624067703)
