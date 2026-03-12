@@ -1798,6 +1798,9 @@ class TestGBTFITSLoad:
         assert np.all(sdf._sdf[1]._flagmask[0] == saveflags1[0])
 
     def test_vegas_flags_in_calibration(self):
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
         filename = util.get_project_testdata() / "AGBT22A_325_15/"
         scan = 289
         ifnum = 0
