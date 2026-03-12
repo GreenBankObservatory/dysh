@@ -8,6 +8,7 @@ from astropy.io import fits
 
 from dysh.coordinates import Observatory
 from dysh.fits.gbtfitsload import GBTFITSLoad
+from dysh.spectra import spectrum as spectrum_module
 from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum, average_spectra
 from dysh.util import get_project_testdata
 
@@ -897,7 +898,7 @@ class TestSpectrum:
         in_reg = [21 * u.cm, 21.5 * u.cm]
         dysh_spec.baseline(order, include=in_reg, model="chebyshev")
 
-    def test_make_spectrum(self):
+    def test_make_spectrum(self, monkeypatch):
         """
         * Test that make_spectrum raises ValueError
         """
@@ -950,6 +951,19 @@ class TestSpectrum:
             data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
         )
         assert s.meta["RADESYS"] == meta["RADECSYS"]
+        assert s.obstime.isot.startswith("2021-02-10T07:38:37")
+        assert s.wcs.wcs.dateobs != "2000-01-01T00:00:00"
+        assert s.spectral_axis[0].to_value("Hz") == pytest.approx(meta["CRVAL1"])
+        assert (s.spectral_axis[1] - s.spectral_axis[0]).to_value("Hz") == pytest.approx(meta["CDELT1"])
+
+        monkeypatch.setattr(
+            spectrum_module, "_cached_wcs_template", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError)
+        )
+        s_fallback = Spectrum.make_spectrum(
+            data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+        )
+        assert s_fallback.wcs.wcs.dateobs == s.wcs.wcs.dateobs
+        assert np.allclose(s_fallback.spectral_axis.to_value("Hz"), s.spectral_axis.to_value("Hz"))
 
     def test_get_selected_regions(self):
         """

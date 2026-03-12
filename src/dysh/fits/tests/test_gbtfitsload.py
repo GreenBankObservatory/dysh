@@ -378,6 +378,7 @@ class TestGBTFITSLoad:
         tp0 = tps_off[0].total_power(0)
         diff = tp0.flux.value - gbtidl_gettp
         hdu.close()
+
         assert np.nanmean(diff) == 0.0
         assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
@@ -542,6 +543,26 @@ class TestGBTFITSLoad:
         tsys = {295: 35}
         tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys).timeaverage()
         assert tp_nnd.meta["TSYS"] == tsys[295]
+
+    def test_scan_constructors_pass_rows_to_rawspectra(self, monkeypatch):
+        sdf_file = f"{self.data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        underlying_sdf = sdf._sdf[0]
+        original_rawspectra = underlying_sdf.rawspectra
+        rows_seen = []
+
+        def spy_rawspectra(bintable, setmask=False, rows=None, fits_backend=None):
+            rows_seen.append(rows)
+            return original_rawspectra(bintable, setmask=setmask, rows=rows, fits_backend=fits_backend)
+
+        monkeypatch.setattr(underlying_sdf, "rawspectra", spy_rawspectra)
+
+        sdf.gettp(scan=52, fdnum=0, ifnum=0, plnum=0)
+        assert rows_seen and all(rows is not None for rows in rows_seen)
+
+        rows_seen.clear()
+        sdf.getsigref(scan=53, ref=52, fdnum=0, ifnum=0, plnum=0)
+        assert rows_seen and all(rows is not None for rows in rows_seen)
 
     def test_repeated_scan_number(self):
         """

@@ -71,7 +71,7 @@ from . import (
 def _cached_wcs_template(crpix1, ctype1, cdelt1, cunit1, ctype2, cunit2, ctype3, cunit3, ctype4, crval4):
     """Build a WCS object from invariant header keys and cache it.
 
-    Within a scan, only CRVAL1/2/3 and DATE-OBS vary between spectra.
+    Within a scan, only CRVAL1/2/3 vary for the spectral WCS.
     The invariant keys (CTYPE, CDELT, CUNIT, CRPIX, CTYPE4/CRVAL4)
     produce the same WCS structure, so we cache and deepcopy+patch.
     """
@@ -92,7 +92,6 @@ def _cached_wcs_template(crpix1, ctype1, cdelt1, cunit1, ctype2, cunit2, ctype3,
         header["CRVAL1"] = 0.0
         header["CRVAL2"] = 0.0
         header["CRVAL3"] = 0.0
-        header["DATE-OBS"] = "2000-01-01T00:00:00"
         if ctype4 is not None:
             header["CTYPE4"] = ctype4
         if crval4 is not None:
@@ -1578,8 +1577,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # Skip warnings FITS keywords longer than 8 chars or containing
                 # illegal characters (like _).
                 warnings.filterwarnings("ignore", category=VerifyWarning)
-                # All WCS meta keys — CTYPE4 and CRVAL4 are required if present in
-                # the original expectation (legacy behavior raises KeyError if missing).
+                # Keep the WCS limited to spectral-coordinate construction.
+                # Observation time/location are carried on the Spectrum metadata
+                # and observer, not on the WCS object, to avoid expensive
+                # Astropy frame work during pixel_to_world().
                 wcs_meta_keys = [
                     "CRPIX1",
                     "CTYPE1",
@@ -1595,7 +1596,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     # Data from 2005 have CRVAL4 but not CTYPE4
                     "CTYPE4",
                     "CRVAL4",
-                    "DATE-OBS",
                 ]
                 try:
                     wcs_meta = {k: _meta[k] for k in wcs_meta_keys}
@@ -1623,16 +1623,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
                         wcs.wcs.crval[1] = _meta["CRVAL2"]
                     if wcs.naxis >= 3:
                         wcs.wcs.crval[2] = _meta["CRVAL3"]
-                    wcs.wcs.dateobs = _meta["DATE-OBS"]
                 except Exception:
                     # Fallback to full WCS construction
                     wcs = WCS(header=wcs_meta)
                 # It would probably be safer to add NAXISi to meta.
                 if wcs.naxis > 3:
                     wcs.array_shape = (0, 0, 0, len(data))
-                # For some reason these aren't identified while creating the WCS object.
-                if "SITELONG" in _meta.keys():
-                    wcs.wcs.obsgeo[:3] = _meta["SITELONG"], _meta["SITELAT"], _meta["SITEELEV"]
                 # Reset warnings.
         else:
             wcs = None
