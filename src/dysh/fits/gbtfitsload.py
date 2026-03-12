@@ -2383,7 +2383,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 channel=_channel,
                 vane=vane,
                 **kwargs,
-            ).timeaverage(weights=weights)
+            ).timeaverage(weights=weights, use_wcs=_channel is not None)
         else:
             refspec = ref._copy()  # Needs to be a copy since we will change it afterwards.
 
