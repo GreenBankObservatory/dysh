@@ -971,7 +971,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         df = (self._bintable_df if self._bintable_df is not None else self._sdfits.index(bintable=self._bintable_index)).iloc[
             rowindices
         ]
-        self._meta = df.to_dict("records")  # returns dict(s) with key = row number.
+        columns = list(df.columns)
+        self._meta = [dict(zip(columns, row)) for row in df.itertuples(index=False, name=None)]
         self._add_missing_but_required()
         for i in range(len(self._meta)):
             if "CUNIT1" not in self._meta[i]:
