@@ -2,6 +2,40 @@
 What's New?
 ***********
 
+Version 1.0.0
+=============
+
+.. _v1-0-0-bugfixes:
+
+Bug Fixes
+---------
+
+- 73 Bug fixes including:
+  - 
+    full list
+    https://github.com/GreenBankObservatory/dysh/issues?q=is%3Aissue%20state%3Aclosed%20closed%3A%3E2025-09-25%20label%3Abug
+
+.. _v1-0-0-functionality:
+Functionality & Enhancements
+----------------------------
+
+https://github.com/GreenBankObservatory/dysh/compare/0.8.0g...1.0.0
+
+- Improved documentation and notebooks
+- New Users Guide
+- Plotter updates
+    - New TK-based plotter
+    - Histogram-style plotting option 
+- Spectral Line Search handles redshift
+- Performance improvements, especially for large files and GBTOnline
+- User provided spectral weights
+- Data quality assessment tools
+- VEGAS spur flagging
+- Channel selection during calibration
+- User can provide custom surface error and aperture efficiency
+- Apply baseline to all Scans in a Scanblock
+
+
 Version 0.8.4
 =============
 
