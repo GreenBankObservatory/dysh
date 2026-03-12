@@ -376,15 +376,80 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def plotter(self):
         return self._plotter
 
-    def stats(self, roll=0, qac=False):
-        """
-        Compute some statistics of this `Spectrum`.  The mean, rms, median,
-        data minimum and data maximum are calculated.  Note this works
-        with slicing, so, e.g.,  `myspectrum[45:153].stats()` will return
-        the statistics of the slice.
+    def _range_to_indices(self, brange, erange):
+        """Convert brange/erange to (start, stop) channel indices without creating a new Spectrum.
 
         Parameters
         ----------
+        brange : int or `~astropy.units.Quantity` or None
+            Start of range. Integer is treated as a channel number. A Quantity
+            with velocity, frequency, or wavelength units is converted by finding
+            the nearest channel on the spectral axis (bulk numpy operation — no
+            WCS reconstruction).
+        erange : int or `~astropy.units.Quantity` or None
+            End of range (inclusive). Same rules as *brange*.
+
+        Returns
+        -------
+        start, stop : int
+            Half-open ``[start, stop)`` channel indices suitable for numpy slicing.
+        """
+
+        def _to_idx(val):
+            if val is None:
+                return None
+            if isinstance(val, (int, np.integer)):
+                return int(val)
+            if isinstance(val, u.Quantity):
+                phys = u.get_physical_type(val.unit)
+                if "velocity" in phys:
+                    sa = self.spectral_axis.to(val.unit, equivalencies=self.equivalencies)
+                elif "frequency" in phys:
+                    sa = self.spectral_axis.to(val.unit, equivalencies=u.spectral())
+                elif "length" in phys:
+                    sa = self.spectral_axis.to(val.unit, equivalencies=u.spectral())
+                else:
+                    raise ValueError(f"Cannot convert spectral axis to {val.unit}")
+                return int(np.argmin(np.abs(sa.value - val.to(val.unit).value)))
+            raise TypeError(f"brange/erange must be int or Quantity, got {type(val)}")
+
+        start = _to_idx(brange)
+        stop = _to_idx(erange)
+
+        # Sort so start <= stop regardless of axis direction
+        if start is not None and stop is not None and start > stop:
+            start, stop = stop, start
+
+        n = len(self.flux)
+        if start is None:
+            start = 0
+        if stop is None:
+            stop = n
+
+        return start, stop
+
+    def stats(self, brange=None, erange=None, roll=0, qac=False):
+        """
+        Compute some statistics of this `Spectrum`.  The mean, rms, median,
+        data minimum and data maximum are calculated.
+
+        Parameters
+        ----------
+        brange : int or `~astropy.units.Quantity`, optional
+            Start of the range over which to compute statistics. An integer is
+            treated as a channel number. A `~astropy.units.Quantity` with
+            velocity, frequency, or wavelength units is converted to a channel
+            by finding the nearest point on the spectral axis. When *brange*
+            and *erange* are provided the statistics are computed directly on
+            the flux array slice — no intermediate `Spectrum` object is created,
+            making this significantly faster than the equivalent
+            ``spectrum[brange:erange].stats()`` call. Equivalent to GBTIDL's
+            ``stats, brange, erange``.
+            Default: None (use full spectrum or existing slice)
+        erange : int or `~astropy.units.Quantity`, optional
+            End of the range (exclusive for integers, nearest channel for
+            Quantities). Same units rules as *brange*.
+            Default: None
         roll : int
             Return statistics on a 'rolled' array differenced with the
             original array. If there is no correllaton between channels,
@@ -403,42 +468,58 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Returns
         -------
         stats : dict
-            Dictionary consisting of (mean,median,rms,datamin,datamax)
+            Dictionary consisting of (mean,median,rms,datamin,datamax,npt,nan)
         """
-
-        # note the Spectrum class has special nanXXX functions for most, but not std()
-        if roll == 0:
-            mean = self.mean()
-            median = self.median()
-            rms = np.nanstd(self.flux)
-            dmin = self.min()
-            dmax = self.max()
-            npt = len(self.flux)
+        if brange is not None or erange is not None:
+            # Fast path: resolve channel indices with a bulk numpy operation on the
+            # spectral axis, then work directly on the flux slice.  No new Spectrum
+            # object is created, no WCS reconstruction, no deepcopy.
+            start, stop = self._range_to_indices(brange, erange)
+            flux = self.flux[start:stop]
+            mask = self.mask[start:stop]
+            npt = len(flux)
+            nan2 = int(mask.sum())
+            if roll == 0:
+                mean = np.nanmean(flux)
+                median = np.nanmedian(flux)
+                rms = np.nanstd(flux)
+                dmin = np.nanmin(flux)
+                dmax = np.nanmax(flux)
+            else:
+                flux_d = flux[roll:] - flux[:-roll]
+                mean = np.nanmean(flux_d)
+                median = np.nanmedian(flux_d)
+                rms = np.nanstd(flux_d) / np.sqrt(2)
+                dmin = np.nanmin(flux_d)
+                dmax = np.nanmax(flux_d)
+                npt = len(flux_d)
         else:
-            d = self[roll:] - self[:-roll]
-            mean = d.mean()
-            median = d.median()
-            rms = np.nanstd(d.flux) / np.sqrt(2)
-            dmin = d.min()
-            dmax = d.max()
-            npt = len(self.flux) - 2
+            # Original path — unchanged behaviour, works with slicing too:
+            # myspectrum[45:153].stats()
+            nan2 = int(self.mask.sum())
+            if roll == 0:
+                mean = self.mean()
+                median = self.median()
+                rms = np.nanstd(self.flux)
+                dmin = self.min()
+                dmax = self.max()
+                npt = len(self.flux)
+            else:
+                d = self[roll:] - self[:-roll]
+                mean = d.mean()
+                median = d.median()
+                rms = np.nanstd(d.flux) / np.sqrt(2)
+                dmin = d.min()
+                dmax = d.max()
+                npt = len(self.flux) - 2
+
+        if nan2 > 0:
+            logger.info(f"Note: found {nan2} NaN (masked) values")
 
         if qac:
-            out = f"{mean.value} {rms.value} {dmin.value} {dmax.value}"
-            return out
+            return f"{mean.value} {rms.value} {dmin.value} {dmax.value}"
 
-        # these two should be the same
-        nan1 = np.isnan(self.data).sum()
-        nan2 = self.mask.sum()
-        # @todo see https://github.com/GreenBankObservatory/dysh/issues/1038
-        if False and nan1 != nan2:
-            logger.warning(f"Warning: {nan1} != {nan2}: inconsistency counters in mask usage")
-        elif nan1 > 0:
-            logger.info(f"Note: found {nan1} NaN (masked) values")
-
-        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
-
-        return out
+        return {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
 
     def check_stats(self, rms, rtol=1e-05):
         """
