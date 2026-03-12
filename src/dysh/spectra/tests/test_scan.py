@@ -482,7 +482,9 @@ class TestSubBeamNod:
         """Test for subbeamnod with vane."""
         sdf_file = f"{data_dir}/AGBT18B_357_04/AGBT18B_357_04.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, skipflags=True)
-        sbnsb = sdf.subbeamnod(scan=3, vane=1, ifnum=0, plnum=0, fdnum=10, zenith_opacity=0.1, t_atm=257.90, flag_vegas=True)
+        sbnsb = sdf.subbeamnod(
+            scan=3, vane=1, ifnum=0, plnum=0, fdnum=10, zenith_opacity=0.1, t_atm=257.90, flag_vegas=True
+        )
         sbnta = sbnsb.timeaverage()
         stats = sbnta.stats()
         assert stats["mean"].value == pytest.approx(-0.09412889, abs=1e-4)
@@ -945,7 +947,7 @@ class TestNodScan:
 
     def test_vane(self):
         fits_path = util.get_project_testdata() / "AGBT22A_325_23/AGBT22A_325_23.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path,flag_vegas=True)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=True)
         nodsb = sdf.getnod(ifnum=0, plnum=0, vane=43, t_atm=265.48, zenith_opacity=0.21)
         assert nodsb[0].tsys.mean() == 195.85427050034397
         assert nodsb[1].tsys.mean() == 185.7013266638696
