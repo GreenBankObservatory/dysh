@@ -2717,7 +2717,7 @@ class TestIndexFileLazyLoading:
             assert sky.meta["RADESYS"]
 
     def test_lazy_load_calibration_does_not_request_cunit_defaults(self, monkeypatch):
-        """Calibration lazy loading should not request synthetic CUNIT defaults from FITS rows."""
+        """Calibration lazy loading should not refetch synthetic or vane-only metadata by default."""
         sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
 
         underlying_sdf = sdf._sdf[0]
@@ -2746,9 +2746,4 @@ class TestIndexFileLazyLoading:
 
         sdf._load_full_rows_if_needed(selected_df, ["TCAL", "TSYS"])
 
-        assert requested_columns
-        requested = set(requested_columns[0])
-        assert "CUNIT1" not in requested
-        assert "CUNIT2" not in requested
-        assert "CUNIT3" not in requested
-
+        assert requested_columns == []

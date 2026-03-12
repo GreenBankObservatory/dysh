@@ -70,8 +70,6 @@ except ImportError:
 _SCAN_LAZY_METADATA_COLUMNS = (
     "TCAL",
     "TSYS",
-    "TWARM",
-    "TAMBIENT",
     "EXPOSURE",
     "DURATION",
     "CDELT1",
@@ -94,6 +92,11 @@ _SCAN_LAZY_METADATA_COLUMNS = (
     "SITELONG",
     "SITELAT",
     "SITEELEV",
+)
+
+_VANE_LAZY_METADATA_COLUMNS = (
+    "TWARM",
+    "TAMBIENT",
 )
 
 # from GBT IDL users guide Table 6.7
@@ -2104,7 +2107,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
         _log_mem(f"gettp: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if vane is not None:
+            lazy_columns.extend(_VANE_LAZY_METADATA_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _tcal = t_cal
