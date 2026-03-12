@@ -2,8 +2,6 @@
 Core functions/classes for spatial and velocity coordinates and reference frames
 """
 
-from functools import lru_cache
-
 import astropy.coordinates as coord
 import astropy.units as u
 import numpy as np
@@ -520,22 +518,6 @@ def change_veldef(ctype, toframe):
     return newctype
 
 
-@lru_cache(maxsize=256)
-def _cached_make_target(crval2, crval3, cunit2, cunit3, velocity, radesys, equinox, dateobs):
-    """Cached inner implementation of make_target with hashable scalar args."""
-    t1 = coord.SkyCoord(
-        crval2,
-        crval3,
-        unit=(cunit2, cunit3),
-        frame=radesys.lower(),
-        radial_velocity=velocity * _MPS,
-        distance=_DEFAULT_DISTANCE,
-        obstime=Time(dateobs),
-        location=gbt_location(),
-    )
-    return sanitize_skycoord(t1)
-
-
 def make_target(header):
     """
     Create a SkyCoord object from a SDFITS header dictionary CRVAL2,
@@ -554,21 +536,24 @@ def make_target(header):
         A SkyCoord object based on the input coordinates and radial velocity
     """
 
+    # should we also require DATE-OBS or MJD-OBS?
     _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS", "DATE-OBS"])
 
     if not _required <= header.keys():
         raise ValueError(f"Header is missing one or more required keywords: {_required}")
 
-    return _cached_make_target(
+    t1 = coord.SkyCoord(
         header["CRVAL2"],
         header["CRVAL3"],
-        header["CUNIT2"],
-        header["CUNIT3"],
-        header["VELOCITY"],
-        header["RADESYS"],
-        str(header.get("EQUINOX", "")),
-        header["DATE-OBS"],
+        unit=(header["CUNIT2"], header["CUNIT3"]),
+        frame=header["RADESYS"].lower(),
+        radial_velocity=header["VELOCITY"] * _MPS,
+        distance=_DEFAULT_DISTANCE,  # need this or PMs get units m rad /s !
+        obstime=Time(header["DATE-OBS"]),
+        location=gbt_location(),
     )
+    target = sanitize_skycoord(t1)
+    return target
 
 
 def gb20m_location():
