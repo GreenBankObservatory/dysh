@@ -1766,7 +1766,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         else:
                             # Float columns: use NaN with the same dtype
                             other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=col_dtype)
-                sdf._index.loc[indices, col] = fits_df[col].values  # noqa: PD011
+            sdf._index.loc[indices, fits_df.columns] = fits_df.to_numpy()  # noqa: PD011
             # Mark that we've started loading from FITS (hybrid mode)
             if force:
                 sdf._index_source = "fits"
