@@ -1881,9 +1881,11 @@ class TPScan(ScanBase):
             self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
             if len(self._tcal) != nspect:
                 raise AttributeError(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
-            for i in range(nspect):
-                tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
-                self._tsys[i] = tsys
+            self._tsys[:] = core.mean_tsys_vectorized(
+                calon=self._refcalon,
+                caloff=self._refcaloff,
+                tcal=self._tcal,
+            )
 
     def _calc_exposure(self):
         """Calculate the exposure time for TPScan.
@@ -2232,31 +2234,44 @@ class PSScan(ScanBase):
                 ref, _meta = core.smooth(self.refspec.data, "boxcar", self._smoothref)
             else:
                 ref = self.refspec.data
-            for i in range(nspect):
+            if self._smoothref == 1 and self._vane is None:
                 if not self._nocal:
-                    sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                    sig = 0.5 * (self._sigcalon + self._sigcaloff)
                 else:
-                    sig = self._sigcaloff[i]
-                if self._vane is not None:
-                    self._tsys[i] = self._vane._get_tsys(ref, self._tcal[i])
-                tsys = self._tsys[i]
-                self._calibrated[i] = tsys * (sig - ref) / ref
+                    sig = self._sigcaloff
+                self._calibrated[:] = self._tsys[:, np.newaxis] * (sig - ref) / ref
+            else:
+                for i in range(nspect):
+                    if not self._nocal:
+                        sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                    else:
+                        sig = self._sigcaloff[i]
+                    if self._vane is not None:
+                        self._tsys[i] = self._vane._get_tsys(ref, self._tcal[i])
+                    tsys = self._tsys[i]
+                    self._calibrated[i] = tsys * (sig - ref) / ref
         else:
             tcal = self._tcal
             if len(tcal) != nspect:
                 raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
             if not self._nocal:
-                for i in range(nspect):
-                    if not np.isnan(self._tsys[i]):
-                        tsys = self._tsys[i]
-                    else:
-                        tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-                    sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
-                    ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
-                    if self._smoothref > 1:
-                        ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
-                    self._calibrated[i] = tsys * (sig - ref) / ref
-                    self._tsys[i] = tsys
+                sig = 0.5 * (self._sigcalon + self._sigcaloff)
+                ref = 0.5 * (self._refcalon + self._refcaloff)
+                if self._smoothref > 1:
+                    for i in range(nspect):
+                        if np.isnan(self._tsys[i]):
+                            self._tsys[i] = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                        smoothed_ref, _meta = core.smooth(ref[i], "boxcar", self._smoothref)
+                        self._calibrated[i] = self._tsys[i] * (sig[i] - smoothed_ref) / smoothed_ref
+                else:
+                    missing_tsys = np.isnan(self._tsys)
+                    if np.any(missing_tsys):
+                        self._tsys[missing_tsys] = core.mean_tsys_vectorized(
+                            calon=self._refcalon[missing_tsys],
+                            caloff=self._refcaloff[missing_tsys],
+                            tcal=tcal[missing_tsys],
+                        )
+                    self._calibrated[:] = self._tsys[:, np.newaxis] * (sig - ref) / ref
             else:
                 for i in range(nspect):
                     sig = self._sigcaloff[i]
