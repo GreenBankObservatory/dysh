@@ -2297,6 +2297,29 @@ class TestIndexFileLazyLoading:
         self.fits_file = self.acs_dir / "AGBT05B_047_01.raw.acs.fits"
         self.index_file = self.acs_dir / "AGBT05B_047_01.raw.acs.index"
 
+    def _make_argus_lazy_loaded_copy(self):
+        source_dir = self.data_dir / "AGBT21B_024_14" / "AGBT21B_024_14_test"
+        sdf = gbtfitsload.GBTFITSLoad(source_dir, flag_vegas=False)
+
+        preserve_cols = {"SCAN", "FDNUM", "IFNUM", "PLNUM", "CAL", "SIG", "OBJECT", "DATE-OBS", "ROW", "BINTABLE"}
+        blank_string_cols = {"RADESYS", "CTYPE1", "CTYPE2", "CTYPE3", "CUNIT1", "CUNIT2", "CUNIT3", "VELDEF"}
+        blank_numeric_cols = set(gbtfitsload._SCAN_LAZY_METADATA_COLUMNS) - blank_string_cols - {"DATE-OBS"}
+
+        for underlying_sdf in sdf._sdf:
+            idx = underlying_sdf._index.copy()
+            for col in blank_string_cols:
+                if col in idx.columns and col not in preserve_cols:
+                    idx[col] = None
+            for col in blank_numeric_cols:
+                if col in idx.columns and col not in preserve_cols:
+                    idx[col] = np.nan
+            underlying_sdf._index = idx
+            underlying_sdf._index_source = "index_file"
+
+        sdf._fully_loaded_columns.clear()
+        sdf._rebuild_merged_index()
+        return sdf
+
     def test_index_file_exists(self):
         """Verify test data has an .index file."""
         assert self.index_file.exists(), f"Index file not found: {self.index_file}"
@@ -2648,12 +2671,47 @@ class TestIndexFileLazyLoading:
         TWARM/TAMBIENT, which caused vanecal() to fail with KeyError: 'TWARM'
         when loading from .index files.
         """
-        sdf_file = f"{self.data_dir}/AGBT21B_024_14/AGBT21B_024_14_test"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file, index_file_threshold=0, flag_vegas=False)
-
-        underlying_sdf = sdf._sdf[0]
-        if underlying_sdf._index_source != "index_file":
-            pytest.skip("Did not load from index file")
+        sdf = self._make_argus_lazy_loaded_copy()
 
         tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=0, plnum=0, tcal=272)
         assert tsys == pytest.approx(221.7994624067703)
+
+    def test_lazy_load_vanecal_multiple_feeds_sequence(self):
+        """
+        Test that repeated Argus vanecal calls across feeds work from .index files.
+
+        This matches the benchmark failure pattern where one feed would succeed and
+        the next would fail because lazy-loaded scan metadata were treated as
+        globally fresh when they were only loaded for a previous chunk.
+        """
+        sdf = self._make_argus_lazy_loaded_copy()
+
+        tsys_values = []
+        for fdnum in range(16):
+            tsys = sdf.vanecal(scan=329, fdnum=fdnum, ifnum=0, plnum=0, tcal=272)
+            tsys_values.append(float(tsys))
+
+        assert len(tsys_values) == 16
+        assert np.all(np.isfinite(tsys_values))
+        assert tsys_values[1] == pytest.approx(221.7994624067703)
+
+    def test_lazy_load_gettp_timeaverage_multiple_feeds_preserves_radesys(self):
+        """
+        Test that repeated Argus TP time averages across feeds keep usable RADESYS metadata.
+
+        This covers the direct failure path inside vanecal(), where timeaverage()
+        eventually called make_target() and crashed on RADESYS being NaN.
+        """
+        sdf = self._make_argus_lazy_loaded_copy()
+
+        for fdnum in range(4):
+            sky = sdf.gettp(
+                scan=330,
+                fdnum=fdnum,
+                ifnum=0,
+                plnum=0,
+                calibrate=True,
+                cal=False,
+            ).timeaverage(use_wcs=False)
+            assert isinstance(sky.meta["RADESYS"], str)
+            assert sky.meta["RADESYS"]
