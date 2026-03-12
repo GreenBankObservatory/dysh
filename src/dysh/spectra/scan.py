@@ -305,6 +305,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._baseline_model = None
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
         self._plotter = None
+        self._bintable_df = None
         self._check_gain_factors(self._ap_eff, self._surface_error)
 
     def _validate_defaults(self):
@@ -361,6 +362,14 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def _check_gain_factors(self, ap_eff, surface_error):
         if ap_eff is not None and surface_error is not None:
             raise ValueError("Only one of ap_eff or surface_error should be specified")
+
+    def _needs_gain_metadata(self) -> bool:
+        """Return True when gain metadata are required for the current scale."""
+        return (
+            self._ap_eff is not None
+            or self._surface_error is not None
+            or self.tscale.lower() in {"ta*", "flux"}
+        )
 
     def _finish_initialization(
         self, calibrate, calibrate_kwargs, meta_rows, tscale, zenith_opacity, tsys=None, tcal=None
@@ -947,7 +956,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         None
 
         """
-        df = self._sdfits.index(bintable=self._bintable_index).iloc[rowindices]
+        df = (self._bintable_df if self._bintable_df is not None else self._sdfits.index(bintable=self._bintable_index)).iloc[
+            rowindices
+        ]
         self._meta = df.to_dict("records")  # returns dict(s) with key = row number.
         self._add_missing_but_required()
         for i in range(len(self._meta)):
@@ -983,9 +994,14 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     def _update_scale_meta(self):
         """Update metadata that described how integrations were scaled to Ta, Ta*, or Flux"""
-        a = self.ap_eff
-        s = self.surface_error.value
-        seunit = str(self.surface_error.unit)
+        if self._needs_gain_metadata():
+            a = self.ap_eff
+            s = self.surface_error.value
+            seunit = str(self.surface_error.unit)
+        else:
+            a = np.full(len(self._meta), np.nan, dtype=float)
+            s = np.full(len(self._meta), np.nan, dtype=float)
+            seunit = ""
         for i in range(len(self._meta)):
             self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
             self._meta[i]["TSCALE"] = self.tscale
@@ -1048,10 +1064,16 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         avg_meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         avg_meta["DURATION"] = np.sum(self._duration[non_blanks])
         avg_meta["TSYS"] = avg_meta["WTTSYS"]
-        avg_meta["AP_EFF"] = sq_weighted_avg(self.ap_eff[non_blanks], axis=0, weights=w_collapsed[non_blanks])
-        avg_meta["SURF_ERR"] = sq_weighted_avg(
-            self.surface_error[non_blanks].value, axis=0, weights=w_collapsed[non_blanks]
-        )
+        if self._needs_gain_metadata():
+            avg_meta["AP_EFF"] = sq_weighted_avg(self.ap_eff[non_blanks], axis=0, weights=w_collapsed[non_blanks])
+            avg_meta["SURF_ERR"] = sq_weighted_avg(
+                self.surface_error[non_blanks].value, axis=0, weights=w_collapsed[non_blanks]
+            )
+            avg_meta["SE_UNIT"] = str(self.surface_error.unit)
+        else:
+            avg_meta["AP_EFF"] = avg_meta.get("AP_EFF", np.nan)
+            avg_meta["SURF_ERR"] = avg_meta.get("SURF_ERR", np.nan)
+            avg_meta["SE_UNIT"] = avg_meta.get("SE_UNIT", "")
         if self.zenith_opacity is not None:
             avg_meta["TAU_Z"] = self.zenith_opacity
 
@@ -1742,6 +1764,7 @@ class TPScan(ScanBase):
             self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
         else:
             self._bintable_index = bintable
+        self._bintable_df = self._sdfits.index(bintable=self._bintable_index)
         df = self._sdfits._index
         df = df.iloc[scanrows]
         self._index = df
@@ -1863,30 +1886,23 @@ class TPScan(ScanBase):
 
         where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
         """
+        df = self._bintable_df
         if self.calstate is None:
-            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
-            exp_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-            )
-            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
-            dur_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
-            )
+            exp_ref_on = df.iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_off = df.iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+            dur_ref_on = df.iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_off = df.iloc[self._refoffrows]["DURATION"].to_numpy()
 
         elif self.calstate:
-            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_on = df.iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = 0
-            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_on = df.iloc[self._refonrows]["DURATION"].to_numpy()
             dur_ref_off = 0
         elif self.calstate == False:  # noqa: E712
             exp_ref_on = 0
-            exp_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-            )
+            exp_ref_off = df.iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             dur_ref_on = 0
-            dur_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
-            )
+            dur_ref_off = df.iloc[self._refoffrows]["DURATION"].to_numpy()
 
         self._exposure = exp_ref_on + exp_ref_off
         self._duration = dur_ref_on + dur_ref_off
@@ -1904,8 +1920,9 @@ class TPScan(ScanBase):
         False   :math:`\\Delta\nu_{REFOFF}`
         =====  ================================================================
         """
-        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+        df = self._bintable_df
+        df_ref_on = df.iloc[self._refonrows]["CDELT1"].to_numpy()
+        df_ref_off = df.iloc[self._refoffrows]["CDELT1"].to_numpy()
         if self.calstate is None:
             delta_freq = 0.5 * (df_ref_on + df_ref_off)
         elif self.calstate:
@@ -2065,6 +2082,7 @@ class PSScan(ScanBase):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
+        self._bintable_df = self._sdfits.index(bintable=self._bintable_index)
         # noise diode on, signal position
         self._sigonrows = np.intersect1d(self._calrows["ON"], self._scanrows["ON"]).tolist()
         # noise diode off, signal position
@@ -2251,10 +2269,11 @@ class PSScan(ScanBase):
         exposure : ~numpy.ndarray
             The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
-        exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
-        exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
-        dur_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["DURATION"].to_numpy()
-        dur_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["DURATION"].to_numpy()
+        df = self._bintable_df
+        exp_sig_on = df.iloc[self._sigonrows]["EXPOSURE"].to_numpy()
+        exp_sig_off = df.iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
+        dur_sig_on = df.iloc[self._sigonrows]["DURATION"].to_numpy()
+        dur_sig_off = df.iloc[self._sigoffrows]["DURATION"].to_numpy()
         if self._has_refspec:
             exp_ref = self.refspec.meta.get("EXPOSURE", None)
             dur_ref = self.refspec.meta.get("DURATION", None)
@@ -2267,14 +2286,10 @@ class PSScan(ScanBase):
                     "Can't set duration time for PSScan integrations because reference spectrum has no duration time in its metadata. Solve with refspec.meta['DURATION']=value."
                 )
         else:
-            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
-            exp_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-            )
-            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
-            dur_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
-            )
+            exp_ref_on = df.iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_off = df.iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+            dur_ref_on = df.iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_off = df.iloc[self._refoffrows]["DURATION"].to_numpy()
 
             if not self._nocal:
                 exp_ref = exp_ref_on + exp_ref_off
@@ -2329,13 +2344,14 @@ class PSScan(ScanBase):
         respectively.
 
         """
-        df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
-        df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
+        df = self._bintable_df
+        df_sig_on = df.iloc[self._sigonrows]["CDELT1"].to_numpy()
+        df_sig_off = df.iloc[self._sigoffrows]["CDELT1"].to_numpy()
         if self._has_refspec:
             df_ref_on = df_ref_off = np.full_like(self._sigoffrows, self.refspec.meta["CDELT1"])
         else:
-            df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-            df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+            df_ref_on = df.iloc[self._refonrows]["CDELT1"].to_numpy()
+            df_ref_off = df.iloc[self._refoffrows]["CDELT1"].to_numpy()
         if not self._nocal:
             df_ref = 0.5 * (df_ref_on + df_ref_off)
             df_sig = 0.5 * (df_sig_on + df_sig_off)

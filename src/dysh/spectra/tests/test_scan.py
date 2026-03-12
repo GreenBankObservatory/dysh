@@ -243,6 +243,23 @@ class TestPSScan:
         x = sb1.timeaverage()
         assert pytest.approx(x.meta["TAU_Z"] / 0.1) == 1
 
+    def test_default_ta_scan_skips_gain_metadata_computation(self, data_dir, monkeypatch):
+        data_path = f"{data_dir}/AGBT18B_354_03"
+        sdf_file = f"{data_path}/AGBT18B_354_03.raw.vegas"
+
+        def fail(*args, **kwargs):
+            raise AssertionError("gain metadata should not be computed for default Ta scans")
+
+        monkeypatch.setattr("dysh.spectra.scan.GBTGainCorrection.aperture_efficiency", fail)
+        monkeypatch.setattr("dysh.spectra.scan.GBTGainCorrection._surface_error_array", fail)
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ta = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0).timeaverage()
+
+        assert np.isnan(ta.meta["AP_EFF"])
+        assert np.isnan(ta.meta["SURF_ERR"])
+        assert ta.meta["SE_UNIT"] == ""
+
     def test_vane(self, data_dir):
         """Test for getps with vane."""
         data_path = f"{data_dir}/TGBT24B_615_01/TGBT24B_615_01.raw.vegas"
