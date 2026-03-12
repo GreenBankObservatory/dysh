@@ -1796,6 +1796,27 @@ class TestGBTFITSLoad:
         assert np.all(sdf._sdf[0]._flagmask[0] == saveflags0[0])
         assert np.all(sdf._sdf[1]._flagmask[0] == saveflags1[0])
 
+    def test_vegas_flags_in_calibration(self):
+        filename = util.get_project_testdata() / "AGBT22A_325_15/"
+        scan=289
+        ifnum=0
+        plnum=0
+        fdnum=8
+
+        sdf = gbtfitsload.GBTFITSLoad(filename,flag_vegas=False)
+        if list(set(sdf._index_state)) != ["index_file"]:
+            raise Exception(f"didnt read index {sdf._index_state}")
+        sb  = sdf.gettp(scan=scan,ifnum=ifnum, plnum=plnum, fdnum=fdnum, flag_vegas=False)
+        sb2 = sdf.gettp(scan=scan,ifnum=ifnum, plnum=plnum, fdnum=fdnum, flag_vegas=True)
+        s1=sb.timeaverage(use_wcs=False) 
+        s2=sb2.timeaverage(use_wcs=False)
+        sdf.clear_flags()
+        sdf.flag_vegas_spurs() # flags all rows
+        sb3  = sdf.gettp(scan=scan,ifnum=ifnum, plnum=plnum, fdnum=fdnum, flag_vegas=False, apply_flags=True)
+        s3 = sb3.timeaverage(use_wcs=False)
+        assert not np.all(s1.mask == s2.mask)
+        assert not np.all(s1.mask == s3.mask)
+        assert np.all(s2.mask == s3.mask)
     def test_nod_no_procname(self):
         """
         Test for getnod when the data has PROCNAME Unknown.
