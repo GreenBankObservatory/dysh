@@ -48,12 +48,11 @@ from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..util import (
     minimum_string_match,
 )
-from ..util.docstring_manip import copy_docstring
-from . import core
 from . import (
     FWHM_TO_STDDEV,
     available_smooth_methods,
     baseline,
+    core,
     curve_of_growth,
     decimate,
     exclude_to_spectral_region,

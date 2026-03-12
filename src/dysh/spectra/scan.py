@@ -17,10 +17,10 @@ from astropy.utils.masked import Masked
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
-from ..plot import scanplot as sp
 from ..util import isot_to_mjd, minimum_string_match
 from ..util.docstring_manip import copy_docstring
 from ..util.gaincorrection import GBTGainCorrection
+from . import core
 from .core import (
     available_smooth_methods,
     find_non_blanks,
@@ -31,9 +31,14 @@ from .core import (
     sq_weighted_avg,
     tsys_weight,
 )
-from . import core
 from .spectrum import Spectrum, average_spectra
 from .vane import VaneSpectrum
+
+
+def _get_scan_plot():
+    from ..plot.scanplot import ScanPlot
+
+    return ScanPlot
 
 
 class SpectralAverageMixin:
@@ -238,7 +243,8 @@ class SpectralAverageMixin:
         """
         Plot the data as a waterfall.
         """
-        self._plotter = sp.ScanPlot(self, **kwargs)
+        plotter_cls = _get_scan_plot()
+        self._plotter = plotter_cls(self, **kwargs)
         self._plotter.plot(**kwargs)
         return self._plotter
 

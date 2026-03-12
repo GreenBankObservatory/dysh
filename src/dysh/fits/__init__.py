@@ -46,12 +46,7 @@ _MODULE_EXPORTS = {
     "sdfitsload": ".sdfitsload",
 }
 
-__all__ = (
-    ["Conf", "conf", "HAS_FITSIO"]
-    + core.__all__
-    + list(_EXPORTS)
-    + list(_MODULE_EXPORTS)
-)
+__all__ = ["Conf", "conf", "HAS_FITSIO"] + core.__all__ + list(_EXPORTS) + list(_MODULE_EXPORTS)
 
 
 def __getattr__(name):

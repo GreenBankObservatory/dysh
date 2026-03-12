@@ -54,11 +54,9 @@ from ..util import (
     show_dataframe,
     uniq,
 )
-from ..util.calibrator import Calibrator
 from ..util.files import dysh_data
 from ..util.gaincorrection import GBTGainCorrection
 from ..util.selection import Flag, Selection  # noqa: F811
-from ..util.weatherforecast import GBTWeatherForecast
 from . import conf, core
 from .sdfitsload import FITSBackend, SDFITSLoad, _log_mem
 
@@ -2046,7 +2044,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if t_cal is not None:
                 _tcal = t_cal
             else:
-                _tcal = self._get_tcal(_sifdf.loc[off_mask if sig is None else (_sifdf["CAL"].to_numpy() == "F"), "TCAL"])
+                _tcal = self._get_tcal(
+                    _sifdf.loc[off_mask if sig is None else (_sifdf["CAL"].to_numpy() == "F"), "TCAL"]
+                )
             if len(calrows["ON"]) == 0:
                 if tsys is None:
                     _tsys = _sifdf.loc[_sifdf["CAL"].to_numpy() == "F", "TSYS"].to_numpy()
@@ -3259,6 +3259,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if name is None:
             name = _sf["OBJECT"].unique()[0]
+        from ..util.calibrator import Calibrator
+
         target = Calibrator.from_name(name, scale=fluxscale)
 
         proc = _sf["PROC"].unique()[0]
@@ -4639,6 +4641,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if zenith_opacity is None:
             try:
+                from ..util.weatherforecast import GBTWeatherForecast
+
                 gbwf = GBTWeatherForecast()
                 result = gbwf.fetch(
                     vartype="Opacity",
@@ -4651,6 +4655,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if tatm is None:
             try:
+                from ..util.weatherforecast import GBTWeatherForecast
+
                 gbwf = GBTWeatherForecast()
                 result = gbwf.fetch(vartype="Tatm", specval=sky.spectral_axis.quantity.mean(), mjd=sky.obstime.mjd)
                 tatm = result[:, -1]
