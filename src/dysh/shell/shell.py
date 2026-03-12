@@ -81,8 +81,8 @@ def init_shell(
     import pandas as pd
 
     from dysh.fits.gbtfitsload import GBTFITSLoad, GBTOffline, GBTOnline
-    from dysh.util.files import dysh_data
     from dysh.spectra.spectrum import Spectrum
+    from dysh.util.files import dysh_data
 
     user_ns = {
         "pd": pd,
