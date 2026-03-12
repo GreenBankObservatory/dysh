@@ -917,6 +917,205 @@ class TestSparrow3Ported:
                 f"Data row {i} (INDEX={999999 + i}, ROW={999997 + i}) does not match sparrow3 expected output"
             )
 
+    def test_vegas_multibank_matches_sparrow3(self, tmp_path):
+        """Port of sparrow3 MPSDFITSWriterTests.testVegasIntegrationsAndIndex.
+
+        Write 32 rows across 8 VEGAS bank files (A-H) with varying FILE, POL,
+        SAMPLER, FEED, FDNUM, IFNUM, coordinates, CENTFREQ, CAL, and EXPOSURE.
+        Verify data rows match test.banks.vegas.raw.ints.index.expected
+        character-for-character.
+        """
+        expected_path = _SPARROW3_DATA_DIR / "test.banks.vegas.raw.ints.index.expected"
+        if not expected_path.exists():
+            pytest.skip(f"sparrow3 expected file not found: {expected_path}")
+
+        # Bank configs: (file, ifnum, feed, fdnum, centfreq, sampler_ll, sampler_rr, az, el, lon, lat)
+        banks = [
+            (
+                "test.banks.vegas.raw.ints.A.fits",
+                0,
+                4,
+                3,
+                2.370934760e10,
+                "A9_0",
+                "A13_0",
+                1.448764788e02,
+                1.379075952e01,
+                2.668584627e02,
+                -2.835169168e01,
+            ),
+            (
+                "test.banks.vegas.raw.ints.B.fits",
+                1,
+                5,
+                4,
+                2.370937201e10,
+                "B17_0",
+                "B21_0",
+                1.448529791e02,
+                1.380393730e01,
+                2.668730975e02,
+                -2.832869620e01,
+            ),
+            (
+                "test.banks.vegas.raw.ints.C.fits",
+                0,
+                3,
+                2,
+                2.370934760e10,
+                "C25_0",
+                "C29_0",
+                1.448764761e02,
+                1.376440397e01,
+                2.668737744e02,
+                -2.837434610e01,
+            ),
+            (
+                "test.banks.vegas.raw.ints.D.fits",
+                0,
+                1,
+                0,
+                2.370934760e10,
+                "D33_0",
+                "D37_0",
+                1.448529791e02,
+                1.377758174e01,
+                2.668884105e02,
+                -2.835134734e01,
+            ),
+            (
+                "test.banks.vegas.raw.ints.E.fits",
+                0,
+                2,
+                1,
+                2.370934760e10,
+                "E10_0",
+                "E14_0",
+                1.448529791e02,
+                1.375122619e01,
+                2.669037308e02,
+                -2.837399619e01,
+            ),
+            (
+                "test.banks.vegas.raw.ints.F.fits",
+                2,
+                6,
+                5,
+                2.370937201e10,
+                "F18_0",
+                "F22_0",
+                1.448294795e02,
+                1.379075952e01,
+                2.669030393e02,
+                -2.832834597e01,
+            ),
+            (
+                "test.banks.vegas.raw.ints.G.fits",
+                2,
+                7,
+                6,
+                2.370937201e10,
+                "G26_0",
+                "G30_0",
+                1.448294821e02,
+                1.376440397e01,
+                2.669183618e02,
+                -2.835099279e01,
+            ),
+            (
+                "test.banks.vegas.raw.ints.H.fits",
+                2,
+                1,
+                0,
+                2.414234760e10,
+                "H34_0",
+                "H38_0",
+                1.448529791e02,
+                1.377758174e01,
+                2.668884105e02,
+                -2.835134734e01,
+            ),
+        ]
+
+        trgtlong = 2.668918438e02
+        trgtlat = -2.835127778e01
+
+        rows = []
+        idx = 0
+        for filename, ifnum, feed, fdnum, centfreq, sampler_ll, sampler_rr, az, el, lon, lat in banks:
+            row_in_file = 0
+            for pol, plnum, sampler in [("LL", 0, sampler_ll), ("RR", 1, sampler_rr)]:
+                for cal, exposure in [("T", 4.949683249e-01), ("F", 3.954508901e-01)]:
+                    rows.append(
+                        {
+                            "INDEX": idx,
+                            "PROJECT": "KFPA",
+                            "FILE": filename,
+                            "EXTENSION": 1,
+                            "ROW": row_in_file,
+                            "SOURCE": "SGRB2",
+                            "PROCEDURE": "RALongMap",
+                            "OBSID": "unknown",
+                            "E2ESCAN": 0,
+                            "PROCSEQN": 22,
+                            "SCAN": 34,
+                            "POLARIZATION": pol,
+                            "PLNUM": plnum,
+                            "IFNUM": ifnum,
+                            "FEED": feed,
+                            "FDNUM": fdnum,
+                            "INT": 1,
+                            "NUMCHN": 4096,
+                            "SIG": "T",
+                            "CAL": cal,
+                            "SAMPLER": sampler,
+                            "AZIMUTH": az,
+                            "ELEVATION": el,
+                            "LONGITUDE": lon,
+                            "LATITUDE": lat,
+                            "TRGTLONG": trgtlong,
+                            "TRGTLAT": trgtlat,
+                            "SUBREF": 1,
+                            "LST": 5.462375752e04,
+                            "CENTFREQ": centfreq,
+                            "RESTFREQ": 2.370629500e10,
+                            "VELOCITY": 0.0,
+                            "FREQINT": -1.220703125e04,
+                            "FREQRES": 1.477050781e04,
+                            "DATEOBS": "2010-04-08T07:23:56.00",
+                            "TIMESTAMP": "2010_04_08_07:23:55",
+                            "BANDWIDTH": 5.000000000e07,
+                            "EXPOSURE": exposure,
+                            "TSYS": 1.0,
+                            "NSAVE": -1,
+                            "PROCSCAN": "Unknown",
+                            "PROCTYPE": "MAP",
+                            "WCALPOS": "Unknown",
+                        }
+                    )
+                    idx += 1
+                    row_in_file += 1
+
+        df = pd.DataFrame(rows)
+        metadata = IndexMetadata(
+            created="Tue Jul 26 12:43:16 2016",
+            last_modified="Tue Jul 26 12:43:16 2016",
+            created_by="index_writer",
+        )
+        index_path = tmp_path / "test.index"
+        write_index(index_path, metadata, df)
+
+        actual = _get_rows_section(index_path)
+        expected = _get_rows_section(expected_path)
+
+        # Column header should match exactly
+        assert actual[0] == expected[0], "Column header row does not match sparrow3"
+
+        # All 32 data rows should match exactly
+        assert len(actual) == len(expected), f"Row count mismatch: {len(actual) - 1} vs {len(expected) - 1} data rows"
+        for i, (act, exp) in enumerate(zip(actual[1:], expected[1:], strict=True)):
+            assert act == exp, f"VEGAS multi-bank data row {i} does not match sparrow3 expected output"
+
 
 class TestMultiFileVegas:
     """Tests for writing index data from multi-file VEGAS observations.
