@@ -2715,3 +2715,40 @@ class TestIndexFileLazyLoading:
             ).timeaverage(use_wcs=False)
             assert isinstance(sky.meta["RADESYS"], str)
             assert sky.meta["RADESYS"]
+
+    def test_lazy_load_calibration_does_not_request_cunit_defaults(self, monkeypatch):
+        """Calibration lazy loading should not request synthetic CUNIT defaults from FITS rows."""
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        scan = int(sdf._index["SCAN"].iloc[0])
+
+        # Prime lazy loading for this bintable so the remaining missing metadata
+        # are only the synthetic/defaulted CUNIT values.
+        result = sdf.gettp(scan=scan, ifnum=0, plnum=0, fdnum=0)
+        assert result is not None
+
+        requested_columns = []
+        original_load_full_rows = underlying_sdf.load_full_rows
+
+        def spy_load_full_rows(rows, bintable=0, exclude_data=True, columns=None):
+            requested_columns.append(tuple(columns) if columns is not None else None)
+            return original_load_full_rows(rows, bintable=bintable, exclude_data=exclude_data, columns=columns)
+
+        monkeypatch.setattr(underlying_sdf, "load_full_rows", spy_load_full_rows)
+
+        _, selected_df = sdf._common_selection(fdnum=0, ifnum=0, plnum=0, scan=[scan])
+        assert "TCAL" in selected_df.columns
+        assert "TSYS" in selected_df.columns
+
+        sdf._load_full_rows_if_needed(selected_df, ["TCAL", "TSYS"])
+
+        assert requested_columns
+        requested = set(requested_columns[0])
+        assert "CUNIT1" not in requested
+        assert "CUNIT2" not in requested
+        assert "CUNIT3" not in requested
+
