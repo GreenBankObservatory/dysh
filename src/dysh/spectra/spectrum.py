@@ -1508,18 +1508,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"], use_wcs=use_wcs)
 
     @classmethod
-    def _make_spectrum_from_axis(cls, data, spectral_axis, meta, observer=None, wcs=None):
+    def _make_spectrum_from_axis(cls, data, spectral_axis, meta, observer=None, target=None, wcs=None):
         """Construct a Spectrum from an existing spectral axis template.
 
         This avoids recomputing the channel-to-world transform when the
         spectral grid is already known.
         """
         _meta = deepcopy(meta)
-        target = None
-        try:
-            target = make_target(_meta)
-        except Exception:
-            target = deepcopy(getattr(spectral_axis, "target", None))
+        if target is None:
+            try:
+                target = make_target(_meta)
+            except Exception:
+                target = deepcopy(getattr(spectral_axis, "target", None))
+        else:
+            target = deepcopy(target)
         if observer is None:
             observer = deepcopy(getattr(spectral_axis, "observer", None))
         kwargs = {
@@ -1538,7 +1540,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
-    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, observer=None):
+    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, observer=None, target=None):
         # , shift_topo=False):
         """Factory method to create a `Spectrum` object from a data and header.  The the data are masked,
         the `Spectrum` mask will be set to the data mask.
@@ -1668,7 +1670,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # Reset warnings.
         else:
             wcs = None
-        target = make_target(_meta)
+        if target is None:
+            target = make_target(_meta)
+        else:
+            target = deepcopy(target)
         vc = veldef_to_convention(_meta["VELDEF"])
 
         # Define an observer as needed.

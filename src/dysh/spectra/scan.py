@@ -306,6 +306,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
         self._plotter = None
         self._bintable_df = None
+        self._precomputed_target = None
         self._check_gain_factors(self._ap_eff, self._surface_error)
 
     def _validate_defaults(self):
@@ -399,6 +400,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._update_scale_meta()
         self._validate_defaults()
         self._precompute_observer()
+        self._precompute_target()
 
     @abstractmethod
     def _calc_exposure(self):
@@ -443,6 +445,16 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         except Exception:
             # Fall back to per-spectrum computation if anything goes wrong
             self._precomputed_observer = None
+
+    def _precompute_target(self):
+        """Pre-compute the target SkyCoord once per scan."""
+        self._precomputed_target = None
+        if not self._meta:
+            return
+        try:
+            self._precomputed_target = make_target(self._meta[0])
+        except Exception:
+            self._precomputed_target = None
 
     def getspec(self, i: int, use_wcs: bool = True) -> Spectrum:  ##SCANBASE
         """Return the i-th calibrated Spectrum from this Scan.
@@ -1088,6 +1100,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             meta=avg_meta,
             observer_location=self._observer_location if observer is None else None,
             observer=observer,
+            target=self._precomputed_target,
             use_wcs=use_wcs,
         )
         # Replace _data with the masked array directly and set NaN fill value
