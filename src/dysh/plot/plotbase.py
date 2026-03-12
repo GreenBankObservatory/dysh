@@ -4,7 +4,6 @@ Plot a spectrum using matplotlib
 
 import datetime as dt
 import os
-import sys
 
 import astropy.units as u
 import matplotlib as mpl
@@ -32,27 +31,6 @@ elif in_notebook():
 elif os.environ.get("DISPLAY", "") == "":
     from .staticgui import StaticGUI as GUI
 else:
-    from IPython import get_ipython
-
-    ipython = get_ipython()
-    try:
-        if ipython.active_eventloop != "tk":
-            msg = (
-                "tk event loop not started. Plotting may not work as expected.\nTo start the tk event loop use: %gui tk"
-            )
-            if logger._configured:
-                logger.warning(msg)
-            else:
-                print(msg)
-    except AttributeError:
-        # Do not show this message if this line is encountered while loading
-        # modules as part of the dysh shell startup.
-        if "bin/dysh" not in sys.argv[0]:
-            msg = "Not running on IPython and trying to use the ShellGUI may result in unexpected behavior."
-            if logger._configured:
-                logger.warning(msg)
-            else:
-                print(msg)
     from .shellgui import ShellGUI as GUI
 
 
@@ -70,6 +48,19 @@ class PlotBase:
         self._scan_numbers = None
 
     def _set_frontend(self):
+        # Warn about potential issues when tk event loop isn't active in IPython.
+        if GUI.__name__ == "ShellGUI":
+            try:
+                from IPython import get_ipython
+
+                ipython = get_ipython()
+                if ipython is not None and ipython.active_eventloop != "tk":
+                    logger.warning(
+                        "tk event loop not started. Plotting may not work as expected.\n"
+                        "To start the tk event loop use: %%gui tk"
+                    )
+            except (AttributeError, ImportError):
+                pass
         self._frontend = GUI(self)
         self._connect()
 
