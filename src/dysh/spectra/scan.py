@@ -1432,7 +1432,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         else:
             for scan in self.data:
                 self._timeaveraged.append(scan.timeaverage(weights, use_wcs=use_wcs))
-        if len(self._timeaveraged) == 1 and use_wcs:
+        if len(self._timeaveraged) == 1:
             s = self._timeaveraged[0]
             if ary:
                 s._weights = deepcopy(s.weights)

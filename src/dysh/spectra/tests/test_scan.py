@@ -598,6 +598,24 @@ class TestScanBase:
         )
         assert np.all(block_avg.weights == pytest.approx(expected_weights))
 
+    def test_timeaverage_single_scanblock_matches_scan_without_wcs(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        tp_sb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+
+        scan_avg = tp_sb[0].timeaverage(use_wcs=False)
+        block_avg = tp_sb.timeaverage(use_wcs=False)
+
+        assert np.all(block_avg.flux == scan_avg.flux)
+        assert block_avg.meta["EXPOSURE"] == scan_avg.meta["EXPOSURE"]
+        assert block_avg.meta["TSYS"] == pytest.approx(scan_avg.meta["TSYS"])
+        expected_weights = np.where(
+            scan_avg.mask,
+            0.0,
+            core.tsys_weight(scan_avg.meta["EXPOSURE"], scan_avg.meta["CDELT1"], scan_avg.meta["TSYS"]),
+        )
+        assert np.all(block_avg.weights == pytest.approx(expected_weights))
+
 
 class TestTPScan:
     def test_len_and_units(self, data_dir):
