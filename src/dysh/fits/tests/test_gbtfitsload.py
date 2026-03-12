@@ -2526,6 +2526,42 @@ class TestIndexFileLazyLoading:
         result_df = sdf._load_full_rows_if_needed(test_df, ["TCAL", "TSYS"])
         assert list(result_df["RADESYS"]) == ["unit_test_frame", "unit_test_frame", "unit_test_frame"]
 
+    def test_lazy_load_calibration_metadata_ignores_stale_fully_loaded_cache(self, monkeypatch):
+        """Test that calibration metadata reloads when selected rows still contain NaNs."""
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        test_df = pd.DataFrame(
+            {
+                "ROW": [0, 1, 2],
+                "FITSINDEX": [0, 0, 0],
+                "SCAN": [1, 1, 1],
+                "BINTABLE": [0, 0, 0],
+                "TCAL": [1.0, 1.0, 1.0],
+                "TSYS": [2.0, 2.0, 2.0],
+                "RADESYS": [np.nan, np.nan, np.nan],
+            }
+        )
+
+        requested_columns = []
+        original_load_full_rows = underlying_sdf.load_full_rows
+
+        def spy_load_full_rows(rows, bintable=0, exclude_data=True, columns=None):
+            requested_columns.append(tuple(columns) if columns is not None else None)
+            return original_load_full_rows(rows, bintable=bintable, exclude_data=exclude_data, columns=columns)
+
+        monkeypatch.setattr(underlying_sdf, "load_full_rows", spy_load_full_rows)
+        sdf._fully_loaded_columns.update({"TCAL", "TSYS", "RADESYS"})
+
+        result_df = sdf._load_full_rows_if_needed(test_df, ["TCAL", "TSYS"])
+
+        assert len(requested_columns) == 1
+        assert "RADESYS" in result_df.columns
+        assert not result_df["RADESYS"].isna().all()
+
     def test_lazy_load_dtype_compatibility(self):
         """
         Test that lazy loading preserves correct dtypes for both string and numeric columns.

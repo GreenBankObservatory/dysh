@@ -1661,19 +1661,29 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if not has_index_loaded:
             return df  # All data loaded from FITS, columns should exist if valid
 
-        # Check which columns are missing (skip columns already fully loaded)
-        missing_cols = [
-            c for c in required_columns if c.upper() not in df.columns and c.upper() not in self._fully_loaded_columns
-        ]
+        calibration_metadata_needed = any(col.upper() in {"TCAL", "TSYS"} for col in required_columns)
+        columns_needed_for_rows = list(required_columns)
+        if calibration_metadata_needed:
+            columns_needed_for_rows.extend(_SCAN_LAZY_METADATA_COLUMNS)
+
+        # Check which columns are missing. For calibration-path metadata, do not trust
+        # the global fully-loaded shortcut because previous lazy loads may only have
+        # populated a different file/bintable chunk.
+        if calibration_metadata_needed:
+            missing_cols = [c for c in columns_needed_for_rows if c.upper() not in df.columns]
+        else:
+            missing_cols = [
+                c for c in required_columns if c.upper() not in df.columns and c.upper() not in self._fully_loaded_columns
+            ]
 
         # In hybrid mode, also check if the selected rows have NaN in any required column
         # (columns may exist but specific rows may not have been loaded yet)
         # Skip this check for columns we know are fully loaded.
         rows_need_loading = False
         if not missing_cols:
-            for col in required_columns:
+            for col in columns_needed_for_rows:
                 col_upper = col.upper()
-                if col_upper in self._fully_loaded_columns:
+                if not calibration_metadata_needed and col_upper in self._fully_loaded_columns:
                     continue
                 if col_upper in df.columns and df[col_upper].isna().any():
                     rows_need_loading = True
@@ -1681,7 +1691,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         columns_to_load = list(missing_cols)
         columns_to_load_upper = {c.upper() for c in columns_to_load}
-        if any(col.upper() in {"TCAL", "TSYS"} for col in required_columns):
+        if calibration_metadata_needed:
             for col in _SCAN_LAZY_METADATA_COLUMNS:
                 if col not in columns_to_load_upper:
                     columns_to_load.append(col)
