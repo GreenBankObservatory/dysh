@@ -564,6 +564,18 @@ class TestGBTFITSLoad:
         sdf.getsigref(scan=53, ref=52, fdnum=0, ifnum=0, plnum=0)
         assert rows_seen and all(rows is not None for rows in rows_seen)
 
+    def test_gettp_uses_simple_selection_fast_path(self, monkeypatch):
+        sdf_file = f"{self.data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+
+        def fail():
+            raise AssertionError("slow selection path should not be used for simple gettp selections")
+
+        monkeypatch.setattr(sdf._selection, "_lightweight_copy", fail)
+
+        result = sdf.gettp(scan=52, fdnum=0, ifnum=0, plnum=0)
+        assert len(result) == 1
+
     def test_repeated_scan_number(self):
         """
         Test for data with repeated scan numbers.
@@ -2425,6 +2437,36 @@ class TestIndexFileLazyLoading:
         assert "TCAL" in result_df.columns, "TCAL should be loaded"
         assert "TSYS" in result_df.columns, "TSYS should be loaded"
         assert len(result_df) == 3, "Should still have 3 rows"
+
+    def test_load_full_rows_if_needed_only_requests_required_columns(self, monkeypatch):
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        requested_columns = []
+        original_load_full_rows = underlying_sdf.load_full_rows
+
+        def spy_load_full_rows(rows, bintable=0, exclude_data=True, columns=None):
+            requested_columns.append(tuple(columns) if columns is not None else None)
+            return original_load_full_rows(rows, bintable=bintable, exclude_data=exclude_data, columns=columns)
+
+        monkeypatch.setattr(underlying_sdf, "load_full_rows", spy_load_full_rows)
+
+        test_df = pd.DataFrame(
+            {
+                "ROW": [0, 1, 2],
+                "FITSINDEX": [0, 0, 0],
+                "SCAN": [1, 1, 1],
+                "BINTABLE": [0, 0, 0],
+            }
+        )
+
+        sdf._load_full_rows_if_needed(test_df, ["TCAL", "TSYS"])
+
+        assert len(requested_columns) == 1
+        assert {"TCAL", "TSYS", "EXPOSURE", "DURATION", "CDELT1"}.issubset(set(requested_columns[0]))
 
     def test_lazy_load_updates_selection(self):
         """

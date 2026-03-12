@@ -691,12 +691,19 @@ class SDFITSLoad:
 
         return np.ma.MaskedArray(data, mask=mask)
 
-    def load_full_rows(self, rows: np.ndarray, bintable: int = 0, exclude_data: bool = True) -> pd.DataFrame:
+    def load_full_rows(
+        self,
+        rows: np.ndarray,
+        bintable: int = 0,
+        exclude_data: bool = True,
+        columns: list[str] | None = None,
+    ) -> pd.DataFrame:
         """
-        Load full rows (all columns) for specific row indices from FITS file.
+        Load row data for specific row indices from the FITS file.
 
-        This enables lazy loading when row data is needed - loads the entire row
-        once rather than column by column.
+        This enables lazy loading when row data is needed. By default it loads
+        all non-DATA columns for the requested rows, but callers may also
+        request a specific column subset.
 
         Parameters
         ----------
@@ -706,6 +713,9 @@ class SDFITSLoad:
             The bintable index (default 0)
         exclude_data : bool
             If True (default), exclude the DATA column (it's huge and loaded separately)
+        columns : list[str] or None
+            If provided, load only this subset of columns. Column names are
+            matched case-insensitively against the FITS table.
 
         Returns
         -------
@@ -723,9 +733,18 @@ class SDFITSLoad:
             available_cols = fits_file[hdu_index].get_colnames()
 
             # Exclude DATA column (huge, loaded separately) and other problematic columns
-            cols_to_load = [c for c in available_cols if c.upper() not in ("DATA", "FLAGS")]
-            if not exclude_data:
-                cols_to_load = available_cols
+            if columns is None:
+                cols_to_load = [c for c in available_cols if c.upper() not in ("DATA", "FLAGS")]
+                if not exclude_data:
+                    cols_to_load = available_cols
+            else:
+                requested = {c.upper() for c in columns}
+                cols_to_load = [c for c in available_cols if c.upper() in requested]
+                if exclude_data:
+                    cols_to_load = [c for c in cols_to_load if c.upper() not in ("DATA", "FLAGS")]
+
+            if len(cols_to_load) == 0:
+                return pd.DataFrame(index=np.arange(len(rows_array)))
 
             data = fits_file[hdu_index].read(columns=cols_to_load, rows=rows_array)
 
@@ -738,6 +757,10 @@ class SDFITSLoad:
                     if val.dtype.kind == "S":
                         val = np.char.decode(val, "utf-8")
                     val = np.char.strip(val)
+                elif val.dtype.byteorder not in ("=", "|"):
+                    # fitsio returns big-endian numeric arrays; normalize them
+                    # before handing them to pandas on little-endian hosts.
+                    val = val.byteswap().view(val.dtype.newbyteorder("="))
                 result[col] = val
 
             df = pd.DataFrame(result)

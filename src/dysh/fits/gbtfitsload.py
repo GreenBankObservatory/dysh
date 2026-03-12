@@ -67,6 +67,36 @@ try:
 except ImportError:
     HAS_FITSIO = False
 
+_SCAN_LAZY_METADATA_COLUMNS = (
+    "TCAL",
+    "TSYS",
+    "EXPOSURE",
+    "DURATION",
+    "CDELT1",
+    "CRPIX1",
+    "RESTFREQ",
+    "CTYPE1",
+    "CTYPE2",
+    "CTYPE3",
+    "CUNIT1",
+    "CUNIT2",
+    "CUNIT3",
+    "CRVAL1",
+    "CRVAL2",
+    "CRVAL3",
+    "CRVAL4",
+    "DATE-OBS",
+    "VELOCITY",
+    "EQUINOX",
+    "RADESYS",
+    "VELDEF",
+    "OBSFREQ",
+    "ELEVATIO",
+    "SITELONG",
+    "SITELAT",
+    "SITEELEV",
+)
+
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 # _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
@@ -1647,6 +1677,22 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows_need_loading = True
                     break
 
+        columns_to_load = list(missing_cols)
+        columns_to_load_upper = {c.upper() for c in columns_to_load}
+        if any(col.upper() in {"TCAL", "TSYS"} for col in required_columns):
+            for col in _SCAN_LAZY_METADATA_COLUMNS:
+                if col not in columns_to_load_upper:
+                    columns_to_load.append(col)
+                    columns_to_load_upper.add(col)
+        if rows_need_loading:
+            for col in required_columns:
+                col_upper = col.upper()
+                if col_upper in self._fully_loaded_columns:
+                    continue
+                if col_upper not in columns_to_load_upper:
+                    columns_to_load.append(col)
+                    columns_to_load_upper.add(col_upper)
+
         if not missing_cols and not rows_need_loading and not force:
             return df  # All required columns already present with data
 
@@ -1675,7 +1721,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             rows = all_rows
 
             # Load full rows from FITS
-            fits_df = sdf.load_full_rows(rows, bintable)
+            fits_df = sdf.load_full_rows(rows, bintable, columns=columns_to_load or None)
 
             if len(fits_df) == 0:
                 result_dfs.append(group)
@@ -1865,6 +1911,30 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             return get_valid_channel_range(channel)
 
+    def _simple_select_from_kwargs(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame | None:
+        """Fast-path exact-match selection for simple scalar/list kwargs.
+
+        Falls back to the Selection machinery by returning ``None`` when any
+        value requires richer matching semantics.
+        """
+        simple_df = df
+        for key, value in kwargs.items():
+            if key not in simple_df.columns:
+                return None
+            if isinstance(value, range):
+                value = list(value)
+            if isinstance(value, np.ndarray):
+                if value.ndim != 1:
+                    return None
+                value = value.tolist()
+            if isinstance(value, (list, tuple, set)):
+                simple_df = simple_df.loc[simple_df[key].isin(list(value))]
+            elif isinstance(value, (str, bytes, numbers.Number, np.generic, bool)):
+                simple_df = simple_df.loc[simple_df[key] == value]
+            else:
+                return None
+        return simple_df
+
     def _common_selection(self, ifnum, plnum, fdnum, **kwargs):
         """Do selection and flag application common to all calibration methods.
         Flags are not applied unless selection results in non-zero length data selection.
@@ -1927,10 +1997,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             kwargs["SCAN"] = list(scans_to_add)
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
-        ps_selection = self._selection._lightweight_copy()
-        # now downselect with any additional kwargs
-        ps_selection._select_from_mixed_kwargs(**kwargs)
-        _sf = ps_selection.final
+        if len(self._selection._selection_rules) == 0 and "PROCKEY" not in kwargs and "PROCVALS" not in kwargs:
+            _sf = self._simple_select_from_kwargs(_final, **kwargs)
+        else:
+            _sf = None
+        if _sf is None:
+            ps_selection = self._selection._lightweight_copy()
+            # now downselect with any additional kwargs
+            ps_selection._select_from_mixed_kwargs(**kwargs)
+            _sf = ps_selection.final
         # now remove rows that have been entirely flagged
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
