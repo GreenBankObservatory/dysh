@@ -734,6 +734,16 @@ class TestSpectrum:
         compare_spectrum(ps1_org, self.ps1, ignore_history=True, ignore_comments=True)
         assert np.all(avg.spectral_axis == self.ps0.spectral_axis)
 
+    def test_average_spectra_reuses_target(self, monkeypatch):
+        def fail_make_target(*args, **kwargs):
+            raise AssertionError("average_spectra should reuse the input target")
+
+        monkeypatch.setattr("dysh.spectra.spectrum.make_target", fail_make_target)
+
+        avg = average_spectra((self.ps0, self.ps1))
+
+        assert avg.target is not None
+
     def test_spectrum_with_frame(self):
         """Regression test for issue #401 to ensure Spectrum.with_frame functions as advertised.
         https://github.com/GreenBankObservatory/dysh/issues/401

@@ -2542,10 +2542,16 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
             spectral_axis=spectra[0].spectral_axis,
             meta=new_meta,
             observer=observer,
+            target=spectra[0].target,
             wcs=spectra[0].wcs,
         )
     else:
-        averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
+        averaged = Spectrum.make_spectrum(
+            Masked(data * units, data.mask),
+            meta=new_meta,
+            observer=observer,
+            target=spectra[0].target,
+        )
     averaged._weights = sum_of_weights
     if history is not None:
         # Keep previous history first.
