@@ -1803,6 +1803,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         This is called after lazy loading triggers a full index load for some files,
         to update the merged index with the newly available columns.
         """
+        if not rebuild_flag and len(self._sdf) == 1 and self._selection is not None:
+            sdf_index = self._sdf[0]._index
+            if len(self._selection) == len(sdf_index) and np.array_equal(
+                self._selection.index.to_numpy(), sdf_index.index.to_numpy()
+            ):
+                for col in sdf_index.columns:
+                    self._selection[col] = sdf_index[col].to_numpy(copy=False)
+                return
+
         df = None
         for i, s in enumerate(self._sdf):
             # Make sure FITSINDEX is set
