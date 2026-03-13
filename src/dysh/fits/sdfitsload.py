@@ -98,6 +98,7 @@ class SDFITSLoad:
         self._index = None
         self._index_source = None  # Track whether index was loaded from "index_file" or "fits"
         self._index_bintable_cache = {}
+        self._fitsio_file = None
         self._index_file_threshold = kwargs_opts.get("index_file_threshold", 100 * 1024 * 1024)
         self._binheader = []
         _log_mem(f"SDFITSLoad before fits.open({filename})")
@@ -125,6 +126,11 @@ class SDFITSLoad:
         # unclosed file(s)
         try:
             self._hdu.close()
+        except Exception:
+            pass
+        try:
+            if self._fitsio_file is not None:
+                self._fitsio_file.close()
         except Exception:
             pass
 
@@ -210,6 +216,12 @@ class SDFITSLoad:
     def _clear_index_cache(self):
         """Invalidate cached bintable index slices after any _index mutation."""
         self._index_bintable_cache.clear()
+
+    def _get_fitsio_file(self):
+        """Return a lazily opened shared fitsio handle for selective read paths."""
+        if self._fitsio_file is None:
+            self._fitsio_file = fitsio.FITS(self._filename)
+        return self._fitsio_file
 
     def index(self, hdu=None, bintable=None):
         """
@@ -683,26 +695,26 @@ class SDFITSLoad:
         nrows_req = len(rows) if rows is not None else self.nrows(bintable)
         _log_mem(f"_rawspectra_fitsio: loading DATA via fitsio, {nrows_req} rows requested")
 
-        with fitsio.FITS(self._filename) as fits_file:
-            if rows is not None:
-                rows_array = np.asarray(rows)
-                if len(rows_array) == 0:
-                    nchan = self.nchan(bintable)
-                    return np.ma.MaskedArray(np.empty((0, nchan)), mask=False)
-                # fitsio can read specific rows efficiently
-                data = fits_file[hdu_index].read(columns=["DATA"], rows=rows_array)["DATA"]
-                _log_mem(f"_rawspectra_fitsio: loaded {data.shape}, {data.nbytes / (1024**2):.1f} MB")
-                if setmask and self._flagmask is not None:
-                    mask = self._flagmask[bintable][rows_array]
-                else:
-                    mask = False
+        fits_file = self._get_fitsio_file()
+        if rows is not None:
+            rows_array = np.asarray(rows)
+            if len(rows_array) == 0:
+                nchan = self.nchan(bintable)
+                return np.ma.MaskedArray(np.empty((0, nchan)), mask=False)
+            # fitsio can read specific rows efficiently
+            data = fits_file[hdu_index].read(columns=["DATA"], rows=rows_array)["DATA"]
+            _log_mem(f"_rawspectra_fitsio: loaded {data.shape}, {data.nbytes / (1024**2):.1f} MB")
+            if setmask and self._flagmask is not None:
+                mask = self._flagmask[bintable][rows_array]
             else:
-                data = fits_file[hdu_index].read(columns=["DATA"])["DATA"]
-                _log_mem(f"_rawspectra_fitsio: loaded ALL rows {data.shape}, {data.nbytes / (1024**2):.1f} MB")
-                if setmask and self._flagmask is not None:
-                    mask = self._flagmask[bintable]
-                else:
-                    mask = False
+                mask = False
+        else:
+            data = fits_file[hdu_index].read(columns=["DATA"])["DATA"]
+            _log_mem(f"_rawspectra_fitsio: loaded ALL rows {data.shape}, {data.nbytes / (1024**2):.1f} MB")
+            if setmask and self._flagmask is not None:
+                mask = self._flagmask[bintable]
+            else:
+                mask = False
 
         return np.ma.MaskedArray(data, mask=mask)
 
@@ -744,19 +756,19 @@ class SDFITSLoad:
         rows_array = np.asarray(rows)
         _log_mem(f"load_full_rows: loading {len(rows_array)} rows from bintable {bintable}")
 
-        with fitsio.FITS(self._filename) as fits_file:
-            available_cols = fits_file[hdu_index].get_colnames()
+        fits_file = self._get_fitsio_file()
+        available_cols = fits_file[hdu_index].get_colnames()
 
-            # Exclude DATA column (huge, loaded separately) and other problematic columns
-            if columns is None:
-                cols_to_load = [c for c in available_cols if c.upper() not in ("DATA", "FLAGS")]
-                if not exclude_data:
-                    cols_to_load = available_cols
-            else:
-                requested = {c.upper() for c in columns}
-                cols_to_load = [c for c in available_cols if c.upper() in requested]
-                if exclude_data:
-                    cols_to_load = [c for c in cols_to_load if c.upper() not in ("DATA", "FLAGS")]
+        # Exclude DATA column (huge, loaded separately) and other problematic columns
+        if columns is None:
+            cols_to_load = [c for c in available_cols if c.upper() not in ("DATA", "FLAGS")]
+            if not exclude_data:
+                cols_to_load = available_cols
+        else:
+            requested = {c.upper() for c in columns}
+            cols_to_load = [c for c in available_cols if c.upper() in requested]
+            if exclude_data:
+                cols_to_load = [c for c in cols_to_load if c.upper() not in ("DATA", "FLAGS")]
 
             if len(cols_to_load) == 0:
                 return pd.DataFrame(index=np.arange(len(rows_array)))
