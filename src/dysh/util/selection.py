@@ -1475,7 +1475,7 @@ class Flag(SelectionBase):
         self._create_flag_file_rep(fileobj, ignore_vegas, **kwargs)
 
         if len(self._flag_file_rep) == 0:
-            logger.warning(f"No flag found rules in file {fileobj}")
+            logger.warning(f"No flag rules found in file {fileobj}")
         for vdict in self._flag_file_rep:
             logger.debug(f"flag(tag={vdict['tag']},{vdict})")
             self.flag(check=False, **vdict)
