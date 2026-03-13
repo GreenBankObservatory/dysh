@@ -968,7 +968,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._bintable_df if self._bintable_df is not None else self._sdfits.index(bintable=self._bintable_index)
         ).iloc[rowindices]
         columns = list(df.columns)
-        self._meta = [dict(zip(columns, row)) for row in df.itertuples(index=False, name=None)]
+        self._meta = [dict(zip(columns, row, strict=False)) for row in df.itertuples(index=False, name=None)]
         self._add_missing_but_required()
         bunit = self._tscale_to_unit[self.tscale.lower()].to_string()
         channel_start = self._channel_slice.start

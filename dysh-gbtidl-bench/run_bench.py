@@ -192,7 +192,8 @@ def _run_script(cmd: list[str], env: dict, verbose: bool = False, require_script
         bufsize=1,
     )
     output_lines: list[str] = []
-    assert proc.stdout is not None
+    if proc.stdout is None:
+        raise RuntimeError("proc.stdout is None")
     reader = threading.Thread(target=_drain_stdout, args=(proc.stdout, output_lines, verbose), daemon=True)
     reader.start()
     peak_rss_kb = 0
@@ -496,13 +497,15 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
             gbtidl_stages = gbtidl.get("stages", {})
             common = [stage for stage in dysh_stages if stage in gbtidl_stages]
 
-            def _print_single_tool_stage_table(tool: str, stages: dict, script_mean: float | None) -> None:
+            def _print_single_tool_stage_table(
+                tool: str, stages: dict, script_mean: float | None, _name: str = name, _mode: str = mode
+            ) -> None:
                 nonlocal stage_tables_printed
                 if not stages:
                     return
                 stage_tables_printed += 1
                 stage_table = Table(
-                    title=f"{name} {mode} {tool} stage breakdown",
+                    title=f"{_name} {_mode} {tool} stage breakdown",
                     show_header=True,
                     header_style="bold",
                 )

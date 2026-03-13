@@ -1743,7 +1743,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = pd.unique(group["ROW"])
 
             # Load full rows from FITS
-            rows_array, fits_data = sdf._read_full_row_columns(rows, bintable, columns=columns_to_load or None)
+            _rows_array, fits_data = sdf._read_full_row_columns(rows, bintable, columns=columns_to_load or None)
 
             if fits_data is None:
                 continue
