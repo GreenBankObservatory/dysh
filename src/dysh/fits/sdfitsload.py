@@ -752,6 +752,23 @@ class SDFITSLoad:
         if len(rows) == 0:
             return pd.DataFrame()
 
+        rows_array, result = self._read_full_row_columns(
+            rows=rows,
+            bintable=bintable,
+            exclude_data=exclude_data,
+            columns=columns,
+        )
+        if result is None:
+            return pd.DataFrame(index=np.arange(len(rows_array)))
+        return pd.DataFrame(result)
+
+    def _read_full_row_columns(
+        self,
+        rows: np.ndarray,
+        bintable: int = 0,
+        exclude_data: bool = True,
+        columns: list[str] | None = None,
+    ) -> tuple[np.ndarray, dict[str, np.ndarray] | None]:
         hdu_index = bintable + 1
         rows_array = np.asarray(rows)
         _log_mem(f"load_full_rows: loading {len(rows_array)} rows from bintable {bintable}")
@@ -759,7 +776,6 @@ class SDFITSLoad:
         fits_file = self._get_fitsio_file()
         available_cols = fits_file[hdu_index].get_colnames()
 
-        # Exclude DATA column (huge, loaded separately) and other problematic columns
         if columns is None:
             cols_to_load = [c for c in available_cols if c.upper() not in ("DATA", "FLAGS")]
             if not exclude_data:
@@ -770,36 +786,26 @@ class SDFITSLoad:
             if exclude_data:
                 cols_to_load = [c for c in cols_to_load if c.upper() not in ("DATA", "FLAGS")]
 
-            if len(cols_to_load) == 0:
-                return pd.DataFrame(index=np.arange(len(rows_array)))
+        if len(cols_to_load) == 0:
+            return rows_array, None
 
-            data = fits_file[hdu_index].read(columns=cols_to_load, rows=rows_array)
+        data = fits_file[hdu_index].read(columns=cols_to_load, rows=rows_array)
 
-            # Convert to DataFrame
-            result = {}
-            for col in data.dtype.names:
-                val = data[col]
-                # Handle string columns - decode bytes and strip whitespace
-                if val.dtype.kind in ("S", "U"):
-                    if val.dtype.kind == "S":
-                        val = np.char.decode(val, "utf-8")
-                    val = np.char.strip(val)
-                elif val.dtype.byteorder not in ("=", "|"):
-                    # fitsio returns big-endian numeric arrays; normalize them
-                    # before handing them to pandas on little-endian hosts.
-                    val = val.byteswap().view(val.dtype.newbyteorder("="))
-                result[col] = val
+        result = {}
+        for col in data.dtype.names:
+            val = data[col]
+            if val.dtype.kind in ("S", "U"):
+                if val.dtype.kind == "S":
+                    val = np.char.decode(val, "utf-8")
+                val = np.char.strip(val)
+            elif val.dtype.byteorder not in ("=", "|"):
+                val = val.byteswap().view(val.dtype.newbyteorder("="))
+            result[col] = val
 
-            df = pd.DataFrame(result)
+        if "DATE" not in result and "DATE-OBS" in result:
+            result["DATE"] = np.array([str(value).split("T", 1)[0] for value in result["DATE-OBS"]], dtype=object)
 
-            # Add DATE column from DATE-OBS if not present
-            # The Scan code expects DATE for aperture efficiency calculation,
-            # but DATE-OBS is the actual observation date per row
-            if "DATE" not in df.columns and "DATE-OBS" in df.columns:
-                # Extract just the date part (YYYY-MM-DD) from DATE-OBS
-                df["DATE"] = df["DATE-OBS"].str[:10]
-
-            return df
+        return rows_array, result
 
     def rawspectrum(self, i, bintable=0, setmask=False):
         """

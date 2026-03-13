@@ -1741,9 +1741,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = pd.unique(group["ROW"])
 
             # Load full rows from FITS
-            fits_df = sdf.load_full_rows(rows, bintable, columns=columns_to_load or None)
+            rows_array, fits_data = sdf._read_full_row_columns(rows, bintable, columns=columns_to_load or None)
 
-            if len(fits_df) == 0:
+            if fits_data is None:
                 continue
             any_rows_loaded = True
 
@@ -1752,8 +1752,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # We need to add new columns to ALL SDFITSLoads, not just this one,
             # because later operations might access different SDFITSLoads
             indices = all_rows_df.index[all_rows_df["ROW"].isin(rows)]
-            for col in fits_df.columns:
-                col_dtype = fits_df[col].dtype
+            for col, values in fits_data.items():
+                col_dtype = values.dtype
                 # Add column to ALL underlying SDFITSLoads if missing
                 for other_sdf in self._sdf:
                     if col not in other_sdf._index.columns:
@@ -1767,7 +1767,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             # Float columns: use NaN with the same dtype
                             other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=col_dtype)
                         other_sdf._clear_index_cache()
-            sdf._index.loc[indices, fits_df.columns] = fits_df.to_numpy()  # noqa: PD011
+            for col, values in fits_data.items():
+                sdf._index.loc[indices, col] = values  # noqa: PD011
             sdf._clear_index_cache()
             # Mark that we've started loading from FITS (hybrid mode)
             if force:
@@ -1777,7 +1778,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
             # Only mark columns as fully loaded when we actually loaded the whole bintable.
             if force or len(rows) == len(all_rows_df):
-                self._fully_loaded_columns.update(c.upper() for c in fits_df.columns)
+                self._fully_loaded_columns.update(c.upper() for c in fits_data)
 
         if not any_rows_loaded:
             return df
