@@ -974,21 +974,26 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         columns = list(df.columns)
         self._meta = [dict(zip(columns, row)) for row in df.itertuples(index=False, name=None)]
         self._add_missing_but_required()
+        bunit = self._tscale_to_unit[self.tscale.lower()].to_string()
+        channel_start = self._channel_slice.start
         for i in range(len(self._meta)):
-            if "CUNIT1" not in self._meta[i]:
-                self._meta[i]["CUNIT1"] = (
+            meta = self._meta[i]
+            if "CUNIT1" not in meta:
+                meta["CUNIT1"] = (
                     "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
                 )
-            self._meta[i]["CUNIT2"] = "deg"  # is this always true?
-            self._meta[i]["CUNIT3"] = "deg"  # is this always true?
-            restfrq = self._meta[i]["RESTFREQ"]
-            rfq = restfrq * u.Unit(self._meta[i]["CUNIT1"])
-            restfreq = rfq.to("Hz").value
-            self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
-            self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
-            self._meta[i]["TUNIT7"] = self._meta[i]["BUNIT"]
-            self._meta[i]["TSCALE"] = self.tscale
-            self._meta[i]["CRPIX1"] -= self._channel_slice.start  # adjustment for user trimmed channels
+            meta["CUNIT2"] = "deg"  # is this always true?
+            meta["CUNIT3"] = "deg"  # is this always true?
+            if meta["CUNIT1"] == "Hz":
+                meta["RESTFRQ"] = meta["RESTFREQ"]
+            else:
+                restfrq = meta["RESTFREQ"]
+                rfq = restfrq * u.Unit(meta["CUNIT1"])
+                meta["RESTFRQ"] = rfq.to("Hz").value  # WCS wants no E
+            meta["BUNIT"] = bunit
+            meta["TUNIT7"] = bunit
+            meta["TSCALE"] = self.tscale
+            meta["CRPIX1"] -= channel_start  # adjustment for user trimmed channels
 
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""
