@@ -10,30 +10,31 @@ Version 1.0.0
 Bug Fixes
 ---------
 
-- 73 Bug fixes including:
-    - Incorrect tutorial notebooks
-    - Various plotter bugs 
-    - Spectrum slicing in non-equatorial coordinates
-    - Correct masks when time averaging
-    - Correct weights and flags written by `Spectrum.write`
-    - Correct flags preserved during frequency-switched folding
-    - Old spectrometer data can be read
-    - Exposure time in SubBeamNod
-    - Scanblock write error
-    - Spectrum and Scan metadata updates after operations
-    - Baseline fitting with float region boundaries
-    - Incorrect frequency-switched calibration
-    - GBTFITSLoad summary in verbose mode does the wrong thing
-    - Tsys weight calculation broken
-    - dysh logging to user-defined file
-    - Tsys = nan not caught until calibrating
-    - Dealing with repeated scan numbers 
-    - GBTOnline not functioning properly
-    - Running scripts from CLI
-    - Handling masks during spectral smoothing
+73 Bug fixes including:
+
+- Incorrect tutorial notebooks
+- Various plotter bugs 
+- Spectrum slicing in non-equatorial coordinates
+- Correct masks when time averaging
+- Correct weights and flags written by `Spectrum.write`
+- Correct flags preserved during frequency-switched folding
+- Old spectrometer data can be read
+- Exposure time in SubBeamNod
+- Scanblock write error
+- Spectrum and Scan metadata updates after operations
+- Baseline fitting with float region boundaries
+- Incorrect frequency-switched calibration
+- GBTFITSLoad summary in verbose mode does the wrong thing
+- Tsys weight calculation broken
+- dysh logging to user-defined file
+- Tsys = nan not caught until calibrating
+- Dealing with repeated scan numbers 
+- GBTOnline not functioning properly
+- Running scripts from CLI
+- Handling masks during spectral smoothing
     - GBTFITSLoad getrow fails.
 
-- `The full list of bugs fixed is here. <https://github.com/GreenBankObservatory/dysh/issues?q=is%3Aissue%20state%3Aclosed%20closed%3A%3E2025-09-25%20label%3Abug>`_
+ `The full list of bugs fixed is here. <https://github.com/GreenBankObservatory/dysh/issues?q=is%3Aissue%20state%3Aclosed%20closed%3A%3E2025-09-25%20label%3Abug>`_
 
 .. _v1-0-0-functionality:
 
