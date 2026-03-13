@@ -97,6 +97,7 @@ class SDFITSLoad:
         self._bintable = []
         self._index = None
         self._index_source = None  # Track whether index was loaded from "index_file" or "fits"
+        self._index_bintable_cache = {}
         self._index_file_threshold = kwargs_opts.get("index_file_threshold", 100 * 1024 * 1024)
         self._binheader = []
         _log_mem(f"SDFITSLoad before fits.open({filename})")
@@ -206,6 +207,10 @@ class SDFITSLoad:
         """Returns the total number of rows summed over all binary table HDUs"""
         return sum(self._nrows)
 
+    def _clear_index_cache(self):
+        """Invalidate cached bintable index slices after any _index mutation."""
+        self._index_bintable_cache.clear()
+
     def index(self, hdu=None, bintable=None):
         """
         Return The index table.
@@ -229,7 +234,13 @@ class SDFITSLoad:
         if hdu is not None:
             df = df[df["HDU"] == hdu]
         if bintable is not None:
+            if hdu is None:
+                cached = self._index_bintable_cache.get(bintable)
+                if cached is not None:
+                    return cached
             df = df[df["BINTABLE"] == bintable]
+            if hdu is None:
+                self._index_bintable_cache[bintable] = df
         return df
 
     def create_index(self, hdu: int | list[int] | None = None, skipindex=("DATA", "FLAGS"), force_fits: bool = False):
@@ -289,6 +300,7 @@ class SDFITSLoad:
                     # Reconstruct BINTABLE column (= HDU - 1)
                     if "HDU" in self._index.columns:
                         self._index["BINTABLE"] = self._index["HDU"] - 1
+                        self._clear_index_cache()
                     else:
                         logger.warning(".index file missing HDU column - cannot reconstruct BINTABLE")
                 with Benchmark("   adding primary HDU", logger=logger.debug):
@@ -313,6 +325,7 @@ class SDFITSLoad:
         else:
             ldu = range(1, len(self._hdu))
         self._index = None
+        self._clear_index_cache()
         for i in ldu:
             # Create a DataFrame without the data column.
             # Use fitsio to read only the columns we need, avoiding loading DATA/FLAGS into memory
@@ -359,6 +372,7 @@ class SDFITSLoad:
                     self._index = pd.concat([self._index, df], axis=0, ignore_index=True)
         self._add_primary_hdu()
         self._index_source = "fits"
+        self._clear_index_cache()
 
     def _add_primary_hdu(self):
         """
@@ -401,6 +415,7 @@ class SDFITSLoad:
                     UserWarning,
                     stacklevel=2,
                 )
+        self._clear_index_cache()
 
     def load(self, hdu=None, **kwargs):
         """
@@ -1525,3 +1540,4 @@ class SDFITSLoad:
         # DATA is not in the index.
         if "DATA" not in items:
             self._index[items] = values
+            self._clear_index_cache()

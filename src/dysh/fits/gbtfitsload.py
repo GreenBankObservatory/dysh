@@ -28,7 +28,7 @@ from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
-from ..spectra.core import find_non_blanks, make_channel_slice, mean_data, mean_tsys, tsys_weight
+from ..spectra.core import find_non_blanks, make_channel_slice, mean_data, mean_tsys, sq_weighted_avg, tsys_weight
 from ..spectra.scan import (
     FSScan,
     NodScan,
@@ -1766,7 +1766,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         else:
                             # Float columns: use NaN with the same dtype
                             other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=col_dtype)
+                        other_sdf._clear_index_cache()
             sdf._index.loc[indices, fits_df.columns] = fits_df.to_numpy()  # noqa: PD011
+            sdf._clear_index_cache()
             # Mark that we've started loading from FITS (hybrid mode)
             if force:
                 sdf._index_source = "fits"
@@ -1864,6 +1866,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             sdf._index["PROC"] = df[0]
             sdf._index["OBSTYPE"] = df[1]
             sdf._index["SUBOBSMODE"] = df[2]
+            sdf._clear_index_cache()
 
     def _construct_integration_number(self):
         """Construct the integration number (INTNUM) for all scans and add it to the index (i.e., a new SDFITS column)
@@ -4164,6 +4167,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             sdfi = self._sdf[i].index()
             _mask = self._sdf[i]._column_mask(mask_dict)
             sdfi.loc[_mask, column] = new_val
+            self._sdf[i]._clear_index_cache()
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
