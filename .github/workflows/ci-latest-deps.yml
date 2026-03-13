@@ -40,7 +40,7 @@ jobs:
         run: uv pip list
       - name: Test with pytest
         run: |
-          uv run pytest --numprocesses auto -m "not gbo_only" --timeout=0
+          uv run pytest --numprocesses auto -m "not gbo_only and not requires_internet" --timeout=0
   notify-on-failure:
     needs: tests
     if: failure()
