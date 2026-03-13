@@ -5,6 +5,9 @@ The Spectrum class to contain and manipulate spectra.
 import warnings
 from copy import deepcopy
 
+# from astropy.nddata import StdDevUncertainty
+from functools import lru_cache
+
 import astropy.units as u
 import numpy as np
 import pandas as pd
@@ -27,7 +30,6 @@ from scipy.stats import anderson
 from specutils import Spectrum as Spectrum1D
 
 from dysh.log import logger
-from dysh.spectra import core
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
@@ -42,19 +44,15 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..line import SpectralLineSearch
-from ..line.search import _default_columns_to_return, all_cats
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
-from ..plot import specplot as sp
 from ..util import (
-    docstring_parameter,
     minimum_string_match,
 )
-from ..util.docstring_manip import copy_docstring
 from . import (
     FWHM_TO_STDDEV,
     available_smooth_methods,
     baseline,
+    core,
     curve_of_growth,
     decimate,
     exclude_to_spectral_region,
@@ -63,7 +61,50 @@ from . import (
     spectral_region_to_unit,
 )
 
-# from astropy.nddata import StdDevUncertainty
+
+@lru_cache(maxsize=32)
+def _cached_wcs_template(crpix1, ctype1, cdelt1, cunit1, ctype2, cunit2, ctype3, cunit3, ctype4, crval4):
+    """Build a WCS object from invariant header keys and cache it.
+
+    Within a scan, only CRVAL1/2/3 vary for the spectral WCS.
+    The invariant keys (CTYPE, CDELT, CUNIT, CRPIX, CTYPE4/CRVAL4)
+    produce the same WCS structure, so we cache and deepcopy+patch.
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=FITSFixedWarning)
+        warnings.filterwarnings("ignore", category=VerifyWarning)
+        header = {
+            "CRPIX1": crpix1,
+            "CTYPE1": ctype1,
+            "CDELT1": cdelt1,
+            "CUNIT1": cunit1,
+            "CTYPE2": ctype2,
+            "CUNIT2": cunit2,
+            "CTYPE3": ctype3,
+            "CUNIT3": cunit3,
+        }
+        # Placeholders for varying keys — will be patched per spectrum
+        header["CRVAL1"] = 0.0
+        header["CRVAL2"] = 0.0
+        header["CRVAL3"] = 0.0
+        if ctype4 is not None:
+            header["CTYPE4"] = ctype4
+        if crval4 is not None:
+            header["CRVAL4"] = crval4
+        return WCS(header=header)
+
+
+def _get_spectrum_plot():
+    from ..plot import specplot
+
+    return specplot.SpectrumPlot
+
+
+def _get_spectral_line_search():
+    from ..line import SpectralLineSearch
+
+    return SpectralLineSearch
+
 
 # Spectrum attributes to be ignored by Spectrum._copy_attributes
 IGNORE_ON_COPY = [
@@ -302,11 +343,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """Show the baseline model"""
         print(f"baseline model {self._baseline_model}")
 
-    @copy_docstring(sp.SpectrumPlot.plot)
     def plot(self, **kwargs):
         """ """
 
-        self._plotter = sp.SpectrumPlot(self, **kwargs)
+        plotter_cls = _get_spectrum_plot()
+        self._plotter = plotter_cls(self, **kwargs)
         self._plotter.plot(**kwargs)
         return self._plotter
 
@@ -341,15 +382,80 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def plotter(self):
         return self._plotter
 
-    def stats(self, roll=0, qac=False):
-        """
-        Compute some statistics of this `Spectrum`.  The mean, rms, median,
-        data minimum and data maximum are calculated.  Note this works
-        with slicing, so, e.g.,  `myspectrum[45:153].stats()` will return
-        the statistics of the slice.
+    def _range_to_indices(self, brange, erange):
+        """Convert brange/erange to (start, stop) channel indices without creating a new Spectrum.
 
         Parameters
         ----------
+        brange : int or `~astropy.units.Quantity` or None
+            Start of range. Integer is treated as a channel number. A Quantity
+            with velocity, frequency, or wavelength units is converted by finding
+            the nearest channel on the spectral axis (bulk numpy operation — no
+            WCS reconstruction).
+        erange : int or `~astropy.units.Quantity` or None
+            End of range (inclusive). Same rules as *brange*.
+
+        Returns
+        -------
+        start, stop : int
+            Half-open ``[start, stop)`` channel indices suitable for numpy slicing.
+        """
+
+        def _to_idx(val):
+            if val is None:
+                return None
+            if isinstance(val, (int, np.integer)):
+                return int(val)
+            if isinstance(val, u.Quantity):
+                phys = u.get_physical_type(val.unit)
+                if "velocity" in phys:
+                    sa = self.spectral_axis.to(val.unit, equivalencies=self.equivalencies)
+                elif "frequency" in phys:
+                    sa = self.spectral_axis.to(val.unit, equivalencies=u.spectral())
+                elif "length" in phys:
+                    sa = self.spectral_axis.to(val.unit, equivalencies=u.spectral())
+                else:
+                    raise ValueError(f"Cannot convert spectral axis to {val.unit}")
+                return int(np.argmin(np.abs(sa.value - val.to(val.unit).value)))
+            raise TypeError(f"brange/erange must be int or Quantity, got {type(val)}")
+
+        start = _to_idx(brange)
+        stop = _to_idx(erange)
+
+        # Sort so start <= stop regardless of axis direction
+        if start is not None and stop is not None and start > stop:
+            start, stop = stop, start
+
+        n = len(self.flux)
+        if start is None:
+            start = 0
+        if stop is None:
+            stop = n
+
+        return start, stop
+
+    def stats(self, brange=None, erange=None, roll=0, qac=False):
+        """
+        Compute some statistics of this `Spectrum`.  The mean, rms, median,
+        data minimum and data maximum are calculated.
+
+        Parameters
+        ----------
+        brange : int or `~astropy.units.Quantity`, optional
+            Start of the range over which to compute statistics. An integer is
+            treated as a channel number. A `~astropy.units.Quantity` with
+            velocity, frequency, or wavelength units is converted to a channel
+            by finding the nearest point on the spectral axis. When *brange*
+            and *erange* are provided the statistics are computed directly on
+            the flux array slice — no intermediate `Spectrum` object is created,
+            making this significantly faster than the equivalent
+            ``spectrum[brange:erange].stats()`` call. Equivalent to GBTIDL's
+            ``stats, brange, erange``.
+            Default: None (use full spectrum or existing slice)
+        erange : int or `~astropy.units.Quantity`, optional
+            End of the range (exclusive for integers, nearest channel for
+            Quantities). Same units rules as *brange*.
+            Default: None
         roll : int
             Return statistics on a 'rolled' array differenced with the
             original array. If there is no correllaton between channels,
@@ -368,42 +474,58 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Returns
         -------
         stats : dict
-            Dictionary consisting of (mean,median,rms,datamin,datamax)
+            Dictionary consisting of (mean,median,rms,datamin,datamax,npt,nan)
         """
-
-        # note the Spectrum class has special nanXXX functions for most, but not std()
-        if roll == 0:
-            mean = self.mean()
-            median = self.median()
-            rms = np.nanstd(self.flux)
-            dmin = self.min()
-            dmax = self.max()
-            npt = len(self.flux)
+        if brange is not None or erange is not None:
+            # Fast path: resolve channel indices with a bulk numpy operation on the
+            # spectral axis, then work directly on the flux slice.  No new Spectrum
+            # object is created, no WCS reconstruction, no deepcopy.
+            start, stop = self._range_to_indices(brange, erange)
+            flux = self.flux[start:stop]
+            mask = self.mask[start:stop]
+            npt = len(flux)
+            nan2 = int(mask.sum())
+            if roll == 0:
+                mean = np.nanmean(flux)
+                median = np.nanmedian(flux)
+                rms = np.nanstd(flux)
+                dmin = np.nanmin(flux)
+                dmax = np.nanmax(flux)
+            else:
+                flux_d = flux[roll:] - flux[:-roll]
+                mean = np.nanmean(flux_d)
+                median = np.nanmedian(flux_d)
+                rms = np.nanstd(flux_d) / np.sqrt(2)
+                dmin = np.nanmin(flux_d)
+                dmax = np.nanmax(flux_d)
+                npt = len(flux_d)
         else:
-            d = self[roll:] - self[:-roll]
-            mean = d.mean()
-            median = d.median()
-            rms = np.nanstd(d.flux) / np.sqrt(2)
-            dmin = d.min()
-            dmax = d.max()
-            npt = len(self.flux) - 2
+            # Original path — unchanged behaviour, works with slicing too:
+            # myspectrum[45:153].stats()
+            nan2 = int(self.mask.sum())
+            if roll == 0:
+                mean = self.mean()
+                median = self.median()
+                rms = np.nanstd(self.flux)
+                dmin = self.min()
+                dmax = self.max()
+                npt = len(self.flux)
+            else:
+                d = self[roll:] - self[:-roll]
+                mean = d.mean()
+                median = d.median()
+                rms = np.nanstd(d.flux) / np.sqrt(2)
+                dmin = d.min()
+                dmax = d.max()
+                npt = len(self.flux) - 2
+
+        if nan2 > 0:
+            logger.info(f"Note: found {nan2} NaN (masked) values")
 
         if qac:
-            out = f"{mean.value} {rms.value} {dmin.value} {dmax.value}"
-            return out
+            return f"{mean.value} {rms.value} {dmin.value} {dmax.value}"
 
-        # these two should be the same
-        nan1 = np.isnan(self.data).sum()
-        nan2 = self.mask.sum()
-        # @todo see https://github.com/GreenBankObservatory/dysh/issues/1038
-        if False and nan1 != nan2:
-            logger.warning(f"Warning: {nan1} != {nan2}: inconsistency counters in mask usage")
-        elif nan1 > 0:
-            logger.info(f"Note: found {nan1} NaN (masked) values")
-
-        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
-
-        return out
+        return {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
 
     def check_stats(self, rms, rtol=1e-05):
         """
@@ -1391,9 +1513,40 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # @todo   fix for radiometer equation"EXPOSURE" "TSYS": "CDELT1"
         return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"], use_wcs=use_wcs)
 
+    @classmethod
+    def _make_spectrum_from_axis(cls, data, spectral_axis, meta, observer=None, target=None, wcs=None):
+        """Construct a Spectrum from an existing spectral axis template.
+
+        This avoids recomputing the channel-to-world transform when the
+        spectral grid is already known.
+        """
+        _meta = deepcopy(meta)
+        if target is None:
+            try:
+                target = make_target(_meta)
+            except Exception:
+                target = deepcopy(getattr(spectral_axis, "target", None))
+        else:
+            target = deepcopy(target)
+        if observer is None:
+            observer = deepcopy(getattr(spectral_axis, "observer", None))
+        kwargs = {
+            "flux": data,
+            "spectral_axis": deepcopy(spectral_axis),
+            "meta": _meta,
+            "observer": observer,
+            "target": target,
+        }
+        if hasattr(data, "mask"):
+            kwargs["mask"] = data.mask
+        spectrum = cls(**kwargs)
+        if wcs is not None:
+            spectrum._wcs = deepcopy(wcs)
+        return spectrum
+
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
-    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, observer=None):
+    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, observer=None, target=None):
         # , shift_topo=False):
         """Factory method to create a `Spectrum` object from a data and header.  The the data are masked,
         the `Spectrum` mask will be set to the data mask.
@@ -1468,6 +1621,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # Skip warnings FITS keywords longer than 8 chars or containing
                 # illegal characters (like _).
                 warnings.filterwarnings("ignore", category=VerifyWarning)
+                # Keep the WCS limited to spectral-coordinate construction.
+                # Observation time/location are carried on the Spectrum metadata
+                # and observer, not on the WCS object, to avoid expensive
+                # Astropy frame work during pixel_to_world().
                 wcs_meta_keys = [
                     "CRPIX1",
                     "CTYPE1",
@@ -1481,26 +1638,48 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     "CTYPE3",
                     "CUNIT3",
                     # Data from 2005 have CRVAL4 but not CTYPE4
-                    # src/dysh/testdata/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits'
                     "CTYPE4",
                     "CRVAL4",
-                    "DATE-OBS",
                 ]
                 try:
                     wcs_meta = {k: _meta[k] for k in wcs_meta_keys}
                 except KeyError as exc:
                     raise KeyError(f"Missing item for {exc} in meta.") from exc
-                wcs = WCS(header=wcs_meta)
+                try:
+                    # Try cached WCS template approach: build from invariant keys,
+                    # deepcopy (much cheaper than parsing headers), and patch varying values.
+                    template = _cached_wcs_template(
+                        crpix1=_meta["CRPIX1"],
+                        ctype1=_meta["CTYPE1"],
+                        cdelt1=_meta["CDELT1"],
+                        cunit1=_meta["CUNIT1"],
+                        ctype2=_meta["CTYPE2"],
+                        cunit2=_meta["CUNIT2"],
+                        ctype3=_meta["CTYPE3"],
+                        cunit3=_meta["CUNIT3"],
+                        ctype4=_meta.get("CTYPE4"),
+                        crval4=_meta.get("CRVAL4"),
+                    )
+                    wcs = deepcopy(template)
+                    # Patch the varying values
+                    wcs.wcs.crval[0] = _meta["CRVAL1"]
+                    if wcs.naxis >= 2:
+                        wcs.wcs.crval[1] = _meta["CRVAL2"]
+                    if wcs.naxis >= 3:
+                        wcs.wcs.crval[2] = _meta["CRVAL3"]
+                except Exception:
+                    # Fallback to full WCS construction
+                    wcs = WCS(header=wcs_meta)
                 # It would probably be safer to add NAXISi to meta.
                 if wcs.naxis > 3:
                     wcs.array_shape = (0, 0, 0, len(data))
-                # For some reason these aren't identified while creating the WCS object.
-                if "SITELONG" in _meta.keys():
-                    wcs.wcs.obsgeo[:3] = _meta["SITELONG"], _meta["SITELAT"], _meta["SITEELEV"]
                 # Reset warnings.
         else:
             wcs = None
-        target = make_target(_meta)
+        if target is None:
+            target = make_target(_meta)
+        else:
+            target = deepcopy(target)
         vc = veldef_to_convention(_meta["VELDEF"])
 
         # Define an observer as needed.
@@ -1687,6 +1866,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 idx = int(np.round(idxs[0]))
             return idx
 
+        def q2idx_axis(q, spectral_axis):
+            """Quantity to index using the realized spectral axis."""
+            if "velocity" in u.get_physical_type(q):
+                eq = get_spectral_equivalency(spectral_axis.doppler_rest, spectral_axis.doppler_convention)
+                with u.set_enabled_equivalencies(eq):
+                    axis = spectral_axis.to(q.unit)
+            elif "length" in u.get_physical_type(q):
+                with u.set_enabled_equivalencies(u.spectral()):
+                    axis = spectral_axis.to(q.unit)
+            elif "frequency" in u.get_physical_type(q):
+                axis = spectral_axis.to(q.unit)
+            else:
+                raise UnitTypeError(f"Cannot slice Spectrum with quantity of type {u.get_physical_type(q)!r}")
+            return int(np.argmin(np.abs(axis - q)))
+
         def vel2idx(vel, wcs, spectral_axis, coo, sto):
             eq = get_spectral_equivalency(spectral_axis.doppler_rest, spectral_axis.doppler_convention)
             # Make `vel` a `SpectralCoord`.
@@ -1710,37 +1904,47 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 )
 
             spectral_axis = self.spectral_axis
-            # Use the WCS to convert from world to pixel values.
             wcs = self.wcs
-            # We need a sky location to convert incorporating velocity shifts.
-            try:
-                coo = SkyCoord(
-                    wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
-                    wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
-                    frame=self.meta["RADESYS"].lower(),
-                )
-            except UnitTypeError:
-                # Assume spatial coordinates are in axes 1 and 2.
-                coo = SkyCoord(
-                    wcs.wcs.crval[1] * wcs.wcs.cunit[1],
-                    wcs.wcs.crval[2] * wcs.wcs.cunit[2],
-                    frame=self.meta["RADESYS"].lower(),
-                )
-
-            # Same for the Stokes axis.
-            sto = StokesCoord(0)
             start = item.start
             stop = item.stop
+            use_legacy_wcs = hasattr(wcs, "wcs")
+
+            if isinstance(start, u.Quantity) or isinstance(stop, u.Quantity):
+                if use_legacy_wcs:
+                    # We need a sky location to convert incorporating velocity shifts.
+                    try:
+                        coo = SkyCoord(
+                            wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
+                            wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
+                            frame=self.meta["RADESYS"].lower(),
+                        )
+                    except UnitTypeError:
+                        # Assume spatial coordinates are in axes 1 and 2.
+                        coo = SkyCoord(
+                            wcs.wcs.crval[1] * wcs.wcs.cunit[1],
+                            wcs.wcs.crval[2] * wcs.wcs.cunit[2],
+                            frame=self.meta["RADESYS"].lower(),
+                        )
+                    sto = StokesCoord(0)
+                else:
+                    coo = None
+                    sto = None
 
             # Start.
             if isinstance(start, u.Quantity):
-                start_idx = q2idx(start, wcs, spectral_axis, coo, sto)
+                if use_legacy_wcs:
+                    start_idx = q2idx(start, wcs, spectral_axis, coo, sto)
+                else:
+                    start_idx = q2idx_axis(start, spectral_axis)
             else:
                 start_idx = start
 
             # Stop.
             if isinstance(stop, u.Quantity):
-                stop_idx = q2idx(stop, wcs, spectral_axis, coo, sto)
+                if use_legacy_wcs:
+                    stop_idx = q2idx(stop, wcs, spectral_axis, coo, sto)
+                else:
+                    stop_idx = q2idx_axis(stop, spectral_axis)
             else:
                 stop_idx = stop
 
@@ -1762,24 +1966,40 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ):
             start_idx, stop_idx = np.sort([start_idx, stop_idx])
 
-        # Slicing uses NumPY ordering by default.
-        sliced_wcs = wcs[0:1, 0:1, 0:1, start_idx:stop_idx]
-
         new_flux = self.flux[start_idx:stop_idx]
+        new_mask = self.mask[start_idx:stop_idx]
+        new_axis = self.spectral_axis[start_idx:stop_idx]
 
         # Update meta.
         meta = self.meta.copy()
-        head = sliced_wcs.to_header()
-        for k in ["CRPIX1", "CRVAL1"]:
-            meta[k] = head[k]
+        meta["CRPIX1"] = 1.0
+        if len(new_axis):
+            try:
+                meta["CRVAL1"] = new_axis[0].to_value(meta.get("CUNIT1", "Hz"))
+            except Exception:
+                pass
         meta["BANDWID"] = abs(meta["CDELT1"]) * len(new_flux)  # Hz
 
-        # New Spectrum.
-        new_spectrum = self.make_spectrum(
-            Masked(new_flux, self.mask[start_idx:stop_idx]),
-            meta=meta,
-            observer_location=Observatory[meta.get("TELESCOP", "GBT")],
-        )
+        if hasattr(wcs, "wcs"):
+            # Slicing uses NumPY ordering by default.
+            sliced_wcs = wcs[0:1, 0:1, 0:1, start_idx:stop_idx]
+            head = sliced_wcs.to_header()
+            for k in ["CRPIX1", "CRVAL1"]:
+                meta[k] = head[k]
+            new_spectrum = self.make_spectrum(
+                Masked(new_flux, new_mask),
+                meta=meta,
+                observer_location=Observatory[meta.get("TELESCOP", "GBT")],
+            )
+        else:
+            new_spectrum = self._make_spectrum_from_axis(
+                Masked(new_flux, new_mask),
+                spectral_axis=new_axis,
+                meta=meta,
+                observer=self.observer,
+                target=self.target,
+                wcs=wcs,
+            )
         new_spectrum._weights = self._weights[start_idx:stop_idx]
         return new_spectrum
 
@@ -1900,7 +2120,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         end_freq = self.spectral_axis.quantity[-1].to("Hz", equivalencies=u.spectral())
         return Quantity(np.sort([start_freq.value, end_freq.value]), unit=start_freq.unit)
 
-    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
     def query_lines(
         self,
         chemical_name: str | None = None,
@@ -1952,7 +2171,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         minf, maxf = self._min_max_freq()
-        return SpectralLineSearch.query_lines(
+        spectral_line_search = _get_spectral_line_search()
+        return spectral_line_search.query_lines(
             min_frequency=minf,
             max_frequency=maxf,
             intensity_lower_limit=intensity_lower_limit,
@@ -1962,7 +2182,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
             redshift=self.redshift,
         )
 
-    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
     def recomb(self, line, cat: str = "gbtrecomb", columns: str | list | None = None) -> Table:
         """
         Search for recombination lines of H, He, and C in the frequency range of this Spectrum. The redshift value in the attribute `Spectrum.redshift` will be applied.
@@ -1989,11 +2208,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         minf, maxf = self._min_max_freq()
-        return SpectralLineSearch.recomb(
+        spectral_line_search = _get_spectral_line_search()
+        return spectral_line_search.recomb(
             min_frequency=minf, max_frequency=maxf, line=line, cat=cat, columns=columns, redshift=self.redshift
         )
 
-    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
     def recomball(self, cat: str = "gbtrecomb", columns: str | list | None = None) -> Table:
         """
         Fetch all recombination lines of H, He, C in the frequency range of this Spectrum from the catalog. The redshift value in the attribute `Spectrum.redshift` will be applied.
@@ -2017,7 +2236,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         minf, maxf = self._min_max_freq()
-        return SpectralLineSearch.recomball(min_frequency=minf, max_frequency=maxf, cat=cat, redshift=self.redshift)
+        spectral_line_search = _get_spectral_line_search()
+        return spectral_line_search.recomball(min_frequency=minf, max_frequency=maxf, cat=cat, redshift=self.redshift)
 
     def meta_as_table(self):
         """
@@ -2363,7 +2583,22 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     elif numpols >= 3:  # 3 or more pols, invalid
         new_meta["CRVAL4"] = 0
 
-    averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
+    if hasattr(spectra[0].wcs, "wcs"):
+        averaged = Spectrum._make_spectrum_from_axis(
+            Masked(data * units, data.mask),
+            spectral_axis=spectra[0].spectral_axis,
+            meta=new_meta,
+            observer=observer,
+            target=spectra[0].target,
+            wcs=spectra[0].wcs,
+        )
+    else:
+        averaged = Spectrum.make_spectrum(
+            Masked(data * units, data.mask),
+            meta=new_meta,
+            observer=observer,
+            target=spectra[0].target,
+        )
     averaged._weights = sum_of_weights
     if history is not None:
         # Keep previous history first.

@@ -63,6 +63,26 @@ class TestMeanTsys:
 
         assert tsys_dysh == pytest.approx(gbtidl_tsys)
 
+    def test_tsys_vectorized_matches_scalar(self):
+        path_to_file = f"{self.data_dir}/TGBT21A_501_11"
+        filein = f"{path_to_file}/TGBT21A_501_11.raw.vegas.fits"
+
+        hdu = fits.open(filein)
+        table = hdu[1].data
+        mask = (table["SCAN"] == 153) & (table["IFNUM"] == 0) & (table["PLNUM"] == 0)
+        table_on = table[mask][table[mask]["CAL"] == "T"]
+        table_off = table[mask][table[mask]["CAL"] == "F"]
+
+        scalar = np.array(
+            [
+                core.mean_tsys(calon=table_on["DATA"][i], caloff=table_off["DATA"][i], tcal=table_on["TCAL"][i])
+                for i in range(len(table_on))
+            ]
+        )
+        vectorized = core.mean_tsys_vectorized(table_on["DATA"], table_off["DATA"], table_on["TCAL"])
+
+        assert np.asarray(vectorized, dtype=float) == pytest.approx(scalar)
+
     def test_tsys_weight(self):
         """Test that `dysh.spectra.core.tsys_weight` works."""
 

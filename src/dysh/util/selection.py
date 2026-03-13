@@ -966,6 +966,34 @@ class SelectionBase(DataFrame):
             logger.debug(f"selection {ukwargs}")
             self._base_select(**ukwargs, tag=tag)
 
+    def _lightweight_copy(self):
+        """Create a lightweight copy suitable for temporary selection operations.
+
+        Shares the underlying DataFrame data (never mutated by selection)
+        and shallow-copies ``_selection_rules`` (existing DataFrames are shared;
+        new rules added to the copy won't affect the original).
+        This is *much* cheaper than ``deepcopy`` and safe because
+        ``_select_from_mixed_kwargs`` → ``_base_select`` → ``_addrow`` only
+        **adds** new entries to ``_selection_rules``.
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            cls = self.__class__
+            result = cls.__new__(cls)
+            # Copy the DataFrame portion (shallow — shares column data arrays)
+            DataFrame.__init__(result, self)
+            # Shallow-copy mutable containers; share immutable/leaf objects
+            result._selection_rules = dict(self._selection_rules)
+            result._aliases = self._aliases  # read-only during selection
+            result._defkeys = self._defkeys
+            result._deftypes = self._deftypes
+            result._idtag = self._idtag
+            result._valid_coordinates = self._valid_coordinates
+            result._channel_selection = self._channel_selection
+            result._flag_channel_selection = dict(self._flag_channel_selection)
+            result._table = self._table.copy()
+        return result
+
     def __deepcopy__(self, memo):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)

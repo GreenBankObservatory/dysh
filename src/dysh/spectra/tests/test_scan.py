@@ -5,9 +5,20 @@ from astropy.io import fits
 
 import dysh.util as util
 from dysh.fits import gbtfitsload
+from dysh.spectra import core
 
 
 class TestPSScan:
+    def test_scans_precompute_target(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        tp_sb = sdf.gettp(scan=153, plnum=0, ifnum=0, fdnum=0)
+        ps_sb = sdf.getsigref(scan=152, ref=153, fdnum=0, ifnum=0, plnum=0)
+
+        assert tp_sb[0]._precomputed_target is not None
+        assert ps_sb[0]._precomputed_target is not None
+
     def test_tsys(self, data_dir):
         """
         Test that `getps` results in the same system temperature as GBTIDL.
@@ -241,6 +252,23 @@ class TestPSScan:
         sb1 = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.1, units="ta*")
         x = sb1.timeaverage()
         assert pytest.approx(x.meta["TAU_Z"] / 0.1) == 1
+
+    def test_default_ta_scan_skips_gain_metadata_computation(self, data_dir, monkeypatch):
+        data_path = f"{data_dir}/AGBT18B_354_03"
+        sdf_file = f"{data_path}/AGBT18B_354_03.raw.vegas"
+
+        def fail(*args, **kwargs):
+            raise AssertionError("gain metadata should not be computed for default Ta scans")
+
+        monkeypatch.setattr("dysh.spectra.scan.GBTGainCorrection.aperture_efficiency", fail)
+        monkeypatch.setattr("dysh.spectra.scan.GBTGainCorrection._surface_error_array", fail)
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ta = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0).timeaverage()
+
+        assert np.isnan(ta.meta["AP_EFF"])
+        assert np.isnan(ta.meta["SURF_ERR"])
+        assert ta.meta["SE_UNIT"] == ""
 
     def test_vane(self, data_dir):
         """Test for getps with vane."""
@@ -549,6 +577,44 @@ class TestScanBase:
         assert np.all(tp.weights[: channel[0]] == pytest.approx(tp_sb[0].tsys_weight.sum()))
         # Channel selection in dysh is inclusive of the upper edge.
         assert np.all(tp.weights[channel[1] + 1 :] == pytest.approx(tp_sb[0].tsys_weight.sum()))
+        assert np.all(tp.spectral_axis == tp_sb[0].getspec(0).spectral_axis)
+
+    def test_timeaverage_single_scanblock_matches_scan(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        tp_sb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+
+        scan_avg = tp_sb[0].timeaverage()
+        block_avg = tp_sb.timeaverage()
+
+        assert np.all(block_avg.spectral_axis == scan_avg.spectral_axis)
+        assert np.allclose(block_avg.data, scan_avg.data, equal_nan=True)
+        assert block_avg.meta["EXPOSURE"] == scan_avg.meta["EXPOSURE"]
+        assert block_avg.meta["TSYS"] == pytest.approx(scan_avg.meta["TSYS"])
+        expected_weights = np.where(
+            scan_avg.mask,
+            0.0,
+            core.tsys_weight(scan_avg.meta["EXPOSURE"], scan_avg.meta["CDELT1"], scan_avg.meta["TSYS"]),
+        )
+        assert np.allclose(np.asarray(block_avg.weights), expected_weights, equal_nan=True)
+
+    def test_timeaverage_single_scanblock_matches_scan_without_wcs(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        tp_sb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+
+        scan_avg = tp_sb[0].timeaverage(use_wcs=False)
+        block_avg = tp_sb.timeaverage(use_wcs=False)
+
+        assert np.allclose(block_avg.data, scan_avg.data, equal_nan=True)
+        assert block_avg.meta["EXPOSURE"] == scan_avg.meta["EXPOSURE"]
+        assert block_avg.meta["TSYS"] == pytest.approx(scan_avg.meta["TSYS"])
+        expected_weights = np.where(
+            scan_avg.mask,
+            0.0,
+            core.tsys_weight(scan_avg.meta["EXPOSURE"], scan_avg.meta["CDELT1"], scan_avg.meta["TSYS"]),
+        )
+        assert np.allclose(np.asarray(block_avg.weights), expected_weights, equal_nan=True)
 
 
 class TestTPScan:

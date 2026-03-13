@@ -97,6 +97,8 @@ class SDFITSLoad:
         self._bintable = []
         self._index = None
         self._index_source = None  # Track whether index was loaded from "index_file" or "fits"
+        self._index_bintable_cache = {}
+        self._fitsio_file = None
         self._index_file_threshold = kwargs_opts.get("index_file_threshold", 100 * 1024 * 1024)
         self._binheader = []
         _log_mem(f"SDFITSLoad before fits.open({filename})")
@@ -124,6 +126,11 @@ class SDFITSLoad:
         # unclosed file(s)
         try:
             self._hdu.close()
+        except Exception:
+            pass
+        try:
+            if self._fitsio_file is not None:
+                self._fitsio_file.close()
         except Exception:
             pass
 
@@ -206,6 +213,16 @@ class SDFITSLoad:
         """Returns the total number of rows summed over all binary table HDUs"""
         return sum(self._nrows)
 
+    def _clear_index_cache(self):
+        """Invalidate cached bintable index slices after any _index mutation."""
+        self._index_bintable_cache.clear()
+
+    def _get_fitsio_file(self):
+        """Return a lazily opened shared fitsio handle for selective read paths."""
+        if self._fitsio_file is None:
+            self._fitsio_file = fitsio.FITS(self._filename)
+        return self._fitsio_file
+
     def index(self, hdu=None, bintable=None):
         """
         Return The index table.
@@ -229,7 +246,13 @@ class SDFITSLoad:
         if hdu is not None:
             df = df[df["HDU"] == hdu]
         if bintable is not None:
+            if hdu is None:
+                cached = self._index_bintable_cache.get(bintable)
+                if cached is not None:
+                    return cached
             df = df[df["BINTABLE"] == bintable]
+            if hdu is None:
+                self._index_bintable_cache[bintable] = df
         return df
 
     def create_index(self, hdu: int | list[int] | None = None, skipindex=("DATA", "FLAGS"), force_fits: bool = False):
@@ -289,6 +312,7 @@ class SDFITSLoad:
                     # Reconstruct BINTABLE column (= HDU - 1)
                     if "HDU" in self._index.columns:
                         self._index["BINTABLE"] = self._index["HDU"] - 1
+                        self._clear_index_cache()
                     else:
                         logger.warning(".index file missing HDU column - cannot reconstruct BINTABLE")
                 with Benchmark("   adding primary HDU", logger=logger.debug):
@@ -313,6 +337,7 @@ class SDFITSLoad:
         else:
             ldu = range(1, len(self._hdu))
         self._index = None
+        self._clear_index_cache()
         for i in ldu:
             # Create a DataFrame without the data column.
             # Use fitsio to read only the columns we need, avoiding loading DATA/FLAGS into memory
@@ -359,6 +384,7 @@ class SDFITSLoad:
                     self._index = pd.concat([self._index, df], axis=0, ignore_index=True)
         self._add_primary_hdu()
         self._index_source = "fits"
+        self._clear_index_cache()
 
     def _add_primary_hdu(self):
         """
@@ -401,6 +427,7 @@ class SDFITSLoad:
                     UserWarning,
                     stacklevel=2,
                 )
+        self._clear_index_cache()
 
     def load(self, hdu=None, **kwargs):
         """
@@ -668,35 +695,42 @@ class SDFITSLoad:
         nrows_req = len(rows) if rows is not None else self.nrows(bintable)
         _log_mem(f"_rawspectra_fitsio: loading DATA via fitsio, {nrows_req} rows requested")
 
-        with fitsio.FITS(self._filename) as fits_file:
-            if rows is not None:
-                rows_array = np.asarray(rows)
-                if len(rows_array) == 0:
-                    nchan = self.nchan(bintable)
-                    return np.ma.MaskedArray(np.empty((0, nchan)), mask=False)
-                # fitsio can read specific rows efficiently
-                data = fits_file[hdu_index].read(columns=["DATA"], rows=rows_array)["DATA"]
-                _log_mem(f"_rawspectra_fitsio: loaded {data.shape}, {data.nbytes / (1024**2):.1f} MB")
-                if setmask and self._flagmask is not None:
-                    mask = self._flagmask[bintable][rows_array]
-                else:
-                    mask = False
+        fits_file = self._get_fitsio_file()
+        if rows is not None:
+            rows_array = np.asarray(rows)
+            if len(rows_array) == 0:
+                nchan = self.nchan(bintable)
+                return np.ma.MaskedArray(np.empty((0, nchan)), mask=False)
+            # fitsio can read specific rows efficiently
+            data = fits_file[hdu_index].read(columns=["DATA"], rows=rows_array)["DATA"]
+            _log_mem(f"_rawspectra_fitsio: loaded {data.shape}, {data.nbytes / (1024**2):.1f} MB")
+            if setmask and self._flagmask is not None:
+                mask = self._flagmask[bintable][rows_array]
             else:
-                data = fits_file[hdu_index].read(columns=["DATA"])["DATA"]
-                _log_mem(f"_rawspectra_fitsio: loaded ALL rows {data.shape}, {data.nbytes / (1024**2):.1f} MB")
-                if setmask and self._flagmask is not None:
-                    mask = self._flagmask[bintable]
-                else:
-                    mask = False
+                mask = False
+        else:
+            data = fits_file[hdu_index].read(columns=["DATA"])["DATA"]
+            _log_mem(f"_rawspectra_fitsio: loaded ALL rows {data.shape}, {data.nbytes / (1024**2):.1f} MB")
+            if setmask and self._flagmask is not None:
+                mask = self._flagmask[bintable]
+            else:
+                mask = False
 
         return np.ma.MaskedArray(data, mask=mask)
 
-    def load_full_rows(self, rows: np.ndarray, bintable: int = 0, exclude_data: bool = True) -> pd.DataFrame:
+    def load_full_rows(
+        self,
+        rows: np.ndarray,
+        bintable: int = 0,
+        exclude_data: bool = True,
+        columns: list[str] | None = None,
+    ) -> pd.DataFrame:
         """
-        Load full rows (all columns) for specific row indices from FITS file.
+        Load row data for specific row indices from the FITS file.
 
-        This enables lazy loading when row data is needed - loads the entire row
-        once rather than column by column.
+        This enables lazy loading when row data is needed. By default it loads
+        all non-DATA columns for the requested rows, but callers may also
+        request a specific column subset.
 
         Parameters
         ----------
@@ -706,6 +740,9 @@ class SDFITSLoad:
             The bintable index (default 0)
         exclude_data : bool
             If True (default), exclude the DATA column (it's huge and loaded separately)
+        columns : list[str] or None
+            If provided, load only this subset of columns. Column names are
+            matched case-insensitively against the FITS table.
 
         Returns
         -------
@@ -715,41 +752,60 @@ class SDFITSLoad:
         if len(rows) == 0:
             return pd.DataFrame()
 
+        rows_array, result = self._read_full_row_columns(
+            rows=rows,
+            bintable=bintable,
+            exclude_data=exclude_data,
+            columns=columns,
+        )
+        if result is None:
+            return pd.DataFrame(index=np.arange(len(rows_array)))
+        return pd.DataFrame(result)
+
+    def _read_full_row_columns(
+        self,
+        rows: np.ndarray,
+        bintable: int = 0,
+        exclude_data: bool = True,
+        columns: list[str] | None = None,
+    ) -> tuple[np.ndarray, dict[str, np.ndarray] | None]:
         hdu_index = bintable + 1
         rows_array = np.asarray(rows)
         _log_mem(f"load_full_rows: loading {len(rows_array)} rows from bintable {bintable}")
 
-        with fitsio.FITS(self._filename) as fits_file:
-            available_cols = fits_file[hdu_index].get_colnames()
+        fits_file = self._get_fitsio_file()
+        available_cols = fits_file[hdu_index].get_colnames()
 
-            # Exclude DATA column (huge, loaded separately) and other problematic columns
+        if columns is None:
             cols_to_load = [c for c in available_cols if c.upper() not in ("DATA", "FLAGS")]
             if not exclude_data:
                 cols_to_load = available_cols
+        else:
+            requested = {c.upper() for c in columns}
+            cols_to_load = [c for c in available_cols if c.upper() in requested]
+            if exclude_data:
+                cols_to_load = [c for c in cols_to_load if c.upper() not in ("DATA", "FLAGS")]
 
-            data = fits_file[hdu_index].read(columns=cols_to_load, rows=rows_array)
+        if len(cols_to_load) == 0:
+            return rows_array, None
 
-            # Convert to DataFrame
-            result = {}
-            for col in data.dtype.names:
-                val = data[col]
-                # Handle string columns - decode bytes and strip whitespace
-                if val.dtype.kind in ("S", "U"):
-                    if val.dtype.kind == "S":
-                        val = np.char.decode(val, "utf-8")
-                    val = np.char.strip(val)
-                result[col] = val
+        data = fits_file[hdu_index].read(columns=cols_to_load, rows=rows_array)
 
-            df = pd.DataFrame(result)
+        result = {}
+        for col in data.dtype.names:
+            val = data[col]
+            if val.dtype.kind in ("S", "U"):
+                if val.dtype.kind == "S":
+                    val = np.char.decode(val, "utf-8")
+                val = np.char.strip(val)
+            elif val.dtype.byteorder not in ("=", "|"):
+                val = val.byteswap().view(val.dtype.newbyteorder("="))
+            result[col] = val
 
-            # Add DATE column from DATE-OBS if not present
-            # The Scan code expects DATE for aperture efficiency calculation,
-            # but DATE-OBS is the actual observation date per row
-            if "DATE" not in df.columns and "DATE-OBS" in df.columns:
-                # Extract just the date part (YYYY-MM-DD) from DATE-OBS
-                df["DATE"] = df["DATE-OBS"].str[:10]
+        if "DATE" not in result and "DATE-OBS" in result:
+            result["DATE"] = np.array([str(value).split("T", 1)[0] for value in result["DATE-OBS"]], dtype=object)
 
-            return df
+        return rows_array, result
 
     def rawspectrum(self, i, bintable=0, setmask=False):
         """
@@ -1460,7 +1516,7 @@ class SDFITSLoad:
         else:
             missing_keys = [k for k in items if k not in self._index.columns]
 
-        if missing_keys and self._index_source == "index_file":
+        if missing_keys and self._index_source in ("index_file", "hybrid"):
             logger.debug(
                 f"Column(s) {missing_keys} not available in .index file. "
                 f"Triggering full FITS index load to access all columns..."
@@ -1502,3 +1558,4 @@ class SDFITSLoad:
         # DATA is not in the index.
         if "DATA" not in items:
             self._index[items] = values
+            self._clear_index_cache()

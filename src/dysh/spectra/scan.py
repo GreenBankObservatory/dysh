@@ -5,7 +5,6 @@ The classes that define various types of Scan and their calibration methods.
 import warnings
 from abc import abstractmethod
 from collections import UserList
-from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
@@ -15,14 +14,12 @@ from astropy.table import Table, vstack
 from astropy.time import Time
 from astropy.utils.masked import Masked
 
-from dysh.spectra import core
-
-from ..coordinates import Observatory
+from ..coordinates import Observatory, make_target
 from ..log import HistoricalBase, log_call_to_history, logger
-from ..plot import scanplot as sp
 from ..util import isot_to_mjd, minimum_string_match
 from ..util.docstring_manip import copy_docstring
 from ..util.gaincorrection import GBTGainCorrection
+from . import core
 from .core import (
     available_smooth_methods,
     find_non_blanks,
@@ -35,6 +32,12 @@ from .core import (
 )
 from .spectrum import Spectrum, average_spectra
 from .vane import VaneSpectrum
+
+
+def _get_scan_plot():
+    from ..plot.scanplot import ScanPlot
+
+    return ScanPlot
 
 
 class SpectralAverageMixin:
@@ -239,7 +242,8 @@ class SpectralAverageMixin:
         """
         Plot the data as a waterfall.
         """
-        self._plotter = sp.ScanPlot(self, **kwargs)
+        plotter_cls = _get_scan_plot()
+        self._plotter = plotter_cls(self, **kwargs)
         self._plotter.plot(**kwargs)
         return self._plotter
 
@@ -300,6 +304,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._baseline_model = None
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
         self._plotter = None
+        self._bintable_df = None
+        self._precomputed_target = None
         self._check_gain_factors(self._ap_eff, self._surface_error)
 
     def _validate_defaults(self):
@@ -357,6 +363,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if ap_eff is not None and surface_error is not None:
             raise ValueError("Only one of ap_eff or surface_error should be specified")
 
+    def _needs_gain_metadata(self) -> bool:
+        """Return True when gain metadata are required for the current scale."""
+        return self._ap_eff is not None or self._surface_error is not None or self.tscale.lower() in {"ta*", "flux"}
+
     def _finish_initialization(
         self, calibrate, calibrate_kwargs, meta_rows, tscale, zenith_opacity, tsys=None, tcal=None
     ):
@@ -384,6 +394,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self.scale(tscale, zenith_opacity)
         self._update_scale_meta()
         self._validate_defaults()
+        self._precompute_observer()
+        self._precompute_target()
 
     @abstractmethod
     def _calc_exposure(self):
@@ -397,6 +409,47 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         raise NotImplementedError(
             f"Delta Freq (channel width) calculation for {self.__class__.__name__} needs to be implemented."
         )
+
+    def _precompute_observer(self):
+        """Pre-compute the observer ITRS coordinate once per scan.
+
+        Within a scan, obstimes differ by ~1s between integrations — negligible
+        effect on the ITRS position. Pre-computing avoids a costly
+        ``EarthLocation.get_itrs()`` call per spectrum.
+        """
+        from astropy.coordinates import SpectralCoord
+        from astropy.coordinates.spectral_coordinate import attach_zero_velocities
+
+        self._precomputed_observer = None
+        if self._observer_location is None or not self._meta:
+            return
+        try:
+            # Use the midpoint obstime from the first integration
+            dateobs = self._meta[0].get("DATE-OBS") or self._meta[0].get("MJD-OBS")
+            if dateobs is None:
+                return
+            obstime = Time(dateobs)
+            loc = self._observer_location
+            if loc == "from_meta":
+                loc = Observatory.get_earth_location(
+                    self._meta[0]["SITELONG"], self._meta[0]["SITELAT"], self._meta[0]["SITEELEV"]
+                )
+            self._precomputed_observer = SpectralCoord._validate_coordinate(
+                attach_zero_velocities(loc.get_itrs(obstime=obstime))
+            )
+        except Exception:
+            # Fall back to per-spectrum computation if anything goes wrong
+            self._precomputed_observer = None
+
+    def _precompute_target(self):
+        """Pre-compute the target SkyCoord once per scan."""
+        self._precomputed_target = None
+        if not self._meta:
+            return
+        try:
+            self._precomputed_target = make_target(self._meta[0])
+        except Exception:
+            self._precomputed_target = None
 
     def getspec(self, i: int, use_wcs: bool = True) -> Spectrum:  ##SCANBASE
         """Return the i-th calibrated Spectrum from this Scan.
@@ -414,13 +467,15 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         -------
         spectrum : `~dysh.spectra.spectrum.Spectrum`
         """
+        observer = getattr(self, "_precomputed_observer", None)
         s = Spectrum.make_spectrum(
             Masked(
                 self._calibrated[i] * self._tscale_to_unit[self.tscale.lower()],
                 self._calibrated[i].mask,
             ),
             meta=self.meta[i],
-            observer_location=self._observer_location,
+            observer_location=self._observer_location if observer is None else None,
+            observer=observer,
             use_wcs=use_wcs,
         )
         s.merge_commentary(self)
@@ -908,24 +963,30 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         None
 
         """
-        df = self._sdfits.index(bintable=self._bintable_index).iloc[rowindices]
-        self._meta = df.to_dict("records")  # returns dict(s) with key = row number.
+        df = (
+            self._bintable_df if self._bintable_df is not None else self._sdfits.index(bintable=self._bintable_index)
+        ).iloc[rowindices]
+        columns = list(df.columns)
+        self._meta = [dict(zip(columns, row, strict=False)) for row in df.itertuples(index=False, name=None)]
         self._add_missing_but_required()
+        bunit = self._tscale_to_unit[self.tscale.lower()].to_string()
+        channel_start = self._channel_slice.start
         for i in range(len(self._meta)):
-            if "CUNIT1" not in self._meta[i]:
-                self._meta[i]["CUNIT1"] = (
-                    "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-                )
-            self._meta[i]["CUNIT2"] = "deg"  # is this always true?
-            self._meta[i]["CUNIT3"] = "deg"  # is this always true?
-            restfrq = self._meta[i]["RESTFREQ"]
-            rfq = restfrq * u.Unit(self._meta[i]["CUNIT1"])
-            restfreq = rfq.to("Hz").value
-            self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
-            self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
-            self._meta[i]["TUNIT7"] = self._meta[i]["BUNIT"]
-            self._meta[i]["TSCALE"] = self.tscale
-            self._meta[i]["CRPIX1"] -= self._channel_slice.start  # adjustment for user trimmed channels
+            meta = self._meta[i]
+            if "CUNIT1" not in meta:
+                meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            meta["CUNIT2"] = "deg"  # is this always true?
+            meta["CUNIT3"] = "deg"  # is this always true?
+            if meta["CUNIT1"] == "Hz":
+                meta["RESTFRQ"] = meta["RESTFREQ"]
+            else:
+                restfrq = meta["RESTFREQ"]
+                rfq = restfrq * u.Unit(meta["CUNIT1"])
+                meta["RESTFRQ"] = rfq.to("Hz").value  # WCS wants no E
+            meta["BUNIT"] = bunit
+            meta["TUNIT7"] = bunit
+            meta["TSCALE"] = self.tscale
+            meta["CRPIX1"] -= channel_start  # adjustment for user trimmed channels
 
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""
@@ -944,9 +1005,14 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     def _update_scale_meta(self):
         """Update metadata that described how integrations were scaled to Ta, Ta*, or Flux"""
-        a = self.ap_eff
-        s = self.surface_error.value
-        seunit = str(self.surface_error.unit)
+        if self._needs_gain_metadata():
+            a = self.ap_eff
+            s = self.surface_error.value
+            seunit = str(self.surface_error.unit)
+        else:
+            a = np.full(len(self._meta), np.nan, dtype=float)
+            s = np.full(len(self._meta), np.nan, dtype=float)
+            seunit = ""
         for i in range(len(self._meta)):
             self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
             self._meta[i]["TSCALE"] = self.tscale
@@ -979,7 +1045,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def timeaverage(self, weights="tsys", use_wcs=True):  ## SCANBASE
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
-        self._timeaveraged = deepcopy(self.getspec(0, use_wcs=use_wcs))
         data = self._calibrated
         w = None
         if isinstance(weights, np.ndarray):
@@ -997,29 +1062,54 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         else:
             raise ValueError("Unrecognized weights: must be 'tsys', None, or an array of numbers")
         data_avg, sum_of_weights = np.ma.average(data, axis=0, weights=w, returned=True)
-        self._timeaveraged._data = data_avg
-        self._timeaveraged.mask = data_avg.mask
-        self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         if w.shape == (len(self), self.nchan):
             w_collapsed = np.average(w, axis=1)
         else:
             w_collapsed = w
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(
-            self._tsys[non_blanks], axis=0, weights=w_collapsed[non_blanks]
-        )
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
-        self._timeaveraged.meta["DURATION"] = np.sum(self._duration[non_blanks])
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged.meta["AP_EFF"] = sq_weighted_avg(
-            self.ap_eff[non_blanks], axis=0, weights=w_collapsed[non_blanks]
-        )
-        self._timeaveraged.meta["SURF_ERR"] = sq_weighted_avg(
-            self.surface_error[non_blanks].value, axis=0, weights=w_collapsed[non_blanks]
-        )
+
+        # Build metadata from first integration, then update aggregated fields
+        avg_meta = dict(self.meta[0])
+        avg_meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
+        avg_meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w_collapsed[non_blanks])
+        avg_meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
+        avg_meta["DURATION"] = np.sum(self._duration[non_blanks])
+        avg_meta["TSYS"] = avg_meta["WTTSYS"]
+        if self._needs_gain_metadata():
+            avg_meta["AP_EFF"] = sq_weighted_avg(self.ap_eff[non_blanks], axis=0, weights=w_collapsed[non_blanks])
+            avg_meta["SURF_ERR"] = sq_weighted_avg(
+                self.surface_error[non_blanks].value, axis=0, weights=w_collapsed[non_blanks]
+            )
+            avg_meta["SE_UNIT"] = str(self.surface_error.unit)
+        else:
+            avg_meta["AP_EFF"] = avg_meta.get("AP_EFF", np.nan)
+            avg_meta["SURF_ERR"] = avg_meta.get("SURF_ERR", np.nan)
+            avg_meta["SE_UNIT"] = avg_meta.get("SE_UNIT", "")
         if self.zenith_opacity is not None:
-            self._timeaveraged.meta["TAU_Z"] = self.zenith_opacity
+            avg_meta["TAU_Z"] = self.zenith_opacity
+
+        # Build the averaged spectrum directly — avoids deepcopy(getspec(0))
+        avg_flux = Masked(
+            data_avg * self._tscale_to_unit[self.tscale.lower()],
+            data_avg.mask,
+        )
+        observer = getattr(self, "_precomputed_observer", None)
+        self._timeaveraged = Spectrum.make_spectrum(
+            avg_flux,
+            meta=avg_meta,
+            observer_location=self._observer_location if observer is None else None,
+            observer=observer,
+            target=self._precomputed_target,
+            use_wcs=use_wcs,
+        )
+        # Replace _data with the masked array directly and set NaN fill value
+        # to match legacy behavior (masked channels appear as NaN in .data).
+        self._timeaveraged._data = data_avg
+        self._timeaveraged.mask = data_avg.mask
+        self._timeaveraged._data.set_fill_value(np.nan)
+        self._timeaveraged.merge_commentary(self)
+        self._timeaveraged._baseline_model = self._baseline_model
+        self._timeaveraged._subtracted = self._subtracted
         self._timeaveraged._weights = sum_of_weights
         self._weights = w
         return self._timeaveraged
@@ -1338,10 +1428,12 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                 w = weights[index : index + scan.nint]
                 index += scan.nint
                 self._timeaveraged.append(scan.timeaverage(w, use_wcs=use_wcs))
-            s = average_spectra(self._timeaveraged, weights="spectral")
         else:
             for scan in self.data:
                 self._timeaveraged.append(scan.timeaverage(weights, use_wcs=use_wcs))
+        if ary:
+            s = average_spectra(self._timeaveraged, weights="spectral")
+        else:
             s = average_spectra(self._timeaveraged, weights=weights)
         s.merge_commentary(self)
         return s
@@ -1670,6 +1762,7 @@ class TPScan(ScanBase):
             self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
         else:
             self._bintable_index = bintable
+        self._bintable_df = self._sdfits.index(bintable=self._bintable_index)
         df = self._sdfits._index
         df = df.iloc[scanrows]
         self._index = df
@@ -1679,14 +1772,14 @@ class TPScan(ScanBase):
         self._tsys = None
         self._calrows = calrows
         # all cal=T states where sig=sigstate
-        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
+        self._refonrows = np.intersect1d(self._calrows["ON"], self._scanrows).tolist()
         # all cal=F states where sig=sigstate
-        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
-        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-            self._refonrows, self._channel_slice
+        self._refoffrows = np.intersect1d(self._calrows["OFF"], self._scanrows).tolist()
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)[
+            :, self._channel_slice
         ]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-            self._refoffrows, self._channel_slice
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refoffrows)[
+            :, self._channel_slice
         ]
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
@@ -1772,9 +1865,11 @@ class TPScan(ScanBase):
             self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
             if len(self._tcal) != nspect:
                 raise AttributeError(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
-            for i in range(nspect):
-                tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
-                self._tsys[i] = tsys
+            self._tsys[:] = core.mean_tsys_vectorized(
+                calon=self._refcalon,
+                caloff=self._refcaloff,
+                tcal=self._tcal,
+            )
 
     def _calc_exposure(self):
         """Calculate the exposure time for TPScan.
@@ -1791,30 +1886,25 @@ class TPScan(ScanBase):
 
         where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
         """
+        df = self._bintable_df
+        exposure = df["EXPOSURE"].to_numpy()
+        duration = df["DURATION"].to_numpy()
         if self.calstate is None:
-            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
-            exp_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-            )
-            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
-            dur_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
-            )
+            exp_ref_on = exposure[self._refonrows]
+            exp_ref_off = exposure[self._refoffrows]
+            dur_ref_on = duration[self._refonrows]
+            dur_ref_off = duration[self._refoffrows]
 
         elif self.calstate:
-            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_on = exposure[self._refonrows]
             exp_ref_off = 0
-            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_on = duration[self._refonrows]
             dur_ref_off = 0
         elif self.calstate == False:  # noqa: E712
             exp_ref_on = 0
-            exp_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-            )
+            exp_ref_off = exposure[self._refoffrows]
             dur_ref_on = 0
-            dur_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
-            )
+            dur_ref_off = duration[self._refoffrows]
 
         self._exposure = exp_ref_on + exp_ref_off
         self._duration = dur_ref_on + dur_ref_off
@@ -1832,8 +1922,9 @@ class TPScan(ScanBase):
         False   :math:`\\Delta\nu_{REFOFF}`
         =====  ================================================================
         """
-        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+        delta_freq = self._bintable_df["CDELT1"].to_numpy()
+        df_ref_on = delta_freq[self._refonrows]
+        df_ref_off = delta_freq[self._refoffrows]
         if self.calstate is None:
             delta_freq = 0.5 * (df_ref_on + df_ref_off)
         elif self.calstate:
@@ -1993,15 +2084,16 @@ class PSScan(ScanBase):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
+        self._bintable_df = self._sdfits.index(bintable=self._bintable_index)
         # noise diode on, signal position
-        self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
+        self._sigonrows = np.intersect1d(self._calrows["ON"], self._scanrows["ON"]).tolist()
         # noise diode off, signal position
-        self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-            self._sigonrows, self._channel_slice
+        self._sigoffrows = np.intersect1d(self._calrows["OFF"], self._scanrows["ON"]).tolist()
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigonrows)[
+            :, self._channel_slice
         ]
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-            self._sigoffrows, self._channel_slice
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigoffrows)[
+            :, self._channel_slice
         ]
 
         if self._has_refspec:
@@ -2023,14 +2115,14 @@ class PSScan(ScanBase):
             self._nrows = len(self._sigoffrows)
         else:
             # noise diode on, reference position
-            self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
+            self._refonrows = np.intersect1d(self._calrows["ON"], self._scanrows["OFF"]).tolist()
             # noise diode off, reference position
-            self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
-            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-                self._refonrows, self._channel_slice
+            self._refoffrows = np.intersect1d(self._calrows["OFF"], self._scanrows["OFF"]).tolist()
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)[
+                :, self._channel_slice
             ]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-                self._refoffrows, self._channel_slice
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refoffrows)[
+                :, self._channel_slice
             ]
 
             # Catch blank integrations.
@@ -2128,31 +2220,44 @@ class PSScan(ScanBase):
                 ref, _meta = core.smooth(self.refspec.data, "boxcar", self._smoothref)
             else:
                 ref = self.refspec.data
-            for i in range(nspect):
+            if self._smoothref == 1 and self._vane is None:
                 if not self._nocal:
-                    sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                    sig = 0.5 * (self._sigcalon + self._sigcaloff)
                 else:
-                    sig = self._sigcaloff[i]
-                if self._vane is not None:
-                    self._tsys[i] = self._vane._get_tsys(ref, self._tcal[i])
-                tsys = self._tsys[i]
-                self._calibrated[i] = tsys * (sig - ref) / ref
+                    sig = self._sigcaloff
+                self._calibrated[:] = self._tsys[:, np.newaxis] * (sig - ref) / ref
+            else:
+                for i in range(nspect):
+                    if not self._nocal:
+                        sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                    else:
+                        sig = self._sigcaloff[i]
+                    if self._vane is not None:
+                        self._tsys[i] = self._vane._get_tsys(ref, self._tcal[i])
+                    tsys = self._tsys[i]
+                    self._calibrated[i] = tsys * (sig - ref) / ref
         else:
             tcal = self._tcal
             if len(tcal) != nspect:
                 raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
             if not self._nocal:
-                for i in range(nspect):
-                    if not np.isnan(self._tsys[i]):
-                        tsys = self._tsys[i]
-                    else:
-                        tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-                    sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
-                    ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
-                    if self._smoothref > 1:
-                        ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
-                    self._calibrated[i] = tsys * (sig - ref) / ref
-                    self._tsys[i] = tsys
+                sig = 0.5 * (self._sigcalon + self._sigcaloff)
+                ref = 0.5 * (self._refcalon + self._refcaloff)
+                if self._smoothref > 1:
+                    for i in range(nspect):
+                        if np.isnan(self._tsys[i]):
+                            self._tsys[i] = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                        smoothed_ref, _meta = core.smooth(ref[i], "boxcar", self._smoothref)
+                        self._calibrated[i] = self._tsys[i] * (sig[i] - smoothed_ref) / smoothed_ref
+                else:
+                    missing_tsys = np.isnan(self._tsys)
+                    if np.any(missing_tsys):
+                        self._tsys[missing_tsys] = core.mean_tsys_vectorized(
+                            calon=self._refcalon[missing_tsys],
+                            caloff=self._refcaloff[missing_tsys],
+                            tcal=tcal[missing_tsys],
+                        )
+                    self._calibrated[:] = self._tsys[:, np.newaxis] * (sig - ref) / ref
             else:
                 for i in range(nspect):
                     sig = self._sigcaloff[i]
@@ -2179,10 +2284,13 @@ class PSScan(ScanBase):
         exposure : ~numpy.ndarray
             The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
-        exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
-        exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
-        dur_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["DURATION"].to_numpy()
-        dur_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["DURATION"].to_numpy()
+        df = self._bintable_df
+        exposure = df["EXPOSURE"].to_numpy()
+        duration = df["DURATION"].to_numpy()
+        exp_sig_on = exposure[self._sigonrows]
+        exp_sig_off = exposure[self._sigoffrows]
+        dur_sig_on = duration[self._sigonrows]
+        dur_sig_off = duration[self._sigoffrows]
         if self._has_refspec:
             exp_ref = self.refspec.meta.get("EXPOSURE", None)
             dur_ref = self.refspec.meta.get("DURATION", None)
@@ -2195,14 +2303,10 @@ class PSScan(ScanBase):
                     "Can't set duration time for PSScan integrations because reference spectrum has no duration time in its metadata. Solve with refspec.meta['DURATION']=value."
                 )
         else:
-            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
-            exp_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-            )
-            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
-            dur_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
-            )
+            exp_ref_on = exposure[self._refonrows]
+            exp_ref_off = exposure[self._refoffrows]
+            dur_ref_on = duration[self._refonrows]
+            dur_ref_off = duration[self._refoffrows]
 
             if not self._nocal:
                 exp_ref = exp_ref_on + exp_ref_off
@@ -2257,13 +2361,14 @@ class PSScan(ScanBase):
         respectively.
 
         """
-        df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
-        df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
+        delta_freq = self._bintable_df["CDELT1"].to_numpy()
+        df_sig_on = delta_freq[self._sigonrows]
+        df_sig_off = delta_freq[self._sigoffrows]
         if self._has_refspec:
             df_ref_on = df_ref_off = np.full_like(self._sigoffrows, self.refspec.meta["CDELT1"])
         else:
-            df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-            df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+            df_ref_on = delta_freq[self._refonrows]
+            df_ref_off = delta_freq[self._refoffrows]
         if not self._nocal:
             df_ref = 0.5 * (df_ref_on + df_ref_off)
             df_sig = 0.5 * (df_sig_on + df_sig_off)
@@ -2408,30 +2513,30 @@ class NodScan(ScanBase):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
         if beam1:
-            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-                self._sigonrows, self._channel_slice
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigonrows)[
+                :, self._channel_slice
             ]
-            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-                self._sigoffrows, self._channel_slice
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigoffrows)[
+                :, self._channel_slice
             ]
-            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-                self._refonrows, self._channel_slice
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)[
+                :, self._channel_slice
             ]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-                self._refoffrows, self._channel_slice
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refoffrows)[
+                :, self._channel_slice
             ]
         else:
-            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-                self._refonrows, self._channel_slice
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)[
+                :, self._channel_slice
             ]
-            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-                self._refoffrows, self._channel_slice
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refoffrows)[
+                :, self._channel_slice
             ]
-            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-                self._sigonrows, self._channel_slice
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigonrows)[
+                :, self._channel_slice
             ]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-                self._sigoffrows, self._channel_slice
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigoffrows)[
+                :, self._channel_slice
             ]
 
         # Catch blank integrations.
@@ -2726,17 +2831,17 @@ class FSScan(ScanBase):
         logger.debug(f"bintable index is {self._bintable_index}")
 
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-            self._sigonrows, self._channel_slice
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigonrows)[
+            :, self._channel_slice
         ]
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-            self._sigoffrows, self._channel_slice
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigoffrows)[
+            :, self._channel_slice
         ]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-            self._refonrows, self._channel_slice
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)[
+            :, self._channel_slice
         ]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
-            self._refoffrows, self._channel_slice
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refoffrows)[
+            :, self._channel_slice
         ]
 
         # Catch blank integrations.

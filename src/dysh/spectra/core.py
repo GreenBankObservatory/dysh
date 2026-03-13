@@ -694,6 +694,33 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
     return meanTsys
 
 
+def mean_tsys_vectorized(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
+    """Vectorized version of :func:`mean_tsys` for stacks of spectra."""
+
+    calon = np.asanyarray(calon)
+    caloff = np.asanyarray(caloff)
+    if calon.ndim == 1 or caloff.ndim == 1:
+        return mean_tsys(calon, caloff, tcal, mode=mode, fedge=fedge, nedge=nedge)
+
+    nchan = calon.shape[-1]
+    if nedge is None:
+        nedge = int(nchan * fedge)
+    chrng = slice(nedge, -(nedge - 1), 1)
+
+    calon_ma = np.ma.masked_invalid(np.asanyarray(calon, dtype=np.float64)[..., chrng], copy=False)
+    caloff_ma = np.ma.masked_invalid(np.asanyarray(caloff, dtype=np.float64)[..., chrng], copy=False)
+    tcal = np.asanyarray(tcal, dtype=np.float64)
+
+    if mode == 0:
+        meanoff = np.ma.mean(caloff_ma, axis=-1)
+        meandiff = np.ma.mean(calon_ma - caloff_ma, axis=-1)
+        mean_tsys = meanoff / meandiff * tcal + tcal / 2.0
+    else:
+        mean_tsys = np.ma.mean(caloff_ma / (calon_ma - caloff_ma), axis=-1)
+        mean_tsys = mean_tsys * tcal + tcal / 2.0
+    return mean_tsys
+
+
 def sq_weighted_avg(a, axis=0, weights=None):
     # @todo make a generic moment or use scipy.stats.moment
     r"""Compute the mean square weighted average of an array (2nd moment).
