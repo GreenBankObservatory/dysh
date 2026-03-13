@@ -478,7 +478,8 @@ class TestGBTFITSLoad:
                 plnum=v["PLNUM"],
                 fdnum=0,
                 cal=v["CAL"],
-                sig=v["SIG"], flag_vegas=False,
+                sig=v["SIG"],
+                flag_vegas=False,
             )
             if v["CAL"]:
                 assert np.all(tps[0]._refcalon[0] == tps[0].total_power(0).flux.value)
@@ -498,11 +499,17 @@ class TestGBTFITSLoad:
         # Weird that the results are different for a bunch of channels.
         # This has to do with slight differences in Tsys weighting in ScanBlock.timeaverage() vs. Scan.timeaverage()
         assert np.all(
-            (sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage().flux - tp_scans[0].timeaverage().flux).value
+            (
+                sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage().flux
+                - tp_scans[0].timeaverage().flux
+            ).value
             < 2e-6
         )
         assert np.all(
-            (sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage().flux - tp_scans[1].timeaverage().flux).value
+            (
+                sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage().flux
+                - tp_scans[1].timeaverage().flux
+            ).value
             < 2e-6
         )
         assert np.all(
