@@ -11,29 +11,50 @@ Bug Fixes
 ---------
 
 - 73 Bug fixes including:
-  - 
-    full list
-    https://github.com/GreenBankObservatory/dysh/issues?q=is%3Aissue%20state%3Aclosed%20closed%3A%3E2025-09-25%20label%3Abug
+    - Incorrect tutorial notebooks
+    - Various plotter bugs 
+    - Spectrum slicing in non-equatorial coordinates
+    - Correct masks when time averaging
+    - Correct weights and flags written by `Spectrum.write`
+    - Correct flags preserved during frequency-switched folding
+    - Old spectrometer data can be read
+    - Exposure time in SubBeamNod
+    - Scanblock write error
+    - Spectrum and Scan metadata updates after operations
+    - Baseline fitting with float region boundaries
+    - Incorrect frequency-switched calibration
+    - GBTFITSLoad summary in verbose mode does the wrong thing
+    - Tsys weight calculation broken
+    - dysh logging to user-defined file
+    - Tsys = nan not caught until calibrating
+    - Dealing with repeated scan numbers 
+    - GBTOnline not functioning properly
+    - Running scripts from CLI
+    - Handling masks during spectral smoothing
+    - GBTFITSLoad getrow fails.
+
+- `The full list of bugs fixed is here. <https://github.com/GreenBankObservatory/dysh/issues?q=is%3Aissue%20state%3Aclosed%20closed%3A%3E2025-09-25%20label%3Abug>`_
 
 .. _v1-0-0-functionality:
+
 Functionality & Enhancements
 ----------------------------
 
-https://github.com/GreenBankObservatory/dysh/compare/0.8.0g...1.0.0
-
 - Improved documentation and notebooks
 - New Users Guide
+- Significant performance improvements, especially for large files and GBTOnline
 - Plotter updates
     - New TK-based plotter
     - Histogram-style plotting option 
 - Spectral Line Search handles redshift
-- Performance improvements, especially for large files and GBTOnline
 - User provided spectral weights
 - Data quality assessment tools
 - VEGAS spur flagging
 - Channel selection during calibration
 - User can provide custom surface error and aperture efficiency
 - Apply baseline to all Scans in a Scanblock
+
+ The `full list of improvements is here. <https://github.com/GreenBankObservatory/dysh/compare/0.8.0g...1.0.0>`_
 
 
 Version 0.8.4
@@ -61,8 +82,8 @@ Functionality & Enhancements
 - Plotting multiple spectra in the same figure through `oshow` argument
 - Improved performance (loading and writing data)
 - Custom column selection for `~dysh.fits.gbtfitsload.GBTFITSLoad.summary`
-- New on-the-fly calibration `tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/on_the_fly.html>`_
-- New data selection `tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/selection.html>`_
+- New `on-the-fly calibration tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/on_the_fly.html>`_
+- New `data selection tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/selection.html>`_
 - `~dysh.fits.gbtfitsload.GBTFITSLoad.getfs` works on data without noise diode(s)
 - Adds `~dysh.util.calibrator` submodule
 - Adds `~dysh.spectra.tcal` submodule
