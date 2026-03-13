@@ -303,7 +303,7 @@ class TestGBTFITSLoad:
         assert ps1.meta["TSYS"] == 59.299739949229995
         assert ps1.meta["TSYS"] == pytest.approx(table1["TSYS"])
 
-        pssb2 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0)
+        pssb2 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert pssb2[0].nchan == 32768
         ps2 = pssb2[0].timeaverage()
         assert np.all(abs(ps2.data.data - table2["DATA"][0]) < 8e-6)  # Marc reported the test fails for him with 2e-6.
