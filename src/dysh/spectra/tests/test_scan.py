@@ -166,26 +166,26 @@ class TestPSScan:
         flagrange = np.arange(flagarray[0], flagarray[1] + 1)
         sdf.flag(scan=7, channel=[flagarray], intnum=[1])
         sdf.apply_flags()
-        scan_block = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0)
+        scan_block = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         output = tmp_path / "test_sb_flag_write.fits"
         # scanblock flags test
         scan_block.write(output, overwrite=True, flags=True)
         sdfin = gbtfitsload.GBTFITSLoad(output, flag_vegas=False)
         assert np.all(np.where(sdfin._sdf[0]._flagmask[0][1])[0] == flagrange)
         # scan flags test
-        sb = sdfin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        sb = sdfin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert np.all(np.where(sb[0]._calibrated.mask[1])[0] == flagrange)
         scanout = tmp_path / "test_scan_flag_write.fits"
         sb[0].write(scanout, overwrite=True, flags=True)
         scanin = gbtfitsload.GBTFITSLoad(scanout, flag_vegas=False)
         assert np.all(np.where(scanin._sdf[0]._flagmask[0][1])[0] == flagrange)
-        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert np.all(np.where(tpscan[0]._calibrated.mask[1])[0] == flagrange)
         # try with flags=false
         scanout = tmp_path / "test_scan_flag_write2.fits"
         sb[0].write(scanout, overwrite=True, flags=False)
         scanin = gbtfitsload.GBTFITSLoad(scanout, flag_vegas=False)
-        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert len(np.where(tpscan[0]._calibrated.mask[1])[0]) == 0
 
     def test_scale_units(self, data_dir):
@@ -372,7 +372,7 @@ class TestSubBeamNod:
         ).timeaverage()
         s = slice(2000, 6000)  # Clean channels.
 
-        assert (sbn.data - sbn_smref.data)[s].sum() == pytest.approx(-5.375981637276874)
+        assert (sbn.data - sbn_smref.data)[s].sum() == pytest.approx(-5.375981637276875)
         assert sbn_smref.meta["SCAN"] == 20
         assert sbn_smref.meta["TSYS"] == pytest.approx(100.0)
         assert sbn_smref[s].stats()["rms"].value == pytest.approx(0.17582152178367458)
