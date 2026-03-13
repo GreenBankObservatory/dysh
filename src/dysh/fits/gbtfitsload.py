@@ -263,25 +263,25 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     fileobj : str or `pathlib.Path`
         File to read or directory path.  If a directory, all
         FITS files within will be read in.
-    source  : str
+    source : str
         target source to select from input file(s). Default: all sources
     hdu : int or list
         Header Data Unit to select from input file. Default: all HDUs
-
-    skipflags: bool
+    skipflags : bool
         If True, do not read any flag files associated with these data. If it exists, the FLAGS column of the binary
         table will always be read in regardless of `skipflags` value. Default: True
-
-    flag_vegas: bool
+    flag_vegas : bool
         If True, flag VEGAS spurs using the algorithm described in :meth:`~dysh.util.core.calc_vegas_spurs`
         and ignore VEGAS_SPUR flag rules in flag files. Note this parameter is independent of 'skip_flags', which
         controls only the reading of the flag file.  If you want no flags at all, use `skipflags=True, flag_vegas=False`.
-        Default: True
+        **Note:** Since flagging VEGAS spurs requires reading certain SDFITS binary table(s), instantiation of GBTFITSLoad will take longer,
+        commensurate with the number of rows in the binary table(s).  It is more efficient to use `flag_vegas=True` in calibration routines.
+        Default: False
 
         +---------+-----------+--------------------------------------------------------------------------------------------------------------+
         |skipflags|flag_vegas | behavior                                                                                                     |
         +=========+===========+==============================================================================================================+
-        |False    | False     | VEGAS and other flags are created based on the flags file and the FLAGS column.                              |
+        |False    | False     | Flags are created based on the flags file and the FLAGS column, but VEGAS spurs are not flagged.             |
         +---------+-----------+--------------------------------------------------------------------------------------------------------------+
         |True     | False     | No flags are read file the flag file.  Flags are read in from the FLAGS column.                              |
         +---------+-----------+--------------------------------------------------------------------------------------------------------------+
@@ -292,7 +292,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     """
 
     @log_call_to_history
-    def __init__(self, fileobj, source=None, hdu=None, skipflags=True, flag_vegas=True, **kwargs):
+    def __init__(self, fileobj, source=None, hdu=None, skipflags=True, flag_vegas=False, **kwargs):
         kwargs_opts = {
             "fix_ka": True,
             "index_file_threshold": 0,  # 100 * 1024 * 1024,  # 100 MB default
@@ -310,6 +310,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         self.GBT = Observatory["GBT"]
         _log_mem(f"GBTFITSLoad.__init__ start for {fileobj}")
+        if flag_vegas:
+            # force reading of binary table in this instance.
+            kwargs_opts["index_file_threshold"] = np.inf
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
             self._sdf.append(SDFITSLoad(path, source, hdu, **kwargs_opts))
@@ -1384,9 +1387,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return False
 
     @log_call_to_history
-    def flag_vegas_spurs(self, flag_central=False):
+    def flag_vegas_spurs(self, flag_central=False, selection: Selection = None):
         """
         Flag VEGAS SPUR channels.
+
+        **Note:** It is generally more efficient, to use `flag_vegas=True` in calibration
+        routines than to call this method directly without a `Selection` which will force
+        a read of all the rows in the SDFITS file(s).  Passing `flag_vegas=True` to calibration
+        routines will only read the rows being calibrated.
 
         Parameters
         ----------
@@ -1395,25 +1403,40 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The GBO SDFITS writer by default replaces the value at the central SPUR with the average of the
             two adjacent channels, and hence the central channel is not typically flagged.
 
+        selection : Selection
+            A Selection object which will indicate which rows to flag. If None, then all rows
+            are flagged.
+
         Returns
         -------
         None.
 
         """
+        if selection is None:
+            # If selection is None, then this method is not being called from a calibration
+            # routine, so we need to read full index from the SDFITS binary table to ensure
+            # that VSP* are present.
+            # If the state were hybrid then some VSP* could be NaN, and if index_source
+            # VSP* would not be present in any rows.
+            if list(set(self._index_state)) != "fits":
+                self.load_all()
+            selection = self._selection
+
         if not self.is_vegas():
             logger.warning(
-                "This does not appear to be VEGAS data. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. No channels will be flagged."
+                "This does not appear to be VEGAS data. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. Will attempt it anyway."
             )
-            return
         try:
-            df = self._selection.groupby(["FITSINDEX", "BINTABLE"])
+            df = selection.groupby(["FITSINDEX", "BINTABLE"])
             for _i, ((fi, bi), g) in enumerate(df):
+                # print(f"###inner loop {_i} {fi} {bi}")
                 vsprval = g["VSPRVAL"].to_numpy()
                 vspdelt = g["VSPDELT"].to_numpy()
                 vsprpix = g["VSPRPIX"].to_numpy()
                 rows = g["ROW"].to_numpy()
                 maxnchan = self._sdf[fi].nchan(bi) - 1
                 spurs = calc_vegas_spurs(vsprval, vspdelt, vsprpix, maxnchan, flag_central)
+                # print(f"{spurs[0]=}")
                 if spurs.shape[0] != len(rows):
                     raise ValueError(f"spurs array length {spurs.shape[0]} != selected number of rows {len(rows)}")
                 else:
@@ -1423,6 +1446,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         mask = np.full(maxnchan + 1, False)
                         mask[a[~a.mask]] = True
                         p.append(mask)
+                    # print(f"###masking {rows=}, mask={np.array(p)}")
                     self._sdf[fi]._additional_channel_mask[bi].or_rows(rows, np.array(p))
         except KeyError as k:
             logger.warning(
@@ -1590,7 +1614,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             flagfile = p.with_suffix(".flag")
             if flagfile.exists():
                 fi = uniq(s["FITSINDEX"])[0]
-                self.flags.read(flagfile, fitsindex=fi, ignore_vegas=flag_vegas)
+                self.flags.read(
+                    flagfile, fitsindex=fi, ignore_vegas=True
+                )  # always ignore vegas as it is too expensive.
                 found_flags = True
         if found_flags and len(self.flags._table) != 0:
             logger.info("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
@@ -1652,7 +1678,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # Group rows by FITSINDEX (which SDFITSLoad they belong to)
         # and load full rows from FITS
         result_dfs = []
-
         for fitsindex, group in df.groupby("FITSINDEX"):
             sdf = self._sdf[int(fitsindex)]
 
@@ -1663,7 +1688,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
             rows = group["ROW"].to_numpy()
             bintable = self._get_bintable(group)
-
             # Load full rows from FITS
             fits_df = sdf.load_full_rows(rows, bintable)
 
@@ -1944,6 +1968,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_cal=None,
         channel: list | None = None,
         vane=None,
+        flag_vegas: bool = True,
         **kwargs,
     ):
         """
@@ -1951,12 +1976,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        fdnum: int
-            The feed number
+        fdnum : int
+            The feed number.
         ifnum : int
-            The intermediate frequency (IF) number
+            The intermediate frequency (IF) number.
         plnum : int
-            The polarization number
+            The polarization number.
         sig : bool or None
             True to use only integrations where signal state is True, False to use reference state (signal state is False). None to use all integrations.
         cal: bool or None
@@ -1974,13 +1999,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
             used.
-        channel: list or None
+        channel : list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
             trimmed to `[firstchan,lastchan]` before any smoothing. If channels have already been selected through
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         vane : None
             Used to suppress info message about use of TSYS column in case this is being used to make a `~dysh.spectra.vane.VaneSpectrum`.
+        flag_vegas : bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1998,6 +2025,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _log_mem(f"gettp: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
         # Lazy load full rows from FITS if needed (when loaded from .index file)
         _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        if flag_vegas:
+            self.flag_vegas_spurs(selection=_sf)
+            if apply_flags:
+                self.apply_flags()
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _tcal = t_cal
@@ -2115,6 +2146,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_atm: float | None = None,
         t_bkg: float | None = None,
         t_warm: float | None = None,
+        flag_vegas: bool = True,
         **kwargs,
     ) -> ScanBlock:
         r"""
@@ -2175,7 +2207,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
-        channel: list or None
+        channel : list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
             trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
@@ -2196,6 +2228,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
+        flag_vegas : bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2252,6 +2286,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _log_mem(f"getsigref: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
         # Lazy load full rows from FITS if needed (when loaded from .index file)
         _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        if flag_vegas:
+            self.flag_vegas_spurs(selection=_sf)
+            if apply_flags:
+                self.apply_flags()
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _tcal = t_cal
@@ -2391,6 +2429,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_atm: float | None = None,
         t_bkg: float | None = None,
         t_warm: float | None = None,
+        flag_vegas: bool = True,
         **kwargs,
     ) -> ScanBlock:
         """
@@ -2439,7 +2478,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
-        channel: list or None
+        channel : list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
             trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
@@ -2460,6 +2499,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
+        flag_vegas : bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2501,7 +2542,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         )
         # Lazy load full rows from FITS if needed (when loaded from .index file)
         _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
-
+        if flag_vegas:
+            self.flag_vegas_spurs(selection=_sf)
+            if apply_flags:
+                self.apply_flags()
         tsys = _parse_tsys(t_sys, scans)
         _tsys = tsys
         _tcal = t_cal
@@ -2618,6 +2662,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_atm: float | None = None,
         t_bkg: float | None = None,
         t_warm: float | None = None,
+        flag_vegas: bool = True,
         **kwargs,
     ):
         """
@@ -2670,7 +2715,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
-        channel: list or None
+        channel : list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
             trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
@@ -2691,6 +2736,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
+        flag_vegas : bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2731,7 +2778,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         )
         # Lazy load full rows from FITS if needed (when loaded from .index file)
         _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
-
+        if flag_vegas:
+            self.flag_vegas_spurs(selection=_sf)
+            if apply_flags:
+                self.apply_flags()
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _tcal = t_cal
@@ -2885,6 +2935,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_atm: float | None = None,
         t_bkg: float | None = None,
         t_warm: float | None = None,
+        flag_vegas: bool = True,
         **kwargs,
     ):
         """
@@ -2942,7 +2993,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
-        channel: list or None
+        channel : list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
             trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
@@ -2967,6 +3018,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
+        flag_vegas : bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2998,7 +3051,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         # Lazy load full rows from FITS if needed (when loaded from .index file)
         _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
-
+        if flag_vegas:
+            self.flag_vegas_spurs(selection=_sf)
+            if apply_flags:
+                self.apply_flags()
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _tcal = t_cal
@@ -3297,6 +3353,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_atm: float | None = None,
         t_bkg: float | None = None,
         t_warm: float | None = None,
+        flag_vegas: bool = True,
         **kwargs,
     ):
         """Calibrate a SubBeamNod scan.
@@ -3339,7 +3396,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
             used.
-        channel: list or None
+        channel : list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
             trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
@@ -3369,6 +3426,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
+        flag_vegas : bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -3396,7 +3455,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         # Lazy load full rows from FITS if needed (when loaded from .index file)
         _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
-
+        if flag_vegas:
+            self.flag_vegas_spurs(selection=_sf)
+            if apply_flags:
+                self.apply_flags()
         tsys = _parse_tsys(t_sys, scans)
         _tcal = t_cal
 
@@ -3567,6 +3629,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     subref=-1,
                     calibrate=calibrate,
                     apply_flags=apply_flags,
+                    flag_vegas=flag_vegas,
                     t_cal=t_cal,
                     channel=_channel,
                     **kwargs,
@@ -3581,6 +3644,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     subref=1,
                     calibrate=calibrate,
                     apply_flags=apply_flags,
+                    flag_vegas=flag_vegas,
                     t_sys=t_sys,
                     t_cal=t_cal,
                     channel=_channel,
@@ -4362,6 +4426,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         tcold: float | None = None,
         twarm: float | None = None,
         apply_flags: bool = True,
+        flag_vegas: bool = True,
     ):
         """
         This routine returns the system temperature and gain for the selected W-band channel.
@@ -4393,6 +4458,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Set the warm temperature. By default it will use the value in the TWARM column of the SDFITS.
         apply_flags : bool, optional
             If True, apply flags before computing the system temperature.
+        flag_vegas : bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
 
         Returns
         -------
@@ -4415,6 +4482,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "calibrate": True,
             "cal": False,
             "apply_flags": apply_flags,
+            "flag_vegas": flag_vegas,
+            "vane": True,
         }
         vsky = self.gettp(CALPOSITION="Observing", **tp_args).timeaverage()
         vcold1 = self.gettp(CALPOSITION="Cold1", **tp_args).timeaverage()
@@ -4458,6 +4527,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_warm: float | None = None,
         t_bkg: float = 2.725,
         apply_flags=True,
+        flag_vegas: bool = True,
         **kwargs,
     ):
         """
@@ -4490,6 +4560,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Background temperature in K.
         apply_flags : bool, optional
             If True, apply flags before deriving the system temperature.
+        flag_vegas : bool, optional
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
 
         Returns
         -------
@@ -4507,6 +4579,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             calibrate=True,
             cal=False,
             apply_flags=apply_flags,
+            flag_vegas=flag_vegas,
             vane=True,
         ).timeaverage()
 
@@ -4536,6 +4609,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         twarm=None,
         tbkg=2.725,
         apply_flags=True,
+        flag_vegas: bool = True,
         **kwargs,
     ):
         """
@@ -4574,7 +4648,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Background temperature in K.
         apply_flags : bool, optional
             If True, apply flags before deriving the system temperature.
-
+        flag_vegas : bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
         Returns
         -------
         tsys : float
@@ -4600,6 +4675,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             calibrate=True,
             cal=False,
             apply_flags=apply_flags,
+            flag_vegas=flag_vegas,
+            vane=True,
         ).timeaverage(use_wcs=False)
         sky = self.gettp(
             scan=sky_scan,
@@ -4609,6 +4686,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             calibrate=True,
             cal=False,
             apply_flags=apply_flags,
+            flag_vegas=flag_vegas,
+            vane=True,
         ).timeaverage(use_wcs=False)
 
         if twarm is None:
