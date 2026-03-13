@@ -16,6 +16,13 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 from dysh import util
 from dysh.fits import gbtfitsload, sdfitsload
 
+try:
+    import fitsio
+
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
+
 
 class TestGBTFITSLoad:
     """ """
@@ -1517,7 +1524,8 @@ class TestGBTFITSLoad:
         # Reset flags.
         sdf.clear_flags()
         for b in sdf._sdf[0]._bintable:
-            b.data["FLAGS"][:] = 0
+            if "FLAGS" in b.columns.names:
+                b.data["FLAGS"][:] = 0
 
         # Flag some more.
         channels = {0: 40, 1: 50}
@@ -1624,6 +1632,7 @@ class TestGBTFITSLoad:
         assert psscan[0].sigscan == sigref[0].sigscan
         assert psscan[0].refscan == 153
         assert psscan[0].sigscan == 152
+        assert np.max(np.abs(psscan[0]._exposure - sigref[0]._exposure)) < 1e-10
 
         # 2. Scan is a list, ref is an int
         sdf_file = f"{self.data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
@@ -1920,6 +1929,18 @@ class TestGBTFITSLoad:
         assert str(exc.value) == exp_exc
         sdf.clear_flags()
 
+    def test_lazy_flags_on_input(self, tmp_path):
+        # make sure flags that are written are read back in with lazy flags
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        sdf.flag(scan=153)
+        sdf.write(tmp_path / "lazyflag.fits", flags=True, overwrite=True)
+        sdfin = gbtfitsload.GBTFITSLoad(tmp_path / "lazyflag.fits")
+        assert sdfin._sdf[0]._flagmask[0] == sdf._sdf[0]._flagmask[0]
+        x1 = sdf._sdf[0]._flagmask[0].to_dense()
+        x2 = sdfin._sdf[0]._flagmask[0].to_dense()
+        assert np.all(x1 == x2)
+
 
 def test_parse_tsys():
     """
@@ -2007,9 +2028,11 @@ class TestOnlineGBTFITSLoad:
 
     def test_reload_detects_file_growth(self, tmp_path):
         """Test that _reload() detects when a file grows."""
-        import time
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
 
-        import fitsio
+        import time
 
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
@@ -2037,6 +2060,9 @@ class TestOnlineGBTFITSLoad:
 
     def test_reload_handles_missing_file(self, tmp_path, caplog):
         """Test that _reload() handles missing files gracefully."""
+        if not HAS_FITSIO:
+            pytest.skip("Cannot reload on Windows, see issue #447")
+
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
         fits_dir = tmp_path / "test_session"
@@ -2048,7 +2074,12 @@ class TestOnlineGBTFITSLoad:
         assert len(online._index) == 4
 
         # Delete the file
-        fits_file.unlink()
+        # Sometimes windows is sticky about permissions, so ignore
+        # a PermissionError
+        try:
+            fits_file.unlink()
+        except PermissionError:
+            pass
 
         # _reload should handle this gracefully (not raise, just warn)
         with caplog.at_level(logging.WARNING):
@@ -2059,9 +2090,10 @@ class TestOnlineGBTFITSLoad:
 
     def test_reload_recovers_after_file_recreated_with_fewer_rows(self, tmp_path):
         """Test that monitoring recovers after file is deleted and recreated with fewer rows."""
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
         import time
-
-        import fitsio
 
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
@@ -2132,7 +2164,18 @@ class TestOnlineGBTFITSLoad:
         seen_scans = initial_scans.copy()
 
         # Delete and recreate file (simulating session restart with same scan numbers)
-        fits_file.unlink()
+        max_retries = 3
+        attempt = 1
+        while attempt <= max_retries:
+            try:
+                fits_file.unlink()
+                break
+            except PermissionError:
+                time.sleep(0.1)
+                attempt += 1
+        else:
+            pytest.skip("Can't unlink the file, skipping rest of test")
+
         time.sleep(0.1)
         shutil.copy(source_file, fits_file)
 
@@ -2158,9 +2201,11 @@ class TestOnlineGBTFITSLoad:
         scan, which indicates an unexpected scan sequence (e.g., operator manually
         restarting scans or data from multiple sessions being mixed).
         """
-        import time
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
 
-        import fitsio
+        import time
 
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
@@ -2225,6 +2270,9 @@ class TestIndexFileLazyLoading:
     def test_load_from_index_file_sets_source(self):
         """Test that loading from .index file sets _index_source correctly."""
         # Load with index file (file is small, should use FITS, but let's force it)
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
         sdf = sdfitsload.SDFITSLoad(str(self.fits_file), index_file_threshold=0)
 
         # Check that it loaded from index file
@@ -2249,6 +2297,9 @@ class TestIndexFileLazyLoading:
 
     def test_lazy_load_full_rows_method(self):
         """Test that load_full_rows loads all columns from FITS."""
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
         sdf = sdfitsload.SDFITSLoad(str(self.fits_file))
 
         # Load full rows for first 3 rows
@@ -2268,6 +2319,10 @@ class TestIndexFileLazyLoading:
         """Test that we can load all rows from fits on demand if we have previously
         loaded via index file.
         """
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
+
         sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file))
         # ensure no index sources are 'fits'
         assert sdf._any_index_file() and not sdf._any_hybrid()
