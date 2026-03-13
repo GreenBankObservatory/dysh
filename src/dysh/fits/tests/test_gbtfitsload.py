@@ -2469,13 +2469,15 @@ class TestIndexFileLazyLoading:
             pytest.skip("Did not load from index file")
 
         requested_columns = []
-        original_load_full_rows = underlying_sdf.load_full_rows
+        requested_rows = []
+        original_read_full_row_columns = underlying_sdf._read_full_row_columns
 
-        def spy_load_full_rows(rows, bintable=0, exclude_data=True, columns=None):
+        def spy_read_full_row_columns(rows, bintable=0, exclude_data=True, columns=None):
+            requested_rows.append(tuple(rows))
             requested_columns.append(tuple(columns) if columns is not None else None)
-            return original_load_full_rows(rows, bintable=bintable, exclude_data=exclude_data, columns=columns)
+            return original_read_full_row_columns(rows, bintable=bintable, exclude_data=exclude_data, columns=columns)
 
-        monkeypatch.setattr(underlying_sdf, "load_full_rows", spy_load_full_rows)
+        monkeypatch.setattr(underlying_sdf, "_read_full_row_columns", spy_read_full_row_columns)
 
         test_df = pd.DataFrame(
             {
@@ -2488,6 +2490,7 @@ class TestIndexFileLazyLoading:
 
         sdf._load_full_rows_if_needed(test_df, ["TCAL", "TSYS"])
 
+        assert requested_rows == [(0, 1, 2)]
         assert len(requested_columns) == 1
         assert {"TCAL", "TSYS", "EXPOSURE", "DURATION", "CDELT1"}.issubset(set(requested_columns[0]))
 
@@ -2499,13 +2502,13 @@ class TestIndexFileLazyLoading:
             pytest.skip("Did not load from index file")
 
         loaded_rows = []
-        original_load_full_rows = underlying_sdf.load_full_rows
+        original_read_full_row_columns = underlying_sdf._read_full_row_columns
 
-        def spy_load_full_rows(rows, bintable=0, exclude_data=True, columns=None):
+        def spy_read_full_row_columns(rows, bintable=0, exclude_data=True, columns=None):
             loaded_rows.append(tuple(rows))
-            return original_load_full_rows(rows, bintable=bintable, exclude_data=exclude_data, columns=columns)
+            return original_read_full_row_columns(rows, bintable=bintable, exclude_data=exclude_data, columns=columns)
 
-        monkeypatch.setattr(underlying_sdf, "load_full_rows", spy_load_full_rows)
+        monkeypatch.setattr(underlying_sdf, "_read_full_row_columns", spy_read_full_row_columns)
 
         test_df = pd.DataFrame(
             {
@@ -2601,17 +2604,20 @@ class TestIndexFileLazyLoading:
         )
 
         requested_columns = []
-        original_load_full_rows = underlying_sdf.load_full_rows
+        requested_rows = []
+        original_read_full_row_columns = underlying_sdf._read_full_row_columns
 
-        def spy_load_full_rows(rows, bintable=0, exclude_data=True, columns=None):
+        def spy_read_full_row_columns(rows, bintable=0, exclude_data=True, columns=None):
+            requested_rows.append(tuple(rows))
             requested_columns.append(tuple(columns) if columns is not None else None)
-            return original_load_full_rows(rows, bintable=bintable, exclude_data=exclude_data, columns=columns)
+            return original_read_full_row_columns(rows, bintable=bintable, exclude_data=exclude_data, columns=columns)
 
-        monkeypatch.setattr(underlying_sdf, "load_full_rows", spy_load_full_rows)
+        monkeypatch.setattr(underlying_sdf, "_read_full_row_columns", spy_read_full_row_columns)
         sdf._fully_loaded_columns.update({"TCAL", "TSYS", "RADESYS"})
 
         result_df = sdf._load_full_rows_if_needed(test_df, ["TCAL", "TSYS"])
 
+        assert requested_rows == [(0, 1, 2)]
         assert len(requested_columns) == 1
         assert "RADESYS" in result_df.columns
         assert not result_df["RADESYS"].isna().all()
