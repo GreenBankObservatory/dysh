@@ -28,7 +28,7 @@ from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
-from ..spectra.core import find_non_blanks, make_channel_slice, mean_data, mean_tsys, sq_weighted_avg, tsys_weight
+from ..spectra.core import find_non_blanks, make_channel_slice, mean_data, mean_tsys, tsys_weight
 from ..spectra.scan import (
     FSScan,
     NodScan,
@@ -1677,7 +1677,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             missing_cols = [c for c in columns_needed_for_rows if c.upper() not in df.columns]
         else:
             missing_cols = [
-                c for c in required_columns if c.upper() not in df.columns and c.upper() not in self._fully_loaded_columns
+                c
+                for c in required_columns
+                if c.upper() not in df.columns and c.upper() not in self._fully_loaded_columns
             ]
 
         # In hybrid mode, also check if the selected rows have NaN in any required column
@@ -1768,7 +1770,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=col_dtype)
                         other_sdf._clear_index_cache()
             for col, values in fits_data.items():
-                sdf._index.loc[indices, col] = values  # noqa: PD011
+                sdf._index.loc[indices, col] = values
             sdf._clear_index_cache()
             # Mark that we've started loading from FITS (hybrid mode)
             if force:
@@ -4799,9 +4801,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return
 
         df = self._index
-        rows = df[
-            df["SCAN"].isin([vane_scan, sky_scan]) & (df["IFNUM"] == ifnum) & (df["PLNUM"] == plnum)
-        ]
+        rows = df[df["SCAN"].isin([vane_scan, sky_scan]) & (df["IFNUM"] == ifnum) & (df["PLNUM"] == plnum)]
         if len(rows) == 0:
             cache.add(key)
             return

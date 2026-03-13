@@ -4,6 +4,7 @@ Usage: python verify.py  (run in scripts/hi_otf/ after both scripts execute)
 Loads both output FITS files (otf_calibrated.fits from dysh, gbtidl.fits from
 gbtidl), time-averages each, and checks that spectrum values agree within 1%.
 """
+
 import sys
 
 import numpy as np

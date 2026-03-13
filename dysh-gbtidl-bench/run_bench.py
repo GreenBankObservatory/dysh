@@ -36,12 +36,8 @@ from rich.table import Table
 
 console = Console()
 
-SCRIPT_MS_RE = re.compile(
-    r"(?P<tool>DYSH|GBTIDL)_BENCH_SCRIPT_MS=\s*(?P<ms>[0-9.dDeE+\-]+)"
-)
-STAGE_MS_RE = re.compile(
-    r"(?P<tool>DYSH|GBTIDL)_BENCH_STAGE_MS\[(?P<stage>[^\]]+)\]=\s*(?P<ms>[0-9.dDeE+\-]+)"
-)
+SCRIPT_MS_RE = re.compile(r"(?P<tool>DYSH|GBTIDL)_BENCH_SCRIPT_MS=\s*(?P<ms>[0-9.dDeE+\-]+)")
+STAGE_MS_RE = re.compile(r"(?P<tool>DYSH|GBTIDL)_BENCH_STAGE_MS\[(?P<stage>[^\]]+)\]=\s*(?P<ms>[0-9.dDeE+\-]+)")
 
 # ---------------------------------------------------------------------------
 # Benchmark registry
@@ -351,7 +347,8 @@ def _run_verify(name: str, cfg: dict, data_path: str | None, has_gbtidl: bool, v
 
             result = subprocess.run(
                 ["uv", "run", "python", verify_script, str(dysh_out), str(gbtidl_out)],
-                capture_output=False, text=True,
+                capture_output=False,
+                text=True,
             )
             if result.returncode == 0:
                 console.print(f"[green bold]VERIFY PASS[/] {name}")
@@ -366,7 +363,9 @@ def _run_verify(name: str, cfg: dict, data_path: str | None, has_gbtidl: bool, v
         script_dir = Path(verify_script).parent
         result = subprocess.run(
             ["uv", "run", "python", Path(verify_script).name],
-            cwd=script_dir, capture_output=False, text=True,
+            cwd=script_dir,
+            capture_output=False,
+            text=True,
         )
         if result.returncode == 0:
             console.print(f"[green bold]VERIFY PASS[/] {name}")
@@ -395,9 +394,7 @@ def _stats_from_runs(runs: list[dict]) -> dict:
     script_times = [run["script_body_s"] for run in runs if run["script_body_s"] is not None]
     if len(script_times) == len(runs):
         stats["script_body"] = _stats(script_times)
-        stats["startup_overhead"] = _stats(
-            [max(0.0, run["elapsed_s"] - run["script_body_s"]) for run in runs]
-        )
+        stats["startup_overhead"] = _stats([max(0.0, run["elapsed_s"] - run["script_body_s"]) for run in runs])
     all_stage_keys = sorted({key for run in runs for key in run.get("stage_s", {}).keys()})
     if all_stage_keys:
         stage_stats = {}
@@ -555,9 +552,7 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--benchmarks",
         nargs="+",
@@ -647,8 +642,18 @@ def main() -> None:
                 require_script_marker = not cfg.get("script_body_zero", False)
 
                 runs = _run_iterations(
-                    "dysh", f"dysh ({name})", cfg["dysh_script"], data_path, has_output,
-                    mode, args.iterations, args.tmpdir, args.verbose, overall, progress, require_script_marker,
+                    "dysh",
+                    f"dysh ({name})",
+                    cfg["dysh_script"],
+                    data_path,
+                    has_output,
+                    mode,
+                    args.iterations,
+                    args.tmpdir,
+                    args.verbose,
+                    overall,
+                    progress,
+                    require_script_marker,
                 )
                 dysh_stats = _stats_from_runs(runs)
                 if cfg.get("script_body_zero"):
@@ -657,8 +662,18 @@ def main() -> None:
 
                 if has_gbtidl and cfg["gbtidl_script"]:
                     runs = _run_iterations(
-                        "gbtidl", f"gbtidl ({name})", cfg["gbtidl_script"], data_path, has_output,
-                        mode, args.iterations, args.tmpdir, args.verbose, overall, progress, require_script_marker,
+                        "gbtidl",
+                        f"gbtidl ({name})",
+                        cfg["gbtidl_script"],
+                        data_path,
+                        has_output,
+                        mode,
+                        args.iterations,
+                        args.tmpdir,
+                        args.verbose,
+                        overall,
+                        progress,
+                        require_script_marker,
                     )
                     gbtidl_stats = _stats_from_runs(runs)
                     if cfg.get("script_body_zero"):

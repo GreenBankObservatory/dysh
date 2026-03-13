@@ -31,6 +31,7 @@ def compat_stats(spec, start, stop):
     except TypeError:
         return spec[start:stop].stats()
 
+
 sdfits = GBTFITSLoad(os.environ.get("DYSH_BENCH_DATA_PATH", "/home/astro-util/HIsurvey/Session02"))
 tag("GBTFITSLoad")
 stage("GBTFITSLoad")

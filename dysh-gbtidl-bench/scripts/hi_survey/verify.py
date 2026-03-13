@@ -4,10 +4,11 @@ Usage: python verify.py dysh_stdout.txt gbtidl_stdout.txt
 Parses RMS_BLUE / RMS_RED key=value lines from each script's captured stdout
 and checks that values agree within rtol=0.02 (2%).
 """
+
 import re
 import sys
 
-_PAT = re.compile(r'RMS_(BLUE|RED)[= ]+([0-9.eE+\-]+)')
+_PAT = re.compile(r"RMS_(BLUE|RED)[= ]+([0-9.eE+\-]+)")
 
 
 def extract(path):

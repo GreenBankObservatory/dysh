@@ -366,11 +366,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     def _needs_gain_metadata(self) -> bool:
         """Return True when gain metadata are required for the current scale."""
-        return (
-            self._ap_eff is not None
-            or self._surface_error is not None
-            or self.tscale.lower() in {"ta*", "flux"}
-        )
+        return self._ap_eff is not None or self._surface_error is not None or self.tscale.lower() in {"ta*", "flux"}
 
     def _finish_initialization(
         self, calibrate, calibrate_kwargs, meta_rows, tscale, zenith_opacity, tsys=None, tcal=None
@@ -968,9 +964,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         None
 
         """
-        df = (self._bintable_df if self._bintable_df is not None else self._sdfits.index(bintable=self._bintable_index)).iloc[
-            rowindices
-        ]
+        df = (
+            self._bintable_df if self._bintable_df is not None else self._sdfits.index(bintable=self._bintable_index)
+        ).iloc[rowindices]
         columns = list(df.columns)
         self._meta = [dict(zip(columns, row)) for row in df.itertuples(index=False, name=None)]
         self._add_missing_but_required()
@@ -979,9 +975,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         for i in range(len(self._meta)):
             meta = self._meta[i]
             if "CUNIT1" not in meta:
-                meta["CUNIT1"] = (
-                    "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-                )
+                meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
             meta["CUNIT2"] = "deg"  # is this always true?
             meta["CUNIT3"] = "deg"  # is this always true?
             if meta["CUNIT1"] == "Hz":

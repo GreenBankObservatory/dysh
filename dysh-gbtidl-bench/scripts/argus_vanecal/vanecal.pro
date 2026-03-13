@@ -1,6 +1,6 @@
 pro vanecal,scan1,ifnum=ifnum,nfd=nfd
 ;
-;;Computes Tsys values for Argus beams for ifnum 
+;;Computes Tsys values for Argus beams for ifnum
 ;
 ;;Inputs:
 ;;scan1 = vane scan (sky scan assume to be scan1+1
@@ -12,7 +12,7 @@ pro vanecal,scan1,ifnum=ifnum,nfd=nfd
 ;;Prints approximate effective Tsys* for each beam (Tsys* = Tsys *exp(tau)/eta_l)
 ;;Tsys*=Tcal[Coff]/[Con-Coff]
 ;;Also prints the mapping between fdnum and beam number as well as
-;;weather conditions during the scan 
+;;weather conditions during the scan
 
 if (n_elements(ifnum) eq 0) then ifnum = 0
 if (n_elements(maint) eq 0) then maint=0
@@ -46,7 +46,7 @@ print, 'GBTIDL_BENCH_STAGE_MS[setup_tcal]=', (systime(/sec) - setup_t0) * 1000.0
 
 print
 print, FORMAT='(A7, F8.2)', 'freq = ', freq
-print, FORMAT='(A7, F5.3)', 'ztau = ', tau 
+print, FORMAT='(A7, F5.3)', 'ztau = ', tau
 print
 
 minTsys = 1000
@@ -82,7 +82,7 @@ for i=0,nfd-1 do begin
   if (i MOD 4) eq 3 then tsys3 = tsys
 
   if (i MOD 4) eq 3 then begin
-    print, FORMAT='(F10.1, F10.1, F10.1, F10.1)', tsys0, tsys1, tsys2, tsys3 
+    print, FORMAT='(F10.1, F10.1, F10.1, F10.1)', tsys0, tsys1, tsys2, tsys3
   endif
   print, 'TSYS_FDNUM_' + string(i, format='(I0)') + '=' + string(tsys, format='(F0.6)')
   print, 'GBTIDL_BENCH_STAGE_MS[fdnum_' + string(i, format='(I0)') + ']=' + string((systime(/sec) - fd_t0) * 1000.0, format='(F0.6)')

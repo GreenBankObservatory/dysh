@@ -5,10 +5,11 @@ Parses TSYS_FDNUM_N=value lines from dysh's captured stdout and
 TSYS_FDNUM_N=value lines from gbtidl's captured stdout, then checks
 that mean Tsys per feed agrees within rtol=0.02 (2%).
 """
+
 import re
 import sys
 
-_PAT = re.compile(r'TSYS_FDNUM_\s*(\d+)\s*[= ]+\s*([0-9.eE+\-]+)')
+_PAT = re.compile(r"TSYS_FDNUM_\s*(\d+)\s*[= ]+\s*([0-9.eE+\-]+)")
 
 
 def extract(path):

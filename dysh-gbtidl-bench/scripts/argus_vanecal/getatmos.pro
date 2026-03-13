@@ -1,6 +1,6 @@
 pro getatmos,mjd=time,freq=freq,debug=debug,OUTput
 
-;;Procedure to return zenith opacity and effective Tatm 
+;;Procedure to return zenith opacity and effective Tatm
 ;;from RMaddale
 ;; modifications by A.Schmiedeke
 
@@ -34,4 +34,3 @@ tatm=float(tmp[2])
 OUTput=[ztau, tatm]
 return
 end
-

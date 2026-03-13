@@ -50,7 +50,9 @@ else:
             calibrate=True,
             cal=False,
             apply_flags=True,
-        ).timeaverage(use_wcs=False).meta
+        )
+        .timeaverage(use_wcs=False)
+        .meta
     }
 
 center_meta = center["meta"]
