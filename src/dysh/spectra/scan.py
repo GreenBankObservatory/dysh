@@ -5,7 +5,6 @@ The classes that define various types of Scan and their calibration methods.
 import warnings
 from abc import abstractmethod
 from collections import UserList
-from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
@@ -1432,21 +1431,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         else:
             for scan in self.data:
                 self._timeaveraged.append(scan.timeaverage(weights, use_wcs=use_wcs))
-        if len(self._timeaveraged) == 1:
-            s = self._timeaveraged[0]
-            if ary:
-                s._weights = deepcopy(s.weights)
-            elif weights == "tsys":
-                s._weights = np.where(
-                    s.mask,
-                    0.0,
-                    core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"]),
-                )
-            elif weights is None:
-                s._weights = np.where(s.mask, 0.0, 1.0)
-            else:
-                s._weights = deepcopy(s.weights)
-        elif ary:
+        if ary:
             s = average_spectra(self._timeaveraged, weights="spectral")
         else:
             s = average_spectra(self._timeaveraged, weights=weights)

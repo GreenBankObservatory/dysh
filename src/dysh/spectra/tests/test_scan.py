@@ -588,7 +588,7 @@ class TestScanBase:
         block_avg = tp_sb.timeaverage()
 
         assert np.all(block_avg.spectral_axis == scan_avg.spectral_axis)
-        assert np.all(block_avg.flux == scan_avg.flux)
+        assert np.allclose(block_avg.data, scan_avg.data, equal_nan=True)
         assert block_avg.meta["EXPOSURE"] == scan_avg.meta["EXPOSURE"]
         assert block_avg.meta["TSYS"] == pytest.approx(scan_avg.meta["TSYS"])
         expected_weights = np.where(
@@ -596,7 +596,7 @@ class TestScanBase:
             0.0,
             core.tsys_weight(scan_avg.meta["EXPOSURE"], scan_avg.meta["CDELT1"], scan_avg.meta["TSYS"]),
         )
-        assert np.all(block_avg.weights == pytest.approx(expected_weights))
+        assert np.allclose(np.asarray(block_avg.weights), expected_weights, equal_nan=True)
 
     def test_timeaverage_single_scanblock_matches_scan_without_wcs(self, data_dir):
         sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
@@ -606,7 +606,7 @@ class TestScanBase:
         scan_avg = tp_sb[0].timeaverage(use_wcs=False)
         block_avg = tp_sb.timeaverage(use_wcs=False)
 
-        assert np.all(block_avg.flux == scan_avg.flux)
+        assert np.allclose(block_avg.data, scan_avg.data, equal_nan=True)
         assert block_avg.meta["EXPOSURE"] == scan_avg.meta["EXPOSURE"]
         assert block_avg.meta["TSYS"] == pytest.approx(scan_avg.meta["TSYS"])
         expected_weights = np.where(
@@ -614,7 +614,7 @@ class TestScanBase:
             0.0,
             core.tsys_weight(scan_avg.meta["EXPOSURE"], scan_avg.meta["CDELT1"], scan_avg.meta["TSYS"]),
         )
-        assert np.all(block_avg.weights == pytest.approx(expected_weights))
+        assert np.allclose(np.asarray(block_avg.weights), expected_weights, equal_nan=True)
 
 
 class TestTPScan:

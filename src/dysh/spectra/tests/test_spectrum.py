@@ -308,7 +308,15 @@ class TestSpectrum:
         # Check additional object properties.
         # Not all of them make sense, since their shapes will be different.
         for k in spec_pars:
-            assert vars(trimmed)[k] == vars(self.ps0)[k]
+            a = vars(trimmed)[k]
+            b = vars(self.ps0)[k]
+            if hasattr(a, "separation"):
+                # SkyCoord: compare positions with angular tolerance; proper motions
+                # can differ at machine-epsilon level depending on how the target was
+                # created (from precomputed target vs from meta CRVAL2/CRVAL3).
+                assert a.separation(b).arcsec < 1e-6
+            else:
+                assert a == b
         # Check that we can plot.
         trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs", interactive=False)
         # Check that we can write.
@@ -336,7 +344,11 @@ class TestSpectrum:
                 except TypeError:
                     assert trimmed_nu.meta[k] == v
         for k in spec_pars:
-            assert vars(trimmed_nu)[k] == vars(self.ps0)[k]
+            a, b = vars(trimmed_nu)[k], vars(self.ps0)[k]
+            if hasattr(a, "separation"):
+                assert a.separation(b).arcsec < 1e-6
+            else:
+                assert a == b
         trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK", interactive=False)
 
         # km/s.
@@ -352,7 +364,11 @@ class TestSpectrum:
                 except TypeError:
                     assert trimmed_vel.meta[k] == v
         for k in spec_pars:
-            assert vars(trimmed_vel)[k] == vars(self.ps0)[k]
+            a, b = vars(trimmed_vel)[k], vars(self.ps0)[k]
+            if hasattr(a, "separation"):
+                assert a.separation(b).arcsec < 1e-6
+            else:
+                assert a == b
         trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK", interactive=False)
 
         # m.

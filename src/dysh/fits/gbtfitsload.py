@@ -1794,11 +1794,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # rebuilt selection instead of returning the pre-fixup DataFrame.
         self._rebuild_merged_index(rebuild_flag=False)
         self._update_radesys()
-        if set(df.index).issubset(self._selection.index):
-            refreshed = self._selection.loc[df.index].copy()
-            refreshed = refreshed.loc[df.index]
-            return refreshed
 
+        # Cannot use self._selection.loc[df.index] because Selection.final/merge
+        # resets df.index to 0-based integers, which collide with unrelated rows
+        # in self._selection (which has its own 0-based index over all 300+ rows).
+        # Instead, re-extract the updated rows from sdf._index by matching on ROW.
+        result_parts = []
+        for fitsindex_val, group in df.groupby("FITSINDEX"):
+            sdf = self._sdf[int(fitsindex_val)]
+            bintable = self._get_bintable(group)
+            sdf_idx = sdf.index(bintable=bintable)
+            matching = sdf_idx[sdf_idx["ROW"].isin(group["ROW"])]
+            result_parts.append(matching)
+        if result_parts:
+            return pd.concat(result_parts)
         return df
 
     def _rebuild_merged_index(self, rebuild_flag: bool = True):

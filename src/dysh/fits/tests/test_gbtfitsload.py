@@ -3,6 +3,7 @@ import inspect
 import logging
 import os
 import shutil
+import sys
 import warnings
 from copy import deepcopy
 from pathlib import Path
@@ -2574,7 +2575,12 @@ class TestIndexFileLazyLoading:
         )
 
         def fake_update_radesys():
+            # Real _update_radesys updates both sdf._selection and sdf._sdf[i]._index
+            # via _fix_column.  Replicate that here so the return path sees the fixup.
             sdf._selection.loc[test_df.index, "RADESYS"] = "unit_test_frame"
+            for row in test_df["ROW"]:
+                mask = sdf._sdf[0]._index["ROW"] == row
+                sdf._sdf[0]._index.loc[mask, "RADESYS"] = "unit_test_frame"
 
         monkeypatch.setattr(sdf, "_update_radesys", fake_update_radesys)
 
@@ -2698,6 +2704,7 @@ class TestIndexFileLazyLoading:
         except KeyError as e:
             pytest.fail(f"getsigref failed with KeyError (lazy loading issue): {e}")
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fitsio not available on Windows")
     def test_lazy_load_vanecal_preserves_warm_metadata(self):
         """
         Test that vanecal lazy loading retains Argus warm-load metadata.
@@ -2711,6 +2718,7 @@ class TestIndexFileLazyLoading:
         tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=0, plnum=0, tcal=272)
         assert tsys == pytest.approx(221.7994624067703)
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fitsio not available on Windows")
     def test_lazy_load_vanecal_multiple_feeds_sequence(self):
         """
         Test that repeated Argus vanecal calls across feeds work from .index files.
@@ -2730,6 +2738,7 @@ class TestIndexFileLazyLoading:
         assert np.all(np.isfinite(tsys_values))
         assert tsys_values[1] == pytest.approx(221.7994624067703)
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fitsio not available on Windows")
     def test_lazy_load_gettp_timeaverage_multiple_feeds_preserves_radesys(self):
         """
         Test that repeated Argus TP time averages across feeds keep usable RADESYS metadata.
