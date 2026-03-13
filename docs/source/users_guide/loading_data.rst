@@ -37,17 +37,22 @@ Flags and Flag Files
 Data may come with flag files (with extension ".flag").  By default dysh does
 not read these files because primarily the contain VEGAS spur channels which are more quickly
 flagged algorithmically based on information in the SDFITS header.  You can control
-flagging on input with the ``skipflags`` and ``flag_vegas`` keywords, both of which default to True.
+flagging on input with the ``skipflags`` (default: True) and ``flag_vegas`` (default: False) keywords.
+
+.. note::
+   It is more efficient to use ``flag_vegas=True`` in calibration routines rather than in ``GBTFITSLoad``.
+   ``GBTFITSLoad(flag_vegas=True)`` would cause all rows in the SDFITS files(s) to be read, since the keywords needed
+   to calculate the VEGAS spur locations are defined per row.
 
 .. code:: Python
 
    # Load a single SDFITS file. Read in .flag file if it exists.
    # VEGAS spurs are still flagged algorithmically.
-   sdfits = GBTFITSLoad("/path/to/mydata.fits", skipflags=False)
+   sdfits = GBTFITSLoad("/path/to/mydata.fits", skipflags=False, flag_vegas=True)
 
    # Load multiple SDFITS files from a given directory.
    # Do not read in any .flag files and do not flag VEGAS spurs.
-   sdfits = GBTFITSLoad("/path/to/data/", flag_vegas=False)
+   sdfits = GBTFITSLoad("/path/to/data/")
 
 .. tip::
 
