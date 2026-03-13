@@ -306,7 +306,9 @@ class TestGBTFITSLoad:
         pssb2 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert pssb2[0].nchan == 32768
         ps2 = pssb2[0].timeaverage()
-        assert np.nansum(abs(ps2.data.data - table2["DATA"][0]) < 8e-6)  # Marc reported the test fails for him with 2e-6.
+        assert np.nansum(
+            abs(ps2.data.data - table2["DATA"][0]) < 8e-6
+        )  # Marc reported the test fails for him with 2e-6.
         assert ps2.meta["TSYS"] == 28.069919712410798
         assert ps2.meta["TSYS"] == pytest.approx(table2["TSYS"][0])
 
