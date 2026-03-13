@@ -1908,22 +1908,24 @@ class TPScan(ScanBase):
         where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
         """
         df = self._bintable_df
+        exposure = df["EXPOSURE"].to_numpy()
+        duration = df["DURATION"].to_numpy()
         if self.calstate is None:
-            exp_ref_on = df.iloc[self._refonrows]["EXPOSURE"].to_numpy()
-            exp_ref_off = df.iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-            dur_ref_on = df.iloc[self._refonrows]["DURATION"].to_numpy()
-            dur_ref_off = df.iloc[self._refoffrows]["DURATION"].to_numpy()
+            exp_ref_on = exposure[self._refonrows]
+            exp_ref_off = exposure[self._refoffrows]
+            dur_ref_on = duration[self._refonrows]
+            dur_ref_off = duration[self._refoffrows]
 
         elif self.calstate:
-            exp_ref_on = df.iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_on = exposure[self._refonrows]
             exp_ref_off = 0
-            dur_ref_on = df.iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_on = duration[self._refonrows]
             dur_ref_off = 0
         elif self.calstate == False:  # noqa: E712
             exp_ref_on = 0
-            exp_ref_off = df.iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+            exp_ref_off = exposure[self._refoffrows]
             dur_ref_on = 0
-            dur_ref_off = df.iloc[self._refoffrows]["DURATION"].to_numpy()
+            dur_ref_off = duration[self._refoffrows]
 
         self._exposure = exp_ref_on + exp_ref_off
         self._duration = dur_ref_on + dur_ref_off
@@ -1941,9 +1943,9 @@ class TPScan(ScanBase):
         False   :math:`\\Delta\nu_{REFOFF}`
         =====  ================================================================
         """
-        df = self._bintable_df
-        df_ref_on = df.iloc[self._refonrows]["CDELT1"].to_numpy()
-        df_ref_off = df.iloc[self._refoffrows]["CDELT1"].to_numpy()
+        delta_freq = self._bintable_df["CDELT1"].to_numpy()
+        df_ref_on = delta_freq[self._refonrows]
+        df_ref_off = delta_freq[self._refoffrows]
         if self.calstate is None:
             delta_freq = 0.5 * (df_ref_on + df_ref_off)
         elif self.calstate:
@@ -2304,10 +2306,12 @@ class PSScan(ScanBase):
             The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
         df = self._bintable_df
-        exp_sig_on = df.iloc[self._sigonrows]["EXPOSURE"].to_numpy()
-        exp_sig_off = df.iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
-        dur_sig_on = df.iloc[self._sigonrows]["DURATION"].to_numpy()
-        dur_sig_off = df.iloc[self._sigoffrows]["DURATION"].to_numpy()
+        exposure = df["EXPOSURE"].to_numpy()
+        duration = df["DURATION"].to_numpy()
+        exp_sig_on = exposure[self._sigonrows]
+        exp_sig_off = exposure[self._sigoffrows]
+        dur_sig_on = duration[self._sigonrows]
+        dur_sig_off = duration[self._sigoffrows]
         if self._has_refspec:
             exp_ref = self.refspec.meta.get("EXPOSURE", None)
             dur_ref = self.refspec.meta.get("DURATION", None)
@@ -2320,10 +2324,10 @@ class PSScan(ScanBase):
                     "Can't set duration time for PSScan integrations because reference spectrum has no duration time in its metadata. Solve with refspec.meta['DURATION']=value."
                 )
         else:
-            exp_ref_on = df.iloc[self._refonrows]["EXPOSURE"].to_numpy()
-            exp_ref_off = df.iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-            dur_ref_on = df.iloc[self._refonrows]["DURATION"].to_numpy()
-            dur_ref_off = df.iloc[self._refoffrows]["DURATION"].to_numpy()
+            exp_ref_on = exposure[self._refonrows]
+            exp_ref_off = exposure[self._refoffrows]
+            dur_ref_on = duration[self._refonrows]
+            dur_ref_off = duration[self._refoffrows]
 
             if not self._nocal:
                 exp_ref = exp_ref_on + exp_ref_off
@@ -2378,14 +2382,14 @@ class PSScan(ScanBase):
         respectively.
 
         """
-        df = self._bintable_df
-        df_sig_on = df.iloc[self._sigonrows]["CDELT1"].to_numpy()
-        df_sig_off = df.iloc[self._sigoffrows]["CDELT1"].to_numpy()
+        delta_freq = self._bintable_df["CDELT1"].to_numpy()
+        df_sig_on = delta_freq[self._sigonrows]
+        df_sig_off = delta_freq[self._sigoffrows]
         if self._has_refspec:
             df_ref_on = df_ref_off = np.full_like(self._sigoffrows, self.refspec.meta["CDELT1"])
         else:
-            df_ref_on = df.iloc[self._refonrows]["CDELT1"].to_numpy()
-            df_ref_off = df.iloc[self._refoffrows]["CDELT1"].to_numpy()
+            df_ref_on = delta_freq[self._refonrows]
+            df_ref_off = delta_freq[self._refoffrows]
         if not self._nocal:
             df_ref = 0.5 * (df_ref_on + df_ref_off)
             df_sig = 0.5 * (df_sig_on + df_sig_off)
