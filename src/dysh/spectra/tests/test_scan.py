@@ -348,7 +348,9 @@ class TestSubBeamNod:
         assert sbn.meta["TSYS"] == 1.0
         assert sbn.meta["DURATION"] > sbn.meta["EXPOSURE"]
 
-        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, flag_vegas=False).timeaverage()
+        sbn = sdf.subbeamnod(
+            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, flag_vegas=False
+        ).timeaverage()
 
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == pytest.approx(100.0)
