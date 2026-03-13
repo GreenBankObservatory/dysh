@@ -689,7 +689,7 @@ class SpectrumPlot(PlotBase):
 
         self.update_limits()
 
-    def show_baseline(self, y, color="k") -> None:
+    def show_baseline(self, y, *args, **kwargs) -> None:
         """
         Show a baseline model with values `y`.
 
@@ -697,11 +697,16 @@ class SpectrumPlot(PlotBase):
         ----------
         y : array
             Ordinate axes values of the baseline model.
-        color :
-            Color for the baseline data.
+        args : tuple
+            Arguments passed to `~matplotlib.pyplot.plot`.
+        kwargs : `~matplotlib.lines.Line2D` properties, optional
+            Keyword arguments passed to `~matplotlib.pyplot.plot`.
         """
 
-        self.axes.plot(self._sa, y.to(self._fa.unit), c=color, gid="baseline")
+        self.axes.plot(self._sa, y.to(self._fa.unit), *args, **kwargs, gid="baseline")
+
+        if "label" in kwargs.keys():
+            self.axes.legend()
 
         self.figure.canvas.draw_idle()
 
