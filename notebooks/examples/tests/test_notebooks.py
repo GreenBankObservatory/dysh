@@ -8,6 +8,11 @@ from nbclient import NotebookClient
 # Collect notebook files at module level
 NOTEBOOK_DIR = Path("notebooks/examples/")
 NOTEBOOK_FILES = list(NOTEBOOK_DIR.glob("*.ipynb"))
+ALLOWED_ERROR_NAMES = [
+    "requests.exceptions.ReadTimeout",
+    "requests.exceptions.HTTPError",
+    "requests.exceptions.ConnectTimeout",
+]
 
 
 def check_notebook_execution(notebook_file):
@@ -26,7 +31,7 @@ def check_notebook_execution(notebook_file):
     try:
         # Change the current working directory to the notebook's directory
         os.chdir(notebook_dir)
-        client = NotebookClient(nb, timeout=600)
+        client = NotebookClient(nb, timeout=600, allow_error_names=ALLOWED_ERROR_NAMES)
         client.execute()
     finally:
         # Always restore directory
@@ -56,8 +61,13 @@ def test_single_top_level_header(notebook_file):
         if cell.cell_type == "markdown":
             source = cell.source
             lines = source.split("\n")
+            md_code = False
             for line in lines:
-                if line.startswith("# "):
+                if line.startswith("```") and not md_code:
+                    md_code = True
+                elif line.startswith("```") and md_code:
+                    md_code = False
+                if line.startswith("# ") and not md_code:
                     top_level_headers += 1
 
     assert top_level_headers == 1, f"Notebook {notebook_file} has {top_level_headers} top-level headers."
