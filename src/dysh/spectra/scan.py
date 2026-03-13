@@ -1076,7 +1076,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             w_collapsed = w
 
         # Build metadata from first integration, then update aggregated fields
-        avg_meta = deepcopy(self.meta[0])
+        avg_meta = dict(self.meta[0])
         avg_meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         avg_meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w_collapsed[non_blanks])
         avg_meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
