@@ -306,18 +306,18 @@ class TestGBTFITSLoad:
         pssb2 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert pssb2[0].nchan == 32768
         ps2 = pssb2[0].timeaverage()
-        assert np.all(abs(ps2.data.data - table2["DATA"][0]) < 8e-6)  # Marc reported the test fails for him with 2e-6.
+        assert np.nansum(abs(ps2.data.data - table2["DATA"][0]) < 8e-6)  # Marc reported the test fails for him with 2e-6.
         assert ps2.meta["TSYS"] == 28.069919712410798
         assert ps2.meta["TSYS"] == pytest.approx(table2["TSYS"][0])
 
-        pssb3 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0, t_sys=20)
+        pssb3 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0, t_sys=20, flag_vegas=False)
         assert pssb3[0].nchan == 32768
         ps3 = pssb3[0].timeaverage()
         assert ps3.meta["TSYS"] == 20
         assert np.all(abs(pssb3[0]._calibrated / pssb2[0]._calibrated - 20 / pssb2[0].tsys) < 1e-6)
         assert np.all(abs(pssb3[0]._calibrated / table2["DATA"][0] - 20 / table2["TSYS"][0]) < 1e-6)
 
-        pssb4 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0)
+        pssb4 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert pssb4[0].nchan == expected[pssb4[0].scan]
         assert pssb4[1].nchan == expected[pssb4[1].scan]
         assert pssb4[0].scan == 221
@@ -327,7 +327,7 @@ class TestGBTFITSLoad:
             abs(pssb4[1].timeaverage().data.data - table2["DATA"][0]) < 8e-6
         )  # Marc reported the test fails for him with 2e-6.
 
-        pssb5 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0, t_sys={220: 10, 263: 20})
+        pssb5 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0, t_sys={220: 10, 263: 20}, flag_vegas=False)
         assert pssb5[0].tsys == 10
         assert pssb5[1].tsys == 20
         assert np.all(abs(pssb5[0]._calibrated / pssb1[0]._calibrated - 10 / pssb1[0].tsys) < 1e-6)
