@@ -1810,8 +1810,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if len(self._selection) == len(sdf_index) and np.array_equal(
                 self._selection.index.to_numpy(), sdf_index.index.to_numpy()
             ):
-                for col in sdf_index.columns:
-                    self._selection[col] = sdf_index[col].to_numpy(copy=False)
+                pd.DataFrame.__init__(self._selection, sdf_index, copy=False)
                 return
 
         df = None
