@@ -4473,6 +4473,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         tcold: float | None = None,
         twarm: float | None = None,
         apply_flags: bool = True,
+        flag_vegas: bool = True,
     ):
         """
         This routine returns the system temperature and gain for the selected W-band channel.
@@ -4504,6 +4505,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Set the warm temperature. By default it will use the value in the TWARM column of the SDFITS.
         apply_flags : bool, optional
             If True, apply flags before computing the system temperature.
+        flag_vegas : bool
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
 
         Returns
         -------
@@ -4526,6 +4529,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "calibrate": True,
             "cal": False,
             "apply_flags": apply_flags,
+            "flag_vegas": flag_vegas,
+            "vane": True,
         }
         vsky = self.gettp(CALPOSITION="Observing", **tp_args).timeaverage()
         vcold1 = self.gettp(CALPOSITION="Cold1", **tp_args).timeaverage()
@@ -4569,6 +4574,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_warm: float | None = None,
         t_bkg: float = 2.725,
         apply_flags=True,
+        flag_vegas: bool = True,
         **kwargs,
     ):
         """
@@ -4601,6 +4607,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Background temperature in K.
         apply_flags : bool, optional
             If True, apply flags before deriving the system temperature.
+        flag_vegas : bool, optional
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
 
         Returns
         -------
@@ -4618,6 +4626,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             calibrate=True,
             cal=False,
             apply_flags=apply_flags,
+            flag_vegas=flag_vegas,
             vane=True,
         ).timeaverage()
 
