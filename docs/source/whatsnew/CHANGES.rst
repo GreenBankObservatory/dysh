@@ -32,7 +32,7 @@ Bug Fixes
 - GBTOnline not functioning properly
 - Running scripts from CLI
 - Handling masks during spectral smoothing
-    - GBTFITSLoad getrow fails.
+- GBTFITSLoad getrow fails.
 
  `The full list of bugs fixed is here. <https://github.com/GreenBankObservatory/dysh/issues?q=is%3Aissue%20state%3Aclosed%20closed%3A%3E2025-09-25%20label%3Abug>`_
 
