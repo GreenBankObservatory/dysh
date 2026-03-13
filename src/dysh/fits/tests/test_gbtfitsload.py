@@ -357,7 +357,7 @@ class TestGBTFITSLoad:
         # Get the answer from dysh.
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
-        tps_on = sdf.gettp(scan=152, sig=True, cal=True, calibrate=True, ifnum=0, plnum=0, fdnum=0)
+        tps_on = sdf.gettp(scan=152, sig=True, cal=True, calibrate=True, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert len(tps_on) == 1
 
         # Compare.
@@ -368,7 +368,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now with the noise diode Off.
-        tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=True, ifnum=0, plnum=0, fdnum=0)
+        tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=True, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert len(tps_off) == 1
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits"
         hdu = fits.open(gbtidl_file)
@@ -383,7 +383,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now, both on and off.
-        tps = sdf.gettp(scan=152, sig=None, cal=None, calibrate=True, ifnum=0, plnum=0, fdnum=0)
+        tps = sdf.gettp(scan=152, sig=None, cal=None, calibrate=True, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert len(tps) == 1
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
         hdu = fits.open(gbtidl_file)
@@ -400,7 +400,7 @@ class TestGBTFITSLoad:
         # Now do some sig=F data.
         sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
-        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=True)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=True, flag_vegas=False)
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_1.fits"
         )
@@ -415,7 +415,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
-        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=False)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=False, flag_vegas=False)
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_0.fits"
         )
@@ -430,7 +430,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
-        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=None)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=None, flag_vegas=False)
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_all.fits"
         )
@@ -478,7 +478,7 @@ class TestGBTFITSLoad:
                 plnum=v["PLNUM"],
                 fdnum=0,
                 cal=v["CAL"],
-                sig=v["SIG"],
+                sig=v["SIG"], flag_vegas=False,
             )
             if v["CAL"]:
                 assert np.all(tps[0]._refcalon[0] == tps[0].total_power(0).flux.value)
@@ -494,27 +494,27 @@ class TestGBTFITSLoad:
             # diff = tp.flux.value - np.nanmean(cal, axis=0)
             assert np.all(tp.flux.value - np.nanmean(cal, axis=0) == 0)
         # Check that selection is being applied properly.
-        tp_scans = sdf.gettp(scan=[6, 7], plnum=0, ifnum=2, fdnum=0)
+        tp_scans = sdf.gettp(scan=[6, 7], plnum=0, ifnum=2, fdnum=0, flag_vegas=False)
         # Weird that the results are different for a bunch of channels.
         # This has to do with slight differences in Tsys weighting in ScanBlock.timeaverage() vs. Scan.timeaverage()
         assert np.all(
-            (sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0).timeaverage().flux - tp_scans[0].timeaverage().flux).value
+            (sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage().flux - tp_scans[0].timeaverage().flux).value
             < 2e-6
         )
         assert np.all(
-            (sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0).timeaverage().flux - tp_scans[1].timeaverage().flux).value
+            (sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage().flux - tp_scans[1].timeaverage().flux).value
             < 2e-6
         )
         assert np.all(
             (
-                sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0).timeaverage(weights=None).flux
+                sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage(weights=None).flux
                 - tp_scans[0].timeaverage(weights=None).flux
             ).value
             == 0
         )
         assert np.all(
             (
-                sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0).timeaverage(weights=None).flux
+                sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage(weights=None).flux
                 - tp_scans[1].timeaverage(weights=None).flux
             ).value
             == 0
@@ -523,24 +523,24 @@ class TestGBTFITSLoad:
         # Multiple binary tables.
         fits_path = f"{self.data_dir}/AGBT04A_008_02/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.testrim.fits"
         sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
-        tpsb = sdf.gettp(scan=269, ifnum=0, plnum=0, fdnum=0)
+        tpsb = sdf.gettp(scan=269, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert tpsb[0].meta[0]["OBJECT"] == "U8249"
         assert tpsb[0].nchan == 32768
-        tpsb = sdf.gettp(scan=220, ifnum=0, plnum=0, fdnum=0)
+        tpsb = sdf.gettp(scan=220, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert tpsb[0].meta[0]["OBJECT"] == "3C286"
         assert tpsb[0].nchan == 8192
-        tpsb = sdf.gettp(scan=274, ifnum=0, plnum=0, fdnum=0)
+        tpsb = sdf.gettp(scan=274, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert tpsb[0].meta[0]["OBJECT"] == "U8091"
         assert tpsb[0].nchan == 32768
 
         # No noise diodes.
-        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0).timeaverage()
+        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, flag_vegas=False).timeaverage()
         assert tp_nnd.meta["TSYS"] == 1.0
         tsys = 30
-        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys).timeaverage()
+        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys, flag_vegas=False).timeaverage()
         assert tp_nnd.meta["TSYS"] == tsys
         tsys = {295: 35}
-        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys).timeaverage()
+        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys, flag_vegas=False).timeaverage()
         assert tp_nnd.meta["TSYS"] == tsys[295]
 
     def test_repeated_scan_number(self):
@@ -832,7 +832,7 @@ class TestGBTFITSLoad:
         data_file = path / "TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(data_file, flag_vegas=False)
         sdf.flag_channel([[10, 20], [30, 41]])
-        sb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, apply_flags=True)
+        sb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, flag_vegas=False, apply_flags=True)
         ta = sb.timeaverage()
         # average_spectra masks out the NaN in channel 3072
         expected_mask = np.hstack([np.arange(10, 21), np.arange(30, 42), np.array([3072])])
@@ -1247,7 +1247,7 @@ class TestGBTFITSLoad:
         # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
-        nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0)
+        nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0, flag_vegas=False)
         nodsp0 = nodsb[0].timeaverage()
         nodsp1 = nodsb[1].timeaverage()
 
@@ -1575,8 +1575,8 @@ class TestGBTFITSLoad:
         sdf_file = f"{self.data_dir}/AGBT18A_333_21/AGBT18A_333_21.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
-        ps1 = sdf.getps(scan=11, fdnum=0, plnum=0, ifnum=0).timeaverage()
-        ps2 = sdf.getps(scan=11, fdnum=1, plnum=1, ifnum=0).timeaverage()
+        ps1 = sdf.getps(scan=11, fdnum=0, plnum=0, ifnum=0, flag_vegas=False).timeaverage()
+        ps2 = sdf.getps(scan=11, fdnum=1, plnum=1, ifnum=0, flag_vegas=False).timeaverage()
 
         # Get stats and check.
         s1 = ps1.stats()
@@ -1746,13 +1746,13 @@ class TestGBTFITSLoad:
         sdf_file = f"{self.data_dir}/AGBT15B_244_07/AGBT15B_244_07_test"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
-        tsys, gain = sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=0)
+        tsys, gain = sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=0, flag_vegas=False)
         assert tsys == pytest.approx(106.97707617351139)
         assert gain == pytest.approx(8.811870868732733e-07)
 
         # Make it error.
         with pytest.raises(Exception):
-            sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
+            sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3, flag_vegas=False)
             assert "no data" in caplog.text
 
     def test_vanecal(self):
@@ -1764,10 +1764,10 @@ class TestGBTFITSLoad:
         tcal = 272
         ifnum = 0
         plnum = 0
-        tsys = sdf.vanecal(scan=329, fdnum=1, tcal=tcal, ifnum=ifnum, plnum=plnum)
+        tsys = sdf.vanecal(scan=329, fdnum=1, tcal=tcal, ifnum=ifnum, plnum=plnum, flag_vegas=False)
         assert tsys == pytest.approx(221.7994624067703)
 
-        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=ifnum, plnum=plnum)
+        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=ifnum, plnum=plnum, flag_vegas=False)
         if not Path("/users/rmaddale/bin/getForecastValues").is_file():
             assert tsys == pytest.approx(212.62577140649026)
         else:
