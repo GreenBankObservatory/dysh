@@ -280,6 +280,7 @@ nb_execution_timeout = -1
 # Where to store the notebook cache
 nb_execution_cache_path = "jupyter_cache"
 
+nb_scroll_outputs = True
 
 myst_enable_extensions = [
     "amsmath",

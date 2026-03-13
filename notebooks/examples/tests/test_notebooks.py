@@ -56,8 +56,13 @@ def test_single_top_level_header(notebook_file):
         if cell.cell_type == "markdown":
             source = cell.source
             lines = source.split("\n")
+            md_code = False
             for line in lines:
-                if line.startswith("# "):
+                if line.startswith("```") and not md_code:
+                    md_code = True
+                elif line.startswith("```") and md_code:
+                    md_code = False
+                if line.startswith("# ") and not md_code:
                     top_level_headers += 1
 
     assert top_level_headers == 1, f"Notebook {notebook_file} has {top_level_headers} top-level headers."
