@@ -246,10 +246,10 @@ class TestGBTFITSLoad:
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
 
         # Data reduction with dysh.
-        pssb = sdf.getps(scan=295, ifnum=0, plnum=0, fdnum=0)
+        pssb = sdf.getps(scan=295, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         ps = pssb.timeaverage()
         tsys = 28.0
-        pssb2 = sdf.getps(scan=295, ifnum=0, plnum=0, fdnum=0, t_sys=tsys)
+        pssb2 = sdf.getps(scan=295, ifnum=0, plnum=0, fdnum=0, t_sys=tsys, flag_vegas=False)
         ps2 = pssb2.timeaverage()
 
         with fits.open(idl_file) as hdu:
@@ -295,7 +295,7 @@ class TestGBTFITSLoad:
             table1 = hdu[1].data
             table2 = hdu[2].data
 
-        pssb1 = sdf.getps(scan=220, ifnum=0, plnum=0, fdnum=0)
+        pssb1 = sdf.getps(scan=220, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert pssb1[0].nchan == 8192
         assert pssb1[0].nint == 1
         ps1 = pssb1[0].timeaverage()
