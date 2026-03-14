@@ -148,7 +148,7 @@ Use the ``remove=False`` option to just plot the baseline fit without removing i
 
 .. code-block::
 
-    ps.baseline(1, include=ps.get_selected_regions(), remove=False)
+    ps.baseline(1, include=ps.regions, remove=False)
 
 
 The fit looks good.
@@ -159,13 +159,13 @@ We can check the stats before and after to see they've improved.
 
 .. code-block::
 
-    ps.get_selected_regions()
+    print(ps.regions)
     [(210,2871)]
 
     print(f"{ps[210:2871].stats()['mean']:.4f}, {ps[210:2871].stats()['rms']:.4f}")
     -0.0780 K, 0.0204 K
 
-    ps.baseline(1,include=ps.get_selected_regions(),remove=True)
+    ps.baseline(1,include=ps.regions,remove=True)
 
     print(f"{ps[210:2871].stats()['mean']:.4f}, {ps[210:2871].stats()['rms']:.4f}")
     -0.0000 K, 0.0204 K
