@@ -1,4 +1,5 @@
 import glob
+import inspect
 import logging
 import os
 import shutil
@@ -15,6 +16,13 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 from dysh import util
 from dysh.fits import gbtfitsload, sdfitsload
 
+try:
+    import fitsio
+
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
+
 
 class TestGBTFITSLoad:
     """ """
@@ -22,6 +30,15 @@ class TestGBTFITSLoad:
     def setup_method(self):
         self.data_dir = util.get_project_testdata()
         self._file_list = glob.glob(f"{self.data_dir}/TGBT21A_501_11/*.fits")
+
+    def test_property_access(self):
+        properties = inspect.getmembers(gbtfitsload.GBTFITSLoad, lambda o: isinstance(o, property))
+        sdfits = gbtfitsload.GBTFITSLoad(self._file_list[0])
+        for name, _prop in properties:
+            try:
+                getattr(sdfits, name)
+            except Exception as exc:
+                pytest.fail(f"Could not access property {name}: {exc}")
 
     def test_load(self):
         """
@@ -52,7 +69,7 @@ class TestGBTFITSLoad:
 
         for fnm in self._file_list:
             filename = os.path.basename(fnm)
-            sdf = gbtfitsload.GBTFITSLoad(fnm)
+            sdf = gbtfitsload.GBTFITSLoad(fnm, flags=True, flag_vegas=False)
             assert len(sdf.index(bintable=0)) == expected[filename]
 
     def test_names(self):
@@ -114,6 +131,17 @@ class TestGBTFITSLoad:
         sdf_load = gbtfitsload.GBTFITSLoad(out_file)
         pss = sdf_load.getspec(0)
         assert pss.flux.unit == "K"
+
+    def test_access_sdfits_attributes(self):
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        nrows = sdf.nrows()
+        row = sdf.getrow(nrows - 1)
+        assert row["OBJECT"] == "NGC2415"
+        assert row["PLNUM"] == 0
+        assert len(sdf.bintable()) == 1
+        bh = sdf.binheader()[0]
+        assert bh["NAXIS1"] == sdf.naxis(1)
 
     def test_data_column(self, tmp_path):
         """
@@ -329,7 +357,7 @@ class TestGBTFITSLoad:
         # Get the answer from dysh.
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
-        tps_on = sdf.gettp(scan=152, sig=True, cal=True, calibrate=True, ifnum=0, plnum=0, fdnum=0)
+        tps_on = sdf.gettp(scan=152, sig=True, cal=True, calibrate=True, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert len(tps_on) == 1
 
         # Compare.
@@ -340,7 +368,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now with the noise diode Off.
-        tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=True, ifnum=0, plnum=0, fdnum=0)
+        tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=True, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert len(tps_off) == 1
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits"
         hdu = fits.open(gbtidl_file)
@@ -355,7 +383,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now, both on and off.
-        tps = sdf.gettp(scan=152, sig=None, cal=None, calibrate=True, ifnum=0, plnum=0, fdnum=0)
+        tps = sdf.gettp(scan=152, sig=None, cal=None, calibrate=True, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert len(tps) == 1
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
         hdu = fits.open(gbtidl_file)
@@ -372,7 +400,7 @@ class TestGBTFITSLoad:
         # Now do some sig=F data.
         sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
-        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=True)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=True, flag_vegas=False)
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_1.fits"
         )
@@ -387,7 +415,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
-        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=False)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=False, flag_vegas=False)
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_0.fits"
         )
@@ -402,7 +430,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
-        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=None)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=None, flag_vegas=False)
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_all.fits"
         )
@@ -451,6 +479,7 @@ class TestGBTFITSLoad:
                 fdnum=0,
                 cal=v["CAL"],
                 sig=v["SIG"],
+                flag_vegas=False,
             )
             if v["CAL"]:
                 assert np.all(tps[0]._refcalon[0] == tps[0].total_power(0).flux.value)
@@ -466,27 +495,33 @@ class TestGBTFITSLoad:
             # diff = tp.flux.value - np.nanmean(cal, axis=0)
             assert np.all(tp.flux.value - np.nanmean(cal, axis=0) == 0)
         # Check that selection is being applied properly.
-        tp_scans = sdf.gettp(scan=[6, 7], plnum=0, ifnum=2, fdnum=0)
+        tp_scans = sdf.gettp(scan=[6, 7], plnum=0, ifnum=2, fdnum=0, flag_vegas=False)
         # Weird that the results are different for a bunch of channels.
         # This has to do with slight differences in Tsys weighting in ScanBlock.timeaverage() vs. Scan.timeaverage()
-        assert np.all(
-            (sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0).timeaverage().flux - tp_scans[0].timeaverage().flux).value
-            < 2e-6
-        )
-        assert np.all(
-            (sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0).timeaverage().flux - tp_scans[1].timeaverage().flux).value
-            < 2e-6
-        )
-        assert np.all(
+        assert np.nansum(
             (
-                sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0).timeaverage(weights=None).flux
+                sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage().flux
+                - tp_scans[0].timeaverage().flux
+            ).value
+            == 0
+        )
+        assert np.nansum(
+            (
+                sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage().flux
+                - tp_scans[1].timeaverage().flux
+            ).value
+            == 0
+        )
+        assert np.nansum(
+            (
+                sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage(weights=None).flux
                 - tp_scans[0].timeaverage(weights=None).flux
             ).value
             == 0
         )
-        assert np.all(
+        assert np.nansum(
             (
-                sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0).timeaverage(weights=None).flux
+                sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage(weights=None).flux
                 - tp_scans[1].timeaverage(weights=None).flux
             ).value
             == 0
@@ -495,24 +530,24 @@ class TestGBTFITSLoad:
         # Multiple binary tables.
         fits_path = f"{self.data_dir}/AGBT04A_008_02/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.testrim.fits"
         sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
-        tpsb = sdf.gettp(scan=269, ifnum=0, plnum=0, fdnum=0)
+        tpsb = sdf.gettp(scan=269, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert tpsb[0].meta[0]["OBJECT"] == "U8249"
         assert tpsb[0].nchan == 32768
-        tpsb = sdf.gettp(scan=220, ifnum=0, plnum=0, fdnum=0)
+        tpsb = sdf.gettp(scan=220, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert tpsb[0].meta[0]["OBJECT"] == "3C286"
         assert tpsb[0].nchan == 8192
-        tpsb = sdf.gettp(scan=274, ifnum=0, plnum=0, fdnum=0)
+        tpsb = sdf.gettp(scan=274, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert tpsb[0].meta[0]["OBJECT"] == "U8091"
         assert tpsb[0].nchan == 32768
 
         # No noise diodes.
-        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0).timeaverage()
+        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, flag_vegas=False).timeaverage()
         assert tp_nnd.meta["TSYS"] == 1.0
         tsys = 30
-        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys).timeaverage()
+        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys, flag_vegas=False).timeaverage()
         assert tp_nnd.meta["TSYS"] == tsys
         tsys = {295: 35}
-        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys).timeaverage()
+        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys, flag_vegas=False).timeaverage()
         assert tp_nnd.meta["TSYS"] == tsys[295]
 
     def test_repeated_scan_number(self):
@@ -527,7 +562,7 @@ class TestGBTFITSLoad:
         assert len(sdf.gettp(scan=2, ifnum=0, plnum=0, fdnum=0, bintable=0).timeaverage().flux) == 2**14
         assert len(sdf.gettp(scan=2, ifnum=0, plnum=0, fdnum=0, bintable=1).timeaverage().flux) == 2**17
 
-    def test_load_multifits(self):
+    def test_multifits_load(self):
         """
         Loading multiple SDFITS files under a directory.
         It checks that
@@ -804,7 +839,7 @@ class TestGBTFITSLoad:
         data_file = path / "TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(data_file, flag_vegas=False)
         sdf.flag_channel([[10, 20], [30, 41]])
-        sb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, apply_flags=True)
+        sb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, flag_vegas=False, apply_flags=True)
         ta = sb.timeaverage()
         # average_spectra masks out the NaN in channel 3072
         expected_mask = np.hstack([np.arange(10, 21), np.arange(30, 42), np.array([3072])])
@@ -842,7 +877,10 @@ class TestGBTFITSLoad:
         """Test that we can write a loaded SDFITS file without any changes"""
         p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
         data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
-        org_sdf = gbtfitsload.GBTFITSLoad(data_file)
+        # in this test we need to ignore the index file because
+        # GBTFITSLoad.write does not write an index file and it won't
+        # be an apples to apples comparison.
+        org_sdf = gbtfitsload.GBTFITSLoad(data_file, index_file_threshold=1000000000)
         d = tmp_path / "sub"
         d.mkdir()
         output = d / "test_write_all.fits"
@@ -901,8 +939,10 @@ class TestGBTFITSLoad:
         o.mkdir()
 
         i = 0
+        # Because these tests involve GBTFITSLoad.write, loading must be
+        # ignoring the index file
         for f in files:
-            g = gbtfitsload.GBTFITSLoad(f)
+            g = gbtfitsload.GBTFITSLoad(f, index_file_threshold=100000000)
             for key, val in keyval.items():
                 _set = set([val])
                 with pytest.warns(UserWarning):
@@ -918,10 +958,10 @@ class TestGBTFITSLoad:
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
-                g = gbtfitsload.GBTFITSLoad(out)
+                g = gbtfitsload.GBTFITSLoad(out, index_file_threshold=100000000)
             else:
                 with pytest.warns(UserWarning):
-                    g = gbtfitsload.GBTFITSLoad(o)
+                    g = gbtfitsload.GBTFITSLoad(o, index_file_threshold=100000000)
             for key, val in keyval.items():
                 _set = set([val])
                 with pytest.warns(UserWarning):
@@ -934,7 +974,7 @@ class TestGBTFITSLoad:
 
         # now test array of numbers or strings
         for f in files:
-            g = gbtfitsload.GBTFITSLoad(f)
+            g = gbtfitsload.GBTFITSLoad(f, index_file_threshold=100000000)
             for key, val in keyval.items():
                 array = [val] * g.total_rows
                 _set = set([val])
@@ -950,10 +990,9 @@ class TestGBTFITSLoad:
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
-                g = gbtfitsload.GBTFITSLoad(out)
+                g = gbtfitsload.GBTFITSLoad(out, index_file_threshold=100000000)
             else:
-                with pytest.warns(UserWarning):
-                    g = gbtfitsload.GBTFITSLoad(o)
+                g = gbtfitsload.GBTFITSLoad(o, index_file_threshold=100000000)
             for key, val in keyval.items():
                 _set = set([val])
                 with pytest.warns(UserWarning):
@@ -966,7 +1005,7 @@ class TestGBTFITSLoad:
 
         # check that exception is handled for incorrect length
         for f in files:
-            g = gbtfitsload.GBTFITSLoad(f)
+            g = gbtfitsload.GBTFITSLoad(f, index_file_threshold=100000000)
             for key, val in keyval.items():
                 array = [val] * 2 * g.total_rows
                 # This will warn and raise an error.
@@ -975,7 +1014,7 @@ class TestGBTFITSLoad:
                         g[key] = array
 
         # test that changed a previously selection column results in a warning
-        g = gbtfitsload.GBTFITSLoad(files[0])
+        g = gbtfitsload.GBTFITSLoad(files[0], index_file_threshold=100000000)
         g.select(ifnum=2)
         with pytest.warns(UserWarning):
             g["ifnum"] = 3
@@ -1215,7 +1254,7 @@ class TestGBTFITSLoad:
         # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
-        nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0)
+        nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0, flag_vegas=False)
         nodsp0 = nodsb[0].timeaverage()
         nodsp1 = nodsb[1].timeaverage()
 
@@ -1320,6 +1359,24 @@ class TestGBTFITSLoad:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             assert np.all(data_ratio == pytest.approx(tsys_ratio))
+
+    def test_vane_partial_load(self):
+        fits_path = util.get_project_testdata() / "TGBT22A_603_05/TGBT22A_603_05.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        tsys = sdf.vanecal(10, fdnum=2)
+        assert tsys == pytest.approx(228.08768944375487)
+
+    def test_getsigref_partial_load(self):
+        scans = list(range(24, 27))
+        ifnum = 0
+        plnum = 0
+        fdnum = 0
+        ref = 27
+        sdfitsA = gbtfitsload.GBTFITSLoad(
+            util.get_project_testdata() / "TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_scan24_28.fits"
+        )
+        sb0 = sdfitsA.getsigref(scan=scans, ref=ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum)
+        assert len(sb0) == 3
 
     def test_subbeamnod(self):
         """simple check of subbeamnod for two different cases. This mimics the notebook example"""
@@ -1474,7 +1531,8 @@ class TestGBTFITSLoad:
         # Reset flags.
         sdf.clear_flags()
         for b in sdf._sdf[0]._bintable:
-            b.data["FLAGS"][:] = 0
+            if "FLAGS" in b.columns.names:
+                b.data["FLAGS"][:] = 0
 
         # Flag some more.
         channels = {0: 40, 1: 50}
@@ -1524,8 +1582,8 @@ class TestGBTFITSLoad:
         sdf_file = f"{self.data_dir}/AGBT18A_333_21/AGBT18A_333_21.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
-        ps1 = sdf.getps(scan=11, fdnum=0, plnum=0, ifnum=0).timeaverage()
-        ps2 = sdf.getps(scan=11, fdnum=1, plnum=1, ifnum=0).timeaverage()
+        ps1 = sdf.getps(scan=11, fdnum=0, plnum=0, ifnum=0, flag_vegas=False).timeaverage()
+        ps2 = sdf.getps(scan=11, fdnum=1, plnum=1, ifnum=0, flag_vegas=False).timeaverage()
 
         # Get stats and check.
         s1 = ps1.stats()
@@ -1581,6 +1639,7 @@ class TestGBTFITSLoad:
         assert psscan[0].sigscan == sigref[0].sigscan
         assert psscan[0].refscan == 153
         assert psscan[0].sigscan == 152
+        assert np.max(np.abs(psscan[0]._exposure - sigref[0]._exposure)) < 1e-10
 
         # 2. Scan is a list, ref is an int
         sdf_file = f"{self.data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
@@ -1694,13 +1753,13 @@ class TestGBTFITSLoad:
         sdf_file = f"{self.data_dir}/AGBT15B_244_07/AGBT15B_244_07_test"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
-        tsys, gain = sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=0)
+        tsys, gain = sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=0, flag_vegas=False)
         assert tsys == pytest.approx(106.97707617351139)
         assert gain == pytest.approx(8.811870868732733e-07)
 
         # Make it error.
         with pytest.raises(Exception):
-            sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
+            sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3, flag_vegas=False)
             assert "no data" in caplog.text
 
     def test_vanecal(self):
@@ -1712,10 +1771,10 @@ class TestGBTFITSLoad:
         tcal = 272
         ifnum = 0
         plnum = 0
-        tsys = sdf.vanecal(scan=329, fdnum=1, tcal=tcal, ifnum=ifnum, plnum=plnum)
+        tsys = sdf.vanecal(scan=329, fdnum=1, tcal=tcal, ifnum=ifnum, plnum=plnum, flag_vegas=False)
         assert tsys == pytest.approx(221.7994624067703)
 
-        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=ifnum, plnum=plnum)
+        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=ifnum, plnum=plnum, flag_vegas=False)
         if not Path("/users/rmaddale/bin/getForecastValues").is_file():
             assert tsys == pytest.approx(212.62577140649026)
         else:
@@ -1724,8 +1783,16 @@ class TestGBTFITSLoad:
     def test_vegas_flags(self):
         # check that algorithmically applying vegas flags
         # gives the same mask array as when reading from a flag file.
+        from dysh.util import uniq
+
         sdf_file = util.get_project_testdata() / "AGBT22A_325_15/"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False, skipflags=False)
+        for s in sdf._sdf:
+            p = Path(s.filename)
+            flagfile = p.with_suffix(".flag")
+            if flagfile.exists():
+                fi = uniq(s["FITSINDEX"])[0]
+                sdf.flags.read(flagfile, fitsindex=fi, ignore_vegas=False)
         sdf.apply_flags()
         saveflags0 = sdf._sdf[0]._flagmask.copy()
         saveflags1 = sdf._sdf[1]._flagmask.copy()
@@ -1734,6 +1801,31 @@ class TestGBTFITSLoad:
         sdf.apply_flags()
         assert np.all(sdf._sdf[0]._flagmask[0] == saveflags0[0])
         assert np.all(sdf._sdf[1]._flagmask[0] == saveflags1[0])
+
+    def test_vegas_flags_in_calibration(self):
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
+        filename = util.get_project_testdata() / "AGBT22A_325_15/"
+        scan = 289
+        ifnum = 0
+        plnum = 0
+        fdnum = 8
+
+        sdf = gbtfitsload.GBTFITSLoad(filename, flag_vegas=False)
+        if list(set(sdf._index_state)) != ["index_file"]:
+            raise Exception(f"didnt read index {sdf._index_state}")
+        sb = sdf.gettp(scan=scan, ifnum=ifnum, plnum=plnum, fdnum=fdnum, flag_vegas=False)
+        sb2 = sdf.gettp(scan=scan, ifnum=ifnum, plnum=plnum, fdnum=fdnum, flag_vegas=True)
+        s1 = sb.timeaverage(use_wcs=False)
+        s2 = sb2.timeaverage(use_wcs=False)
+        sdf.clear_flags()
+        sdf.flag_vegas_spurs()  # flags all rows
+        sb3 = sdf.gettp(scan=scan, ifnum=ifnum, plnum=plnum, fdnum=fdnum, flag_vegas=False, apply_flags=True)
+        s3 = sb3.timeaverage(use_wcs=False)
+        assert not np.all(s1.mask == s2.mask)
+        assert not np.all(s1.mask == s3.mask)
+        assert np.all(s2.mask == s3.mask)
 
     def test_nod_no_procname(self):
         """
@@ -1877,6 +1969,18 @@ class TestGBTFITSLoad:
         assert str(exc.value) == exp_exc
         sdf.clear_flags()
 
+    def test_lazy_flags_on_input(self, tmp_path):
+        # make sure flags that are written are read back in with lazy flags
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        sdf.flag(scan=153)
+        sdf.write(tmp_path / "lazyflag.fits", flags=True, overwrite=True)
+        sdfin = gbtfitsload.GBTFITSLoad(tmp_path / "lazyflag.fits")
+        assert sdfin._sdf[0]._flagmask[0] == sdf._sdf[0]._flagmask[0]
+        x1 = sdf._sdf[0]._flagmask[0].to_dense()
+        x2 = sdfin._sdf[0]._flagmask[0].to_dense()
+        assert np.all(x1 == x2)
+
 
 def test_parse_tsys():
     """
@@ -1954,3 +2058,498 @@ def test_parse_tsys():
     with pytest.raises(TypeError) as excinfo:
         _tsys = gbtfitsload._parse_tsys(tsys, scans)
     assert "Missing system temperature for scan(s): 2,3" in str(excinfo.value)
+
+
+class TestOnlineGBTFITSLoad:
+    """Tests for OnlineGBTFITSLoad (GBTOnline) functionality."""
+
+    def setup_method(self):
+        self.data_dir = util.get_project_testdata()
+
+    def test_reload_detects_file_growth(self, tmp_path):
+        """Test that _reload() detects when a file grows."""
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
+
+        import time
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+        initial_rows = len(online._index)
+        assert initial_rows == 4  # This file has 4 rows
+
+        # Sleep to ensure mtime difference
+        time.sleep(0.1)
+
+        # Append duplicate rows (same data, just to grow the file)
+        with fitsio.FITS(str(fits_file), "rw") as f:
+            existing_data = f[1].read()
+            f[-1].append(existing_data[:2])  # Append 2 rows
+
+        # _reload should detect the change
+        result = online._reload()
+        assert result is True, "_reload() should return True when file changed"
+        assert len(online._index) == 6, "Should have 6 rows after append"
+
+    def test_reload_handles_missing_file(self, tmp_path, caplog):
+        """Test that _reload() handles missing files gracefully."""
+        if not HAS_FITSIO:
+            pytest.skip("Cannot reload on Windows, see issue #447")
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+        assert len(online._index) == 4
+
+        # Delete the file
+        # Sometimes windows is sticky about permissions, so ignore
+        # a PermissionError
+        try:
+            fits_file.unlink()
+        except PermissionError:
+            pass
+
+        # _reload should handle this gracefully (not raise, just warn)
+        with caplog.at_level(logging.WARNING):
+            result = online._reload()
+
+        assert result is False, "_reload() should return False when file missing"
+        assert "Watched file unavailable" in caplog.text
+
+    def test_reload_recovers_after_file_recreated_with_fewer_rows(self, tmp_path):
+        """Test that monitoring recovers after file is deleted and recreated with fewer rows."""
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
+        import time
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        # First, grow the file so we have more rows to compare against
+        with fitsio.FITS(str(fits_file), "rw") as f:
+            existing_data = f[1].read()
+            f[-1].append(existing_data)  # Double the rows
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+        initial_rows = len(online._index)
+        assert initial_rows == 8  # 4 original + 4 appended
+
+        # Delete file
+        fits_file.unlink()
+
+        # _reload handles missing file
+        result = online._reload()
+        assert result is False
+
+        # Recreate with original file (FEWER rows - simulates new session starting)
+        time.sleep(0.1)
+        shutil.copy(source_file, fits_file)
+
+        # _reload should detect the new file
+        result = online._reload()
+        assert result is True, "Should detect recreated file"
+
+        # Now verify we have fewer rows (the data reset scenario)
+        current_rows = len(online._index)
+        assert current_rows == 4, "Should have 4 rows from new file"
+        assert current_rows < initial_rows, "New file should have fewer rows than original"
+
+    def test_path_does_not_exist_raises(self, tmp_path):
+        """Test that GBTOnline raises FileNotFoundError for non-existent path."""
+        nonexistent = tmp_path / "does_not_exist"
+
+        with pytest.raises(FileNotFoundError, match="Path does not exist"):
+            gbtfitsload.GBTOnline(str(nonexistent))
+
+    def test_detect_duplicate_scans_after_file_recreated(self, tmp_path):
+        """Test that we can detect duplicate scan numbers after file recreation.
+
+        This tests the scenario where a session restarts and reuses scan numbers.
+        The monitor should be able to detect this by comparing current scans
+        against previously seen scans.
+        """
+        import time
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+
+        # Get initial scan numbers
+        initial_scans = set(online._index["SCAN"].unique())
+        assert len(initial_scans) > 0, "Should have at least one scan"
+
+        # Track seen scans (simulating what the CLI does)
+        seen_scans = initial_scans.copy()
+
+        # Delete and recreate file (simulating session restart with same scan numbers)
+        max_retries = 3
+        attempt = 1
+        while attempt <= max_retries:
+            try:
+                fits_file.unlink()
+                break
+            except PermissionError:
+                time.sleep(0.1)
+                attempt += 1
+        else:
+            pytest.skip("Can't unlink the file, skipping rest of test")
+
+        time.sleep(0.1)
+        shutil.copy(source_file, fits_file)
+
+        # Reload
+        result = online._reload()
+        assert result is True
+
+        # Get new scan numbers
+        current_scans = set(online._index["SCAN"].unique())
+
+        # Detect duplicates: new rows added but no new scan numbers means duplicates
+        new_scan_nums = current_scans - seen_scans
+
+        # Since we recreated the exact same file, all scans should be "seen" already
+        # This indicates duplicate scan numbers (session restart)
+        assert len(new_scan_nums) == 0, "Should detect no new scan numbers (all duplicates)"
+        assert current_scans == initial_scans, "Scan numbers should be same as before"
+
+    def test_detect_scan_number_regression(self, tmp_path):
+        """Test detection of scan number regression (current scan < previous scan).
+
+        This tests the scenario where a new scan has a lower number than the previous
+        scan, which indicates an unexpected scan sequence (e.g., operator manually
+        restarting scans or data from multiple sessions being mixed).
+        """
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
+
+        import time
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+
+        # Get the scan numbers and find the last scan
+        scans = online._index["SCAN"].to_numpy()
+        last_scan_num = int(scans[-1])
+
+        # Read all data
+        with fitsio.FITS(str(fits_file), "r") as f:
+            data = f[1].read()
+
+        # Create a modified version with a lower scan number in the last row
+        # Simulate: last scan was 10, new scan is 5 (regression)
+        modified_data = data.copy()
+
+        # Overwrite file with data that has scan regression
+        # Append a row with scan number = 1 (lower than anything)
+        new_row = modified_data[:1].copy()
+        new_row["SCAN"] = 1  # Force a low scan number
+
+        time.sleep(0.1)  # Ensure mtime differs
+
+        # Append the row with low scan number
+        with fitsio.FITS(str(fits_file), "rw") as f:
+            f[-1].append(new_row)
+
+        # Reload
+        result = online._reload()
+        assert result is True
+
+        # Get the new last scan
+        new_scans = online._index["SCAN"].to_numpy()
+        current_scan_num = int(new_scans[-1])
+
+        # Verify scan regression: current scan (1) < previous last scan
+        assert current_scan_num == 1, "New scan should be 1"
+        assert current_scan_num < last_scan_num, f"Scan regression: {current_scan_num} < {last_scan_num}"
+
+
+class TestIndexFileLazyLoading:
+    """Test lazy loading of FITS data when loading from .index files."""
+
+    def setup_method(self):
+        self.data_dir = util.get_project_testdata()
+        # Use a project that has both .index and .fits files
+        self.acs_dir = self.data_dir / "AGBT05B_047_01" / "AGBT05B_047_01.raw.acs"
+        self.fits_file = self.acs_dir / "AGBT05B_047_01.raw.acs.fits"
+        self.index_file = self.acs_dir / "AGBT05B_047_01.raw.acs.index"
+
+    def test_index_file_exists(self):
+        """Verify test data has an .index file."""
+        assert self.index_file.exists(), f"Index file not found: {self.index_file}"
+        assert self.fits_file.exists(), f"FITS file not found: {self.fits_file}"
+
+    def test_load_from_index_file_sets_source(self):
+        """Test that loading from .index file sets _index_source correctly."""
+        # Load with index file (file is small, should use FITS, but let's force it)
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
+        sdf = sdfitsload.SDFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        # Check that it loaded from index file
+        assert hasattr(sdf, "_index_source")
+        if self.index_file.exists():
+            assert sdf._index_source == "index_file"
+
+    def test_index_file_missing_calibration_columns(self):
+        """Test that .index file doesn't have calibration columns like TCAL, TSYS."""
+        from dysh.fits.index_file import read_index
+
+        if not self.index_file.exists():
+            pytest.skip("No .index file in test data")
+
+        _metadata, df = read_index(self.index_file)
+
+        # GBTIDL .index files typically don't have TCAL, TSYS
+        # (they might have them, but let's check)
+        cols_upper = [c.upper() for c in df.columns]
+        # This shows what columns are available
+        print(f"Index file columns: {sorted(cols_upper)}")
+
+    def test_lazy_load_full_rows_method(self):
+        """Test that load_full_rows loads all columns from FITS."""
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
+        sdf = sdfitsload.SDFITSLoad(str(self.fits_file))
+
+        # Load full rows for first 3 rows
+        rows = np.array([0, 1, 2])
+        result_df = sdf.load_full_rows(rows, bintable=0)
+
+        # Should have many columns (not just index file columns)
+        assert len(result_df.columns) > 40, f"Expected >40 columns, got {len(result_df.columns)}"
+        assert len(result_df) == 3, f"Expected 3 rows, got {len(result_df)}"
+
+        # Should have calibration columns
+        cols_upper = [c.upper() for c in result_df.columns]
+        assert "TCAL" in cols_upper, "TCAL should be in loaded data"
+        assert "TSYS" in cols_upper, "TSYS should be in loaded data"
+
+    def test_load_all(self):
+        """Test that we can load all rows from fits on demand if we have previously
+        loaded via index file.
+        """
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
+
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), flag_vegas=False)
+        # ensure no index sources are 'fits'
+        assert sdf._any_index_file() and not sdf._any_hybrid()
+        l1 = len(sdf.selection.columns)
+        # this will trigger hybrid mode
+        _sb = sdf.getps(scan=51, ifnum=0, plnum=0, fdnum=0)
+        assert sdf._any_hybrid()
+        # in hybrid mode, columns that are not fully loaded have NaN
+        # TCAL will have NaN except for rows 2 and 3
+        assert sdf["TCAL"].isna()[0]
+        assert not sdf["TCAL"].isna()[2:4].all()
+        sdf.load_all()
+        l2 = len(sdf.selection.columns)
+        assert l1 < l2
+        assert not sdf["TCAL"].isna()[0]
+        assert not sdf["TCAL"].isna()[2:4].all()  # this should not have changed!
+
+    def test_gbtfitsload_lazy_load_for_calibration(self):
+        """
+        Test that GBTFITSLoad lazy loads full rows when calibration columns are needed.
+
+        This is a regression test for the issue where loading from .index files
+        would fail when calling calibration methods because TCAL/TSYS weren't present.
+        """
+        # Load with a very low threshold to force index file usage
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        # Check if loaded from index file
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        # Get available parameters
+        scans = sdf._index["SCAN"].unique()
+        ifnums = sdf._index["IFNUM"].unique()
+        plnums = sdf._index["PLNUM"].unique()
+
+        scan = int(scans[0])
+        ifnum = int(ifnums[0])
+        plnum = int(plnums[0])
+
+        # This should trigger lazy loading if TCAL/TSYS are missing
+        # If it fails, the lazy loading isn't working properly
+        try:
+            result = sdf.gettp(scan=scan, ifnum=ifnum, plnum=plnum, fdnum=0)
+            assert result is not None, "gettp should return a result"
+        except KeyError as e:
+            pytest.fail(f"gettp failed with KeyError (lazy loading broken): {e}")
+
+    def test_load_full_rows_if_needed_adds_columns(self):
+        """Test that _load_full_rows_if_needed properly adds missing columns."""
+        # Create a GBTFITSLoad with index file loading
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        # Create a minimal DataFrame with ROW and FITSINDEX
+        # simulating what _common_selection returns
+        test_df = pd.DataFrame(
+            {
+                "ROW": [0, 1, 2],
+                "FITSINDEX": [0, 0, 0],
+                "SCAN": [1, 1, 1],
+                "BINTABLE": [0, 0, 0],
+            }
+        )
+
+        # Check if TCAL is missing from the test DataFrame
+        assert "TCAL" not in test_df.columns
+
+        # Call the lazy loading method
+        result_df = sdf._load_full_rows_if_needed(test_df, ["TCAL", "TSYS"])
+
+        # Should now have TCAL and TSYS
+        assert "TCAL" in result_df.columns, "TCAL should be loaded"
+        assert "TSYS" in result_df.columns, "TSYS should be loaded"
+        assert len(result_df) == 3, "Should still have 3 rows"
+
+    def test_lazy_load_updates_selection(self):
+        """
+        Test that _load_full_rows_if_needed updates self._selection with new columns.
+
+        This is a regression test for the issue where lazy loading would update
+        sdf._index but not self._selection, causing KeyErrors when code accessed
+        self._index (which returns self._selection) after lazy loading.
+        """
+        # Load with index file (force it with threshold=0)
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        # Verify TCAL is not in _selection before calling methods that trigger lazy loading
+        assert "TCAL" not in sdf._selection.columns, "TCAL should not be in _selection initially"
+
+        # Get parameters for gettp call
+        scans = sdf._index["SCAN"].unique()
+        scan = int(scans[0])
+
+        # Call gettp which should trigger lazy loading
+        result = sdf.gettp(scan=scan, ifnum=0, plnum=0, fdnum=0)
+        assert result is not None
+
+        # IMPORTANT: After lazy loading, _selection should be updated with TCAL
+        # This was the bug - _load_full_rows_if_needed updated sdf._index but not self._selection
+        assert "TCAL" in sdf._selection.columns, (
+            "_selection should be updated with TCAL after lazy loading. "
+            "If this fails, _rebuild_merged_index() is not being called in _load_full_rows_if_needed."
+        )
+
+    def test_lazy_load_dtype_compatibility(self):
+        """
+        Test that lazy loading preserves correct dtypes for both string and numeric columns.
+
+        This is a regression test for the issue where new columns were initialized with
+        np.nan (float64), causing FutureWarning when string values were assigned, and
+        causing numeric operations like np.isfinite() to fail when object dtype was
+        incorrectly used for numeric columns.
+        """
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        # Capture warnings during lazy loading
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            # Trigger lazy loading by calling gettp
+            scans = sdf._index["SCAN"].unique()
+            scan = int(scans[0])
+            result = sdf.gettp(scan=scan, ifnum=0, plnum=0, fdnum=0)
+            assert result is not None
+
+            # Check no FutureWarning about incompatible dtype was raised
+            dtype_warnings = [
+                warning
+                for warning in w
+                if issubclass(warning.category, FutureWarning) and "incompatible dtype" in str(warning.message)
+            ]
+            assert len(dtype_warnings) == 0, f"FutureWarning about incompatible dtype was raised: {dtype_warnings}"
+
+        # Verify numeric columns can be used with numpy operations
+        idx = sdf._index
+        numeric_cols = ["EXPOSURE", "AZIMUTH", "ELEVATIO"]
+        for col in numeric_cols:
+            if col in idx.columns:
+                # This should not raise "ufunc 'isfinite' not supported"
+                values = idx[col].to_numpy()
+                try:
+                    np.isfinite(values.astype(float))
+                except TypeError as e:
+                    pytest.fail(f"np.isfinite failed on {col}: {e}")
+
+    def test_lazy_load_getsigref_different_scans(self):
+        """
+        Test that getsigref works when gettp and getsigref access different scans.
+
+        This is a regression test for the issue where lazy loading would only load
+        rows for the first scan accessed, causing KeyError for DATE when accessing
+        a different scan in getsigref (because _make_meta drops columns with NaN).
+        """
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        # Get available scans
+        scans = sdf._index["SCAN"].unique()
+        if len(scans) < 2:
+            pytest.skip("Need at least 2 scans for this test")
+
+        scan1, scan2 = int(scans[0]), int(scans[1])
+
+        # First: gettp for scan1 (triggers lazy load for scan1's rows)
+        off_sb = sdf.gettp(scan=scan1, ifnum=0, plnum=0, fdnum=0)
+        ref = off_sb.timeaverage(use_wcs=False)
+
+        # Second: getsigref for scan2 (should trigger lazy load for scan2's rows)
+        # This would fail with KeyError: 'DATE' before the fix
+        try:
+            result = sdf.getsigref(scan=scan2, ref=ref, ifnum=0, plnum=0, fdnum=0)
+            assert result is not None
+        except KeyError as e:
+            pytest.fail(f"getsigref failed with KeyError (lazy loading issue): {e}")

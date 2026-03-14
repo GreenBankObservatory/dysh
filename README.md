@@ -18,7 +18,7 @@ Example use case: you want to quickly install and use dysh on a non-GBO computer
 
 #### Via uv
 
-This will install a persistent global version of dysh via uv:
+This will install a persistent global version of dysh via [uv](https://docs.astral.sh/uv/):
 
 ```sh
 # Install dysh
@@ -77,7 +77,10 @@ the [GitHub issue tracker](https://github.com/GreenBankObservatory/dysh/issues).
 
 ## Development
 
-See the [For Developers](https://dysh.readthedocs.io/en/latest/for_developers/index.html) documentation for more detailed instructions on setting up a development environment.
+See the [For Developers](https://dysh.readthedocs.io/en/latest/for_developers/index.html)
+documentation for more detailed instructions on setting up a
+development environment. This is where you will need the full source
+code of dysh.
 
 ### Clone the Repo
 
@@ -107,17 +110,12 @@ Or you can source the uv virtual environment just like any other:
 $ source .venv/bin/activate
 ```
 
-#### Via Hatch
+after which the command prefix `uv run` is not needed anymore.
 
-Another workflow is to use [hatch](https://hatch.pypa.io/latest/tutorials/environment/basic-usage/). After installing hatch, this will look something like:
 
-```sh
-$ hatch shell
-```
+#### Classic workflow
 
-#### Without Hatch
-
-If you do not want to use Hatch, it is possible to develop using a "classic" workflow. From the root of the dysh repo:
+It is possible to develop using a "classic" workflow. From the root of the dysh repo:
 
 ```sh
 $ # Create your virtual environment
@@ -125,8 +123,10 @@ $ python -m venv /path/to/venv
 $ # Activate your virtual environment
 $ source /path/to/venv/bin/activate
 $ # Install dysh and its development dependencies
-$ pip install -e .[all]
+$ pip install --group dev -e .[all]
 ```
+
+Make sure you have a recent version of pip (>25.1).
 
 ### Testing
 We use [pytest](https://docs.pytest.org/en/stable/index.html) for unit and integration testing. From the top-level dysh directory, run:

@@ -37,17 +37,22 @@ Flags and Flag Files
 Data may come with flag files (with extension ".flag").  By default dysh does
 not read these files because primarily the contain VEGAS spur channels which are more quickly
 flagged algorithmically based on information in the SDFITS header.  You can control
-flagging on input with the ``skipflags`` and ``flag_vegas`` keywords, both of which default to True.
+flagging on input with the ``skipflags`` (default: True) and ``flag_vegas`` (default: False) keywords.
+
+.. note::
+   It is more efficient to use ``flag_vegas=True`` in calibration routines rather than in ``GBTFITSLoad``.
+   ``GBTFITSLoad(flag_vegas=True)`` would cause all rows in the SDFITS files(s) to be read, since the keywords needed
+   to calculate the VEGAS spur locations are defined per row.
 
 .. code:: Python
 
    # Load a single SDFITS file. Read in .flag file if it exists.
    # VEGAS spurs are still flagged algorithmically.
-   sdfits = GBTFITSLoad("/path/to/mydata.fits", skipflags=False)
+   sdfits = GBTFITSLoad("/path/to/mydata.fits", skipflags=False, flag_vegas=True)
 
    # Load multiple SDFITS files from a given directory.
    # Do not read in any .flag files and do not flag VEGAS spurs.
-   sdfits = GBTFITSLoad("/path/to/data/", flag_vegas=False)
+   sdfits = GBTFITSLoad("/path/to/data/")
 
 .. tip::
 
@@ -114,6 +119,22 @@ A powerful mechanism for examining and modifying the metadata columns is the `[]
    # The unique set of values in a column
    sdfits.udata["backend"]
 
+.. note::
+
+   dysh uses the GBTIDL-created index file (if present) to speed up loading of SDFITS
+   files. However, the index file does not include all columns in the
+   SDFITS binary table. When dysh needs columns that that are not in the
+   index file, it loads those columns from the SDFITS file(s).  So the
+   first time you use `[]` to access such a column you will see a message such as:
+
+   *Column(s) ['DOPFREQ'] not available in .index file. Loading from FITS file(s).*
+
+   For operations such as `gettp, getfs`, etc, the missing columns are
+   loaded *only for the rows needed* (again, for performance reasons -- especially
+   important for very large files). Therefore under certain circumstances you may
+   find that `sdf[column_name]` returns NaN for unloaded rows.  You can force
+   loading of all rows with `sdf.load_all()`, but note this can take a while for
+   very large files.
 
 Assignment also works.
 Assigned values will be used in any subsequent calibration commands.

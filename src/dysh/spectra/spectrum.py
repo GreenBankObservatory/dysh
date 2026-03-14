@@ -230,8 +230,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             See `exclude` for examples.
         color : str
             The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
-        model : str
-            One of 'polynomial', 'chebyshev', 'legendre', or 'hermite'
+        model : {'chebyshev', 'polynomial', 'legendre', 'hermite'}
+            Model to describe the baseline.
             Default: 'chebyshev'
         fitter : `~astropy.modeling.fitting.Fitter`
             The fitter to use. Default: `~astropy.modeling.fitting.LinearLSQFitter` (with `calc_uncertaintes=True`).
@@ -262,17 +262,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._subtracted = True
         if self._plotter is not None:
             if kwargs_opts["remove"]:
-                self._plotter._line.set_ydata(self._data)
+                self._plotter.set_ydata(self.flux, keep_unit=False)
                 self._plotter.clear_overlays(blines=True, oshows=False, catalog=False)
-                if not self._plotter._freezey:
-                    self._plotter.freey()
             else:
-                if self._plotter._xunit == "chan":
-                    xval = np.arange(len(self.flux))
-                else:
-                    xval = self._plotter._sa
-                bline_data = self._baseline_model(self.spectral_axis).to(self._plotter._yunit)
-                self._plotter.axes.plot(xval, bline_data, c=color, gid="baseline")
+                baseline_data = self._baseline_model(self.spectral_axis)
+                self._plotter.show_baseline(baseline_data, color=color)
             self._plotter.refresh()
 
     # baseline
@@ -292,9 +286,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
             if self._plotter is not None:
-                self._plotter._line.set_ydata(self._data)
-                if not self._plotter._freezey:
-                    self._plotter.freey()
+                self._plotter.set_ydata(self.flux, keep_unit=False)
         self._baseline_model = None
 
     @property
@@ -406,7 +398,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # these two should be the same
         nan1 = np.isnan(self.data).sum()
         nan2 = self.mask.sum()
-        if nan1 != nan2:
+        # @todo see https://github.com/GreenBankObservatory/dysh/issues/1038
+        if False and nan1 != nan2:
             logger.warning(f"Warning: {nan1} != {nan2}: inconsistency counters in mask usage")
         elif nan1 > 0:
             logger.info(f"Note: found {nan1} NaN (masked) values")
@@ -414,6 +407,34 @@ class Spectrum(Spectrum1D, HistoricalBase):
         out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
 
         return out
+
+    def check_stats(self, rms, rtol=1e-05):
+        """
+        Check statistics of a spectrum compared to pre-set value(s)
+        to a relative tolerance. Currently only the RMS is compared.
+
+        Parameters
+        ----------
+        rms : float or `~astropy.units.quantity.Quantity`
+            Value of the expected RMS value.   If a float is given
+            the comparison is only done on the value of the Quantity.
+
+        rtol : float
+            Relative tolerance with which the value is compared.
+            See also np.isclose().
+            Default:  1e-05
+        """
+        s = self.stats()
+        rms0 = s["rms"]
+        if type(rms) is not Quantity:
+            mesg = f" (no unit was given, assumed {rms0.unit})"
+            rms0 = rms0.value
+        else:
+            mesg = ""
+        if np.isclose(rms, rms0, rtol=rtol):
+            logger.info(f"rms is OK {mesg}")
+        else:
+            logger.warning(f"Found rms={rms0}, but expected {rms}.")
 
     def radiometer(self, roll=0):
         """
@@ -424,6 +445,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
         User is responsible for selecting the channels, via e.g. indexing:
 
              r1 = sp0[1000:2000].radiometer()
+
+        Note that the current `~dysh.fits.gbtfitsload.GBTFITSLoad.getsigref` function
+        may not set the exposure time correctly, and thus come up with the wrong
+        result from the radiometer function.
+        See issue #800 https://github.com/GreenBankObservatory/dysh/issues/800
+
 
         Parameters
         ----------
@@ -548,10 +575,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def normalness(self):
         """
-        Compute the p-value if the noise in a spectrum is gaussian
-        using the Anderson-Darling statistic
-        The p-value gives the probability that the spectrum is gaussian.
-        If p>0.05, the spectrum can be considered gaussian.
+        Compute the p-value to check if the noise in a spectrum is Gaussian
+        using the Anderson-Darling statistic.
+        If p>0.05, the spectrum can be considered Gaussian.
         See also "D'Agostino, R. B., & Stephens, M. A. (Eds.). (1986)
         Goodness-of-fit techniques" , table 4.9
         """
@@ -992,6 +1018,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             s = self.with_frame(toframe)
         else:
             s = self
+        if isinstance(unit, str) and "ch" in unit.lower():
+            return self.spectral_axis.replicate(np.arange(len(self.data)), unit=u.pix)
+        elif isinstance(unit, u.UnitBase) and unit.physical_type in ["dimensionless", "unknown"]:
+            return self.spectral_axis.replicate(np.arange(len(self.data)), unit=u.pix)
         if doppler_convention is not None:
             return s._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
         else:
@@ -1017,9 +1047,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     @log_call_to_history
     def set_frame(self, toframe):
-        """Set the sky coordinate and doppler tracking reference frame of this Spectrum. The header 'CTYPE1' will be changed accordingly.
+        """Set the sky coordinate and doppler tracking reference frame of this Spectrum.
+        The header 'CTYPE1' will be changed accordingly.
 
-        To make a copy of this Spectrum with new coordinate referece frmae instead, use `with_frame`.
+        To make a copy of this Spectrum with new coordinate reference frame instead, use `with_frame`.
 
         Parameters
         ----------
@@ -1217,7 +1248,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @classmethod
     def fake_spectrum(cls, nchan=1024, seed=None, normal=True, use_wcs=True, **kwargs):
         """
-        Create a fake spectrum with gaussian noise, useful for simple testing.
+        Create a fake spectrum with Gaussian noise, useful for simple testing.
         A default header is created, which may be modified with kwargs.
 
         Parameters
@@ -1452,6 +1483,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     "CRVAL3",
                     "CTYPE3",
                     "CUNIT3",
+                    # Data from 2005 have CRVAL4 but not CTYPE4
+                    # src/dysh/testdata/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits'
                     "CTYPE4",
                     "CRVAL4",
                     "DATE-OBS",
@@ -1748,7 +1781,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         new_spectrum = self.make_spectrum(
             Masked(new_flux, self.mask[start_idx:stop_idx]),
             meta=meta,
-            observer_location=Observatory[meta["TELESCOP"]],
+            observer_location=Observatory[meta.get("TELESCOP", "GBT")],
         )
         new_spectrum._weights = self._weights[start_idx:stop_idx]
         return new_spectrum

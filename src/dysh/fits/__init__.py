@@ -1,5 +1,12 @@
 """Classes and functions for importing SDFITS files"""
 
+try:
+    import fitsio  # noqa: F401
+
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
+
 # Configuration options follow.
 # These need to come after the global config variables, as some of the
 # submodules use them.
@@ -21,9 +28,11 @@ conf = Conf()
 
 from dysh.fits.core import *
 from dysh.fits.gb20mfitsload import GB20MFITSLoad  # noqa:F401
+from dysh.fits.gbtfitsload import GBTBackend  # noqa:F401
 from dysh.fits.gbtfitsload import GBTFITSLoad  # noqa:F401
 from dysh.fits.gbtfitsload import GBTOffline  # noqa:F401
 from dysh.fits.gbtfitsload import GBTOnline  # noqa:F401
+from dysh.fits.lazyflag import LazyFlagArray, LazyFlagContainer  # noqa:F401
 from dysh.fits.sdfitsload import SDFITSLoad  # noqa:F401
 
 from . import core
@@ -33,9 +42,10 @@ __all__ = (
     + core.__all__
     + [
         "GB20MFITSLoad",
+        "GBTBackend",
         "GBTFITSLoad",
         "GBTOffline",
-        "GBTOffline",
+        "GBTOnline",
         "SDFITSLoad",
     ]
 )

@@ -47,6 +47,10 @@ class TestSpecplot:
         self.tpplot = self.tp.plot(oshow=tp1)
         self.tpplot.oshow(tp2, color="r", linestyle="--")
 
+        # In channels.
+        self.tpplot = self.tp.plot(xaxis_unit="chan")
+        self.tpplot.oshow(tp2, color="r", linestyle="--")
+
     def test_kwargs(self):
         self.tp.plot(vel_frame="lsrk", doppler_convention="radio")
         self.tp.plot(title="testing")

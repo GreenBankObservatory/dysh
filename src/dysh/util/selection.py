@@ -138,6 +138,10 @@ class SelectionBase(DataFrame):
         a single column are allowed, e.g.,
         { 'glon':'crval2', 'lon':'crval2'}
 
+        Aliases whose target columns don't exist in the DataFrame are
+        silently skipped. This allows default aliases to work with partial
+        index data (e.g., from .index files that don't include WCS columns).
+
         Parameters
         ----------
         aliases : {}
@@ -148,14 +152,17 @@ class SelectionBase(DataFrame):
         Returns
         -------
         None.
-
-        Raises
-        ------
-            ValueError if the column name is not recognized.
         """
-        self._check_keys(aliases.values())
+        # Only set up aliases for columns that exist
+        skipped = []
         for k, v in aliases.items():
-            self._alias(k, v)
+            v_upper = v.upper()
+            if v_upper in self or v_upper in self._aliases:
+                self._alias(k, v)
+            else:
+                skipped.append(f"{k}->{v}")
+        if skipped:
+            logger.debug(f"Skipped aliases for missing columns: {skipped}")
 
     def _alias(self, key, column):
         """
@@ -1329,25 +1336,8 @@ class Flag(SelectionBase):
         self._selection_rules[idx].loc[:, "CHAN"] = ALL_CHANNELS
         self._channel_selection = None  # unused for flagging
 
-    def read(self, fileobj, ignore_vegas=False, **kwargs):
-        """Read a GBTIDL flag file and instantiate Flag object.
+    def _create_flag_file_rep(self, fileobj, ignore_vegas=False, **kwargs):
 
-        Parameters
-        ----------
-        fileobj : str, file-like or `pathlib.Path`
-            File to read.  If a file object, must be opened in a
-            readable mode.
-        ignore_vegas : bool
-            If True, ignore any flag rules which contain 'VEGAS_SPUR' in the line, as these
-            are usually flagged via algorithm. See :meth:`~dysh.util.core.calc_vegas_spurs`.
-        **kwargs : dict
-            Extra keyword arguments to apply to the flag rule.  (This is mainly for internal use.)
-
-        Returns
-        -------
-        None.
-
-        """
         # GBTIDL flag files two sections [header] and [flags]
         # In the [header] section is information about file creation.
         # The [flags] section containes the flag table
@@ -1384,6 +1374,8 @@ class Flag(SelectionBase):
 
         # Because the table header and table row delimeters are different,
         # Table.read() can't work.  So construct it row by row.
+        self._flag_file_rep = []
+
         f = open(fileobj)
         lines = f.read().splitlines()  # gets rid of \n
         f.close()
@@ -1431,7 +1423,7 @@ class Flag(SelectionBase):
                         vdict[header[i]] = int(float(v))
 
                 # our tag is gbtidl's idstring
-                tag = vdict.pop("IDSTRING", None)
+                vdict["tag"] = vdict.pop("IDSTRING", None)
                 bchan = vdict.pop("BCHAN", None)
                 echan = vdict.pop("ECHAN", None)
                 if bchan is not None and echan is not None:
@@ -1457,9 +1449,34 @@ class Flag(SelectionBase):
                     echan = [int(float(x)) for x in echan]
                     bchan = [0] * len(echan)
                     vdict["channel"] = tuple(zip(bchan, echan, strict=False))
-
                 if kwargs is not None:
-                    vdict.update(kwargs)
-                logger.debug(f"flag({tag=},{vdict})")
-                self.flag(tag=tag, check=False, **vdict)
-            self._table.sort(self._idtag[0])
+                    vdict.update(**kwargs)
+                self._flag_file_rep.append(vdict)
+
+    def read(self, fileobj, ignore_vegas=False, **kwargs):
+        """Read a GBTIDL flag file and instantiate Flag object.
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to read.  If a file object, must be opened in a
+            readable mode.
+        ignore_vegas : bool
+            If True, ignore any flag rules which contain 'VEGAS_SPUR' in the line, as these
+            are usually flagged via algorithm. See :meth:`~dysh.util.core.calc_vegas_spurs`.
+        **kwargs : dict
+            Extra keyword arguments to apply to the flag rule.  (This is mainly for internal use.)
+
+        Returns
+        -------
+        None.
+
+        """
+        self._create_flag_file_rep(fileobj, ignore_vegas, **kwargs)
+
+        if len(self._flag_file_rep) == 0:
+            logger.warning(f"No flag rules found in file {fileobj}")
+        for vdict in self._flag_file_rep:
+            logger.debug(f"flag(tag={vdict['tag']},{vdict})")
+            self.flag(check=False, **vdict)
+        self._table.sort(self._idtag[0])
