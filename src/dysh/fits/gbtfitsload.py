@@ -1369,20 +1369,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @property
     def backend(self) -> str:
         """Return the backend value or 'unknown' if it can't be currently determined.
-        
+
         **Note:** Some SDFITS files do not have the BACKEND or INSTRUME keywords in the
         primary header.   If the FITS metadata were loaded from an index file rather than the
         SDFITS binary table, the return string could be 'unknown' in this case even if
-        the binary table properly reflects the BACKEND value.        
+        the binary table properly reflects the BACKEND value.
         """
         if "INSTRUME" in self._selection:
             backend = str(next(iter(set(self["INSTRUME"])))).upper()
         if "BACKEND" in self._selection:
             backend = str(next(iter(set(self["BACKEND"])))).upper()
         else:
-            backend = "unknown"     
+            backend = "unknown"
         return backend
-    
+
     def is_vegas(self):
         """Check if these data appear to use the VEGAS backend
 
@@ -1428,9 +1428,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             selection = self._selection
 
         # could add:
-        #if self.backend != "VEGAS" and self.backend != "unknown":
+        # if self.backend != "VEGAS" and self.backend != "unknown":
         #    logger.warning(f"These are not VEGAS data {self.backend=}. No data will be flagged.")
-        #    return            
+        #    return
         if not self.is_vegas():
             msg = "These does not appear to be VEGAS data or the backend type could not be determined. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. Will attempt it anyway."
             logger.warning(msg)
@@ -1441,7 +1441,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 backend = uniq(g["BACKEND"].to_numpy())
                 if len(backend) > 1 or str(backend[0]) != "VEGAS":
                     logger.warning(f"These are not VEGAS data {backend=}. No data will be flagged.")
-                    return              
+                    return
                 vsprval = g["VSPRVAL"].to_numpy()
                 vspdelt = g["VSPDELT"].to_numpy()
                 vsprpix = g["VSPRPIX"].to_numpy()
