@@ -1366,6 +1366,23 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         self._flag.flag_channel(tag=tag, channel=channel)
 
+    @property
+    def backend(self) -> str:
+        """Return the backend value or 'unknown' if it can't be currently determined.
+        
+        **Note:** Some SDFITS files do not have the BACKEND or INSTRUME keywords in the
+        primary header.   If the FITS metadata were loaded from an index file rather than the
+        SDFITS binary table, the return string could be 'unknown' in this case even if
+        the binary table properly reflects the BACKEND value.        
+        """
+        if "INSTRUME" in self._selection:
+            backend = str(next(iter(set(self["INSTRUME"])))).upper()
+        if "BACKEND" in self._selection:
+            backend = str(next(iter(set(self["BACKEND"])))).upper()
+        else:
+            backend = "unknown"     
+        return backend
+    
     def is_vegas(self):
         """Check if these data appear to use the VEGAS backend
 
@@ -1373,21 +1390,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         -------
             True if FITS HEADER Keyword INSTRUME or BACKEND is present and equals 'VEGAS', False otherwise
         """
-        if "INSTRUME" in self._selection:
-            instrument = str(next(iter(set(self["INSTRUME"])))).upper()
-        else:
-            instrument = ""
-        if "BACKEND" in self._selection:
-            backend = str(next(iter(set(self["BACKEND"])))).upper()
-        else:
-            backend = ""
-        if instrument == "VEGAS" or backend == "VEGAS":
-            return True
-        else:
-            return False
+        return self.backend == "VEGAS"
 
     @log_call_to_history
-    def flag_vegas_spurs(self, flag_central: bool = False, selection: Selection = None, ignore_non_vegas: bool = False):
+    def flag_vegas_spurs(self, flag_central: bool = False, selection: Selection = None):
         """
         Flag VEGAS spur channels.
 
@@ -1405,14 +1411,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         selection : Selection, optional
             A Selection object which will indicate which rows to flag. If None, then all rows
             are flagged.
-        ignore_non_vegas : bool, optional
-            Set to True to flag VEGAS spurs even if `GBTFITSLoad.is_vegas()` is False.
-
         Returns
         -------
         None.
 
         """
+
         if selection is None:
             # If selection is None, then this method is not being called from a calibration
             # routine, so we need to read full index from the SDFITS binary table to ensure
@@ -1423,15 +1427,21 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.load_all()
             selection = self._selection
 
-        if not self.is_vegas() and not ignore_non_vegas:
-            return
-        elif not self.is_vegas():
-            msg = "This does not appear to be VEGAS data. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. Will attempt it anyway."
+        # could add:
+        #if self.backend != "VEGAS" and self.backend != "unknown":
+        #    logger.warning(f"These are not VEGAS data {self.backend=}. No data will be flagged.")
+        #    return            
+        if not self.is_vegas():
+            msg = "These does not appear to be VEGAS data or the backend type could not be determined. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. Will attempt it anyway."
             logger.warning(msg)
 
         try:
             df = selection.groupby(["FITSINDEX", "BINTABLE"])
             for _i, ((fi, bi), g) in enumerate(df):
+                backend = uniq(g["BACKEND"].to_numpy())
+                if len(backend) > 1 or str(backend[0]) != "VEGAS":
+                    logger.warning(f"These are not VEGAS data {backend=}. No data will be flagged.")
+                    return              
                 vsprval = g["VSPRVAL"].to_numpy()
                 vspdelt = g["VSPDELT"].to_numpy()
                 vsprpix = g["VSPRPIX"].to_numpy()
@@ -1450,7 +1460,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     self._sdf[fi]._additional_channel_mask[bi].or_rows(rows, np.array(p))
         except KeyError as k:
             logger.warning(
-                f"Can't determine VEGAS spur locations because one or more VSP keywords are missing from the FITS header {k}"
+                f"Can't determine VEGAS spur locations because one or more required keywords are missing from the FITS header {k}. No data will be flagged."
             )
 
     @log_call_to_history
