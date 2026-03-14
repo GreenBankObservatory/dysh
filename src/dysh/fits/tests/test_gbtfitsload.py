@@ -470,6 +470,7 @@ class TestGBTFITSLoad:
                         fdnum=0,
                         cal=v["CAL"],
                         sig=v["SIG"],
+                        flag_vegas=False,
                     )
                 continue
             tps = sdf.gettp(
@@ -498,33 +499,33 @@ class TestGBTFITSLoad:
         tp_scans = sdf.gettp(scan=[6, 7], plnum=0, ifnum=2, fdnum=0, flag_vegas=False)
         # Weird that the results are different for a bunch of channels.
         # This has to do with slight differences in Tsys weighting in ScanBlock.timeaverage() vs. Scan.timeaverage()
-        assert np.nansum(
+        assert np.all(
             (
                 sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage().flux
                 - tp_scans[0].timeaverage().flux
             ).value
-            == 0
+            < 2e-6
         )
-        assert np.nansum(
+        assert np.all(
             (
                 sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage().flux
                 - tp_scans[1].timeaverage().flux
             ).value
-            == 0
+            < 2e-6
         )
-        assert np.nansum(
+        assert np.all(
             (
                 sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage(weights=None).flux
                 - tp_scans[0].timeaverage(weights=None).flux
             ).value
-            == 0
+            < 2e-6
         )
-        assert np.nansum(
+        assert np.all(
             (
                 sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0, flag_vegas=False).timeaverage(weights=None).flux
                 - tp_scans[1].timeaverage(weights=None).flux
             ).value
-            == 0
+            < 2e-6
         )
 
         # Multiple binary tables.
