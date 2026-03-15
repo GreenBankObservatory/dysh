@@ -11,6 +11,10 @@ In this glossary we also note overloaded terms.
 .. glossary::
     :sorted:
 
+    ACS
+      Auto Correlating Spectrometer - an older spectrometer predating :term:`VEGAS` that
+      was active until the 2015 observing season.
+
     Argus
       A 16-:term:`pixel` W-band (74-116 GHz) focal plane array in use at the GBT.
       Named after a mythical figure with 100 eyes. See also https://www.gb.nrao.edu/argus/
