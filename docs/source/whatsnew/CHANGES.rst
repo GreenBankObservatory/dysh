@@ -2,7 +2,7 @@
 What's New?
 ***********
 
-Version 1.0.0
+Version 1.0.1
 =============
 
 .. _v1-0-0-bugfixes:
@@ -13,7 +13,7 @@ Bug Fixes
 73 Bug fixes including:
 
 - Incorrect tutorial notebooks
-- Various plotter bugs 
+- Various plotter bugs
 - Spectrum slicing in non-equatorial coordinates
 - Correct masks when time averaging
 - Correct weights and flags written by `Spectrum.write`
@@ -28,7 +28,7 @@ Bug Fixes
 - Tsys weight calculation broken
 - dysh logging to user-defined file
 - Tsys = nan not caught until calibrating
-- Dealing with repeated scan numbers 
+- Dealing with repeated scan numbers
 - GBTOnline not functioning properly
 - Running scripts from CLI
 - Handling masks during spectral smoothing
@@ -46,7 +46,7 @@ Functionality & Enhancements
 - Significant performance improvements, especially for large files and GBTOnline
 - Plotter updates
     - New TK-based plotter
-    - Histogram-style plotting option 
+    - Histogram-style plotting option
 - Spectral Line Search handles redshift
 - User provided spectral weights
 - Data quality assessment tools
