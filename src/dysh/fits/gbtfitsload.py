@@ -1427,21 +1427,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.load_all()
             selection = self._selection
 
-        # could add:
-        # if self.backend != "VEGAS" and self.backend != "unknown":
-        #    logger.warning(f"These are not VEGAS data {self.backend=}. No data will be flagged.")
-        #    return
-        if not self.is_vegas():
-            msg = "These does not appear to be VEGAS data or the backend type could not be determined. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. Will attempt it anyway."
-            logger.warning(msg)
-
+        if self.backend != "VEGAS" and self.backend != "unknown":
+            return #  Properly described non-VEGAS data will never enter the loop
+        
         try:
             df = selection.groupby(["FITSINDEX", "BINTABLE"])
             for _i, ((fi, bi), g) in enumerate(df):
                 backend = uniq(g["BACKEND"].to_numpy())
+                # If not VEGAS data , no data will be flagged.  
+                # Don't log message because we dont want message for every file/bintable.
                 if len(backend) > 1 or str(backend[0]) != "VEGAS":
-                    logger.warning(f"These are not VEGAS data {backend=}. No data will be flagged.")
-                    return
+                    return 
                 vsprval = g["VSPRVAL"].to_numpy()
                 vspdelt = g["VSPDELT"].to_numpy()
                 vsprpix = g["VSPRPIX"].to_numpy()
@@ -1459,7 +1455,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         p.append(mask)
                     self._sdf[fi]._additional_channel_mask[bi].or_rows(rows, np.array(p))
         except KeyError as k:
-            logger.warning(
+            logger.info(
                 f"Can't determine VEGAS spur locations because one or more required keywords are missing from the FITS header {k}. No data will be flagged."
             )
 
