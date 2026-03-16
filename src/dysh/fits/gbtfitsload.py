@@ -1428,16 +1428,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             selection = self._selection
 
         if self.backend != "VEGAS" and self.backend != "unknown":
-            return #  Properly described non-VEGAS data will never enter the loop
-        
+            return  #  Properly described non-VEGAS data will never enter the loop
+
         try:
             df = selection.groupby(["FITSINDEX", "BINTABLE"])
             for _i, ((fi, bi), g) in enumerate(df):
                 backend = uniq(g["BACKEND"].to_numpy())
-                # If not VEGAS data , no data will be flagged.  
+                # If not VEGAS data , no data will be flagged.
                 # Don't log message because we dont want message for every file/bintable.
                 if len(backend) > 1 or str(backend[0]) != "VEGAS":
-                    return 
+                    return
                 vsprval = g["VSPRVAL"].to_numpy()
                 vspdelt = g["VSPDELT"].to_numpy()
                 vsprpix = g["VSPRPIX"].to_numpy()
