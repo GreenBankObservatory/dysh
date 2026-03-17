@@ -67,6 +67,7 @@ Side-by-side Examples
 =====================
 
 The following are examples in GBTIDL and dysh that produce equivalent results.
+The dysh examples assume they are being run from the dysh shell, so that the modules imported on startup are available (e.g., ``from astropy import units as u``).
 
 OTF Mapping
 -----------
@@ -126,8 +127,9 @@ The GBTIDL version of this example can only be run with a display.
 
         sigref_smo.baseline(1, model="poly", include=region, remove=True)
 
-        stats_b = sigref_smo[2000*u.km/u.s:2500*u.km/u.s].stats()
-        stats_r = sigref_smo[3500*u.km/u.s:4000*u.km/u.s].stats()
+        kms = u.km/u.s
+        stats_b = sigref_smo[2000*kms:2500*kms].stats()
+        stats_r = sigref_smo[3500*kms:4000*kms].stats()
 
         rms = (stats_b["rms"] + stats_r["rms"])/2.
 
