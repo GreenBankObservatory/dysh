@@ -5,6 +5,7 @@ Unit tests for index_file module (SDFITS .index file support)
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -1274,3 +1275,319 @@ class TestMultiFileVegas:
 
         df_parsed = parse_sdfits_index_file(index_path)
         assert len(df_parsed) == len(df)
+
+
+_GBTIDL_DATA_DIR = get_project_testdata()
+
+
+class TestGBTIDLRegression:
+    """Compare dysh-written index files against GBTIDL-generated reference indices.
+
+    These tests load a real FITS file, build an index from the FITS data,
+    write it with dysh's write_index(), then compare the data rows against
+    the GBTIDL-generated .index file that ships with the testdata.
+    """
+
+    @staticmethod
+    def _compare_index_rows(dysh_path, gbtidl_path, atol_float=1e-3):
+        """Compare data rows between dysh-written and GBTIDL-generated index files.
+
+        Compares column-by-column with appropriate tolerance for floats.
+        Skips header comparison (timestamps/created_by will differ).
+
+        Parameters
+        ----------
+        dysh_path : Path
+            Path to dysh-written .index file
+        gbtidl_path : Path
+            Path to GBTIDL reference .index file
+        atol_float : float
+            Absolute tolerance for float comparisons
+        """
+        _, dysh_df = read_index(dysh_path)
+        _, gbtidl_df = read_index(gbtidl_path)
+
+        assert len(dysh_df) == len(gbtidl_df), f"Row count mismatch: dysh={len(dysh_df)}, gbtidl={len(gbtidl_df)}"
+
+        # Integer columns: must match exactly
+        int_cols = [
+            "INDEX",
+            "EXTENSION",
+            "ROW",
+            "E2ESCAN",
+            "PROCSEQN",
+            "SCAN",
+            "PLNUM",
+            "IFNUM",
+            "FEED",
+            "FDNUM",
+            "INT",
+            "NUMCHN",
+            "SUBREF",
+            "NSAVE",
+            "PROCSCAN",
+        ]
+        for col in int_cols:
+            if col in dysh_df.columns and col in gbtidl_df.columns:
+                np.testing.assert_array_equal(
+                    dysh_df[col].to_numpy(), gbtidl_df[col].to_numpy(), err_msg=f"Integer column {col} mismatch"
+                )
+
+        # String columns: must match exactly (after stripping whitespace)
+        # FILE is excluded — dysh uses the output filename, GBTIDL uses the original
+        # DATEOBS is excluded — GBTIDL truncates to date-only in some cases
+        # WCALPOS is excluded — GBTIDL derives from CALPOSITION which dysh doesn't always have
+        str_cols = [
+            "PROJECT",
+            "SOURCE",
+            "PROCEDURE",
+            "OBSID",
+            "POLARIZATION",
+            "SIG",
+            "CAL",
+            "SAMPLER",
+            "TIMESTAMP",
+            "PROCTYPE",
+        ]
+        for col in str_cols:
+            if col in dysh_df.columns and col in gbtidl_df.columns:
+                dysh_vals = dysh_df[col].astype(str).str.strip().to_numpy()
+                gbtidl_vals = gbtidl_df[col].astype(str).str.strip().to_numpy()
+                np.testing.assert_array_equal(dysh_vals, gbtidl_vals, err_msg=f"String column {col} mismatch")
+
+        # DATEOBS: dysh writes full ISO timestamp, GBTIDL may truncate to date-only.
+        # Compare the date prefix (first 10 chars).
+        if "DATEOBS" in dysh_df.columns and "DATEOBS" in gbtidl_df.columns:
+            dysh_dates = dysh_df["DATEOBS"].astype(str).str[:10].to_numpy()
+            gbtidl_dates = gbtidl_df["DATEOBS"].astype(str).str[:10].to_numpy()
+            np.testing.assert_array_equal(dysh_dates, gbtidl_dates, err_msg="DATEOBS date prefix mismatch")
+
+        # Float columns: compare with tolerance
+        float_cols = [
+            "AZIMUTH",
+            "ELEVATION",
+            "LONGITUDE",
+            "LATITUDE",
+            "TRGTLONG",
+            "TRGTLAT",
+            "LST",
+            "CENTFREQ",
+            "RESTFREQ",
+            "VELOCITY",
+            "FREQINT",
+            "FREQRES",
+            "BANDWIDTH",
+            "EXPOSURE",
+        ]
+        for col in float_cols:
+            if col in dysh_df.columns and col in gbtidl_df.columns:
+                dysh_vals = pd.to_numeric(dysh_df[col], errors="coerce").to_numpy()
+                gbtidl_vals = pd.to_numeric(gbtidl_df[col], errors="coerce").to_numpy()
+                # Use relative tolerance for large values, absolute for small
+                np.testing.assert_allclose(
+                    dysh_vals, gbtidl_vals, rtol=1e-6, atol=atol_float, err_msg=f"Float column {col} mismatch"
+                )
+
+    def test_cal_vegas_matches_gbtidl(self, tmp_path):
+        """Compare dysh index against GBTIDL for TGBT22A_503_02.cal.vegas."""
+        fits_path = _GBTIDL_DATA_DIR / "TGBT22A_503_02" / "TGBT22A_503_02.cal.vegas.fits"
+        gbtidl_index = _GBTIDL_DATA_DIR / "TGBT22A_503_02" / "TGBT22A_503_02.cal.vegas.index"
+        if not fits_path.exists() or not gbtidl_index.exists():
+            pytest.skip("Test data not found")
+
+        from dysh.fits import gbtfitsload
+
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, index_file_threshold=1000000000)
+        output = tmp_path / "TGBT22A_503_02.cal.vegas.fits"
+        sdf.write(output, write_index=True, overwrite=True, flags=False)
+
+        dysh_index = tmp_path / "TGBT22A_503_02.cal.vegas.index"
+        assert dysh_index.exists()
+        self._compare_index_rows(dysh_index, gbtidl_index)
+
+    def test_raw_vegas_a6_matches_gbtidl(self, tmp_path):
+        """Compare dysh index against GBTIDL for AGBT20B_014_03.raw.vegas.A6."""
+        fits_path = _GBTIDL_DATA_DIR / "AGBT20B_014_03.raw.vegas" / "AGBT20B_014_03.raw.vegas.A6.fits"
+        gbtidl_index = _GBTIDL_DATA_DIR / "AGBT20B_014_03.raw.vegas" / "AGBT20B_014_03.raw.vegas.A6.index"
+        if not fits_path.exists() or not gbtidl_index.exists():
+            pytest.skip("Test data not found")
+
+        from dysh.fits import gbtfitsload
+
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, index_file_threshold=1000000000)
+        output = tmp_path / "AGBT20B_014_03.raw.vegas.A6.fits"
+        sdf.write(output, write_index=True, overwrite=True, flags=False)
+
+        dysh_index = tmp_path / "AGBT20B_014_03.raw.vegas.A6.index"
+        assert dysh_index.exists()
+        self._compare_index_rows(dysh_index, gbtidl_index)
+
+    def test_multibank_vegas_matches_gbtidl(self, tmp_path):
+        """Compare dysh per-bank indices against GBTIDL for AGBT22A_325_15 (banks A and B)."""
+        bank_a_fits = _GBTIDL_DATA_DIR / "AGBT22A_325_15" / "AGBT22A_325_15.raw.vegas.A.fits"
+        bank_a_gbtidl = _GBTIDL_DATA_DIR / "AGBT22A_325_15" / "AGBT22A_325_15.raw.vegas.A.index"
+        bank_b_fits = _GBTIDL_DATA_DIR / "AGBT22A_325_15" / "AGBT22A_325_15.raw.vegas.B.fits"
+        bank_b_gbtidl = _GBTIDL_DATA_DIR / "AGBT22A_325_15" / "AGBT22A_325_15.raw.vegas.B.index"
+        if not all(p.exists() for p in [bank_a_fits, bank_a_gbtidl, bank_b_fits, bank_b_gbtidl]):
+            pytest.skip("Test data not found")
+
+        from dysh.fits import gbtfitsload
+
+        # Test Bank A
+        sdf_a = gbtfitsload.GBTFITSLoad(bank_a_fits, index_file_threshold=1000000000)
+        out_a = tmp_path / "bank_a.fits"
+        sdf_a.write(out_a, write_index=True, overwrite=True, flags=False)
+        self._compare_index_rows(tmp_path / "bank_a.index", bank_a_gbtidl)
+
+        # Test Bank B
+        sdf_b = gbtfitsload.GBTFITSLoad(bank_b_fits, index_file_threshold=1000000000)
+        out_b = tmp_path / "bank_b.fits"
+        sdf_b.write(out_b, write_index=True, overwrite=True, flags=False)
+        self._compare_index_rows(tmp_path / "bank_b.index", bank_b_gbtidl)
+
+    def test_gbtidl_getps_output_matches(self, tmp_path):
+        """Compare column header format against a GBTIDL-generated output index."""
+        gbtidl_index = _GBTIDL_DATA_DIR / "AGBT05B_047_01" / "gbtidl" / "AGBT05B_047_01.getps.acs.index"
+        if not gbtidl_index.exists():
+            pytest.skip("GBTIDL reference index not found")
+
+        # Verify the column header row matches exactly
+        gbtidl_rows = _get_rows_section(gbtidl_index)
+        # The column header is the first line of the rows section
+        expected_header = gbtidl_rows[0]
+        dysh_header = _generate_rows_header()
+        assert dysh_header == expected_header, "Column header format does not match GBTIDL output"
+
+
+class TestSparrow3Extended:
+    """Extended sparrow3 regression tests using additional .index.expected files.
+
+    These tests port additional sparrow3 test cases beyond the basic ones
+    already in TestSparrow3Ported.
+    """
+
+    def test_vegas_raw_ints_matches_sparrow3(self, tmp_path):
+        """Compare against sparrow3's test.vegas.raw.ints.index.expected.
+
+        This is a 4-row VEGAS test with real-world-like values including
+        varying polarizations (XX/YY), CAL states (T/F), and exposures.
+        """
+        expected_path = _SPARROW3_DATA_DIR / "test.vegas.raw.ints.index.expected"
+        if not expected_path.exists():
+            pytest.skip(f"sparrow3 expected file not found: {expected_path}")
+
+        expected = _get_rows_section(expected_path)
+        # Extract column values from the expected file to reconstruct input data
+        _, expected_df = read_index(expected_path)
+
+        # Write the expected data back through dysh's writer
+        metadata = IndexMetadata(
+            created="Fri Mar 22 16:59:58 2013",
+            last_modified="Fri Mar 22 16:59:58 2013",
+        )
+        index_path = tmp_path / "test.index"
+        write_index(index_path, metadata, expected_df)
+
+        actual = _get_rows_section(index_path)
+
+        # Column header should match
+        assert actual[0] == expected[0], "Column header does not match sparrow3"
+        # Data rows should match
+        assert len(actual) == len(expected), f"Row count: {len(actual) - 1} vs {len(expected) - 1}"
+        for i, (act, exp) in enumerate(zip(actual[1:], expected[1:], strict=True)):
+            assert act == exp, f"Data row {i} does not match sparrow3 (vegas.raw.ints)"
+
+    def test_acs_raw_ints_matches_sparrow3(self, tmp_path):
+        """Compare against sparrow3's test.acs.raw.ints.index.expected."""
+        expected_path = _SPARROW3_DATA_DIR / "test.acs.raw.ints.index.expected"
+        if not expected_path.exists():
+            pytest.skip(f"sparrow3 expected file not found: {expected_path}")
+
+        expected = _get_rows_section(expected_path)
+        _, expected_df = read_index(expected_path)
+
+        metadata = IndexMetadata(
+            created="Fri Mar 22 16:59:58 2013",
+            last_modified="Fri Mar 22 16:59:58 2013",
+        )
+        index_path = tmp_path / "test.index"
+        write_index(index_path, metadata, expected_df)
+
+        actual = _get_rows_section(index_path)
+        assert actual[0] == expected[0], "Column header does not match sparrow3"
+        assert len(actual) == len(expected)
+        for i, (act, exp) in enumerate(zip(actual[1:], expected[1:], strict=True)):
+            assert act == exp, f"Data row {i} does not match sparrow3 (acs.raw.ints)"
+
+    def test_vegas_raw_only_matches_sparrow3(self, tmp_path):
+        """Compare against sparrow3's test.vegas.raw.only.index.expected (224 data rows)."""
+        expected_path = _SPARROW3_DATA_DIR / "test.vegas.raw.only.index.expected"
+        if not expected_path.exists():
+            pytest.skip(f"sparrow3 expected file not found: {expected_path}")
+
+        expected = _get_rows_section(expected_path)
+        _, expected_df = read_index(expected_path)
+
+        metadata = IndexMetadata(
+            created="Fri Mar 22 16:59:58 2013",
+            last_modified="Fri Mar 22 16:59:58 2013",
+        )
+        index_path = tmp_path / "test.index"
+        write_index(index_path, metadata, expected_df)
+
+        actual = _get_rows_section(index_path)
+        assert actual[0] == expected[0], "Column header does not match sparrow3"
+        assert len(actual) == len(expected), f"Row count: {len(actual) - 1} vs {len(expected) - 1}"
+        for i, (act, exp) in enumerate(zip(actual[1:], expected[1:], strict=True)):
+            assert act == exp, f"Data row {i} does not match sparrow3 (vegas.raw.only)"
+
+    def test_vegas_raw_badif_matches_sparrow3(self, tmp_path):
+        """Compare against sparrow3's test.vegas.raw.badif.index.expected (384 data rows).
+
+        This is the largest standard sparrow3 test case, exercising many
+        different scan/integration/polarization combinations.
+        """
+        expected_path = _SPARROW3_DATA_DIR / "test.vegas.raw.badif.index.expected"
+        if not expected_path.exists():
+            pytest.skip(f"sparrow3 expected file not found: {expected_path}")
+
+        expected = _get_rows_section(expected_path)
+        _, expected_df = read_index(expected_path)
+
+        metadata = IndexMetadata(
+            created="Fri Mar 22 16:59:58 2013",
+            last_modified="Fri Mar 22 16:59:58 2013",
+        )
+        index_path = tmp_path / "test.index"
+        write_index(index_path, metadata, expected_df)
+
+        actual = _get_rows_section(index_path)
+        assert actual[0] == expected[0], "Column header does not match sparrow3"
+        assert len(actual) == len(expected), f"Row count: {len(actual) - 1} vs {len(expected) - 1}"
+        for i, (act, exp) in enumerate(zip(actual[1:], expected[1:], strict=True)):
+            assert act == exp, f"Data row {i} does not match sparrow3 (vegas.raw.badif)"
+
+    def test_banks_vegas_raw_badif_matches_sparrow3(self, tmp_path):
+        """Compare against sparrow3's test.banks.vegas.raw.badif.index.expected (384 rows).
+
+        Multi-bank VEGAS test with 8 banks and many scan combinations.
+        """
+        expected_path = _SPARROW3_DATA_DIR / "test.banks.vegas.raw.badif.index.expected"
+        if not expected_path.exists():
+            pytest.skip(f"sparrow3 expected file not found: {expected_path}")
+
+        expected = _get_rows_section(expected_path)
+        _, expected_df = read_index(expected_path)
+
+        metadata = IndexMetadata(
+            created="Fri Mar 22 16:59:58 2013",
+            last_modified="Fri Mar 22 16:59:58 2013",
+        )
+        index_path = tmp_path / "test.index"
+        write_index(index_path, metadata, expected_df)
+
+        actual = _get_rows_section(index_path)
+        assert actual[0] == expected[0], "Column header does not match sparrow3"
+        assert len(actual) == len(expected), f"Row count: {len(actual) - 1} vs {len(expected) - 1}"
+        for i, (act, exp) in enumerate(zip(actual[1:], expected[1:], strict=True)):
+            assert act == exp, f"Data row {i} does not match sparrow3 (banks.vegas.raw.badif)"
