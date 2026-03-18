@@ -358,7 +358,20 @@ class SDFITSLoad:
                 else:
                     self._index = pd.concat([self._index, df], axis=0, ignore_index=True)
         self._add_primary_hdu()
+        self._derive_numchn()
         self._index_source = "fits"
+
+    def _derive_numchn(self):
+        """Derive NUMCHN (number of spectral channels) from TDIM7 if not already present.
+
+        TDIM7 describes the shape of the DATA column (e.g., "(32768,1,1,1)").
+        The first dimension is the number of channels. This avoids having to
+        read the actual DATA array just to get its length.
+        """
+        if self._index is not None and "NUMCHN" not in self._index.columns and "TDIM7" in self._index.columns:
+            self._index["NUMCHN"] = self._index["TDIM7"].apply(
+                lambda t: int(str(t).strip("()").split(",")[0]) if pd.notna(t) else 0
+            )
 
     def _add_primary_hdu(self):
         """
