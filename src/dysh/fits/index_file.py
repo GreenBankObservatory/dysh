@@ -677,6 +677,10 @@ def _prepare_for_writing(df: pd.DataFrame) -> pd.DataFrame:
 
     # --- Compute derived columns before renaming ---
 
+    # NUMCHN: derive from TDIM7 if not present (TDIM7 is e.g. "(32768,1,1,1)")
+    if "NUMCHN" not in df.columns and "TDIM7" in df.columns:
+        df["NUMCHN"] = df["TDIM7"].apply(lambda t: int(str(t).strip("()").split(",")[0]) if pd.notna(t) else 0)
+
     # CENTFREQ: compute from WCS parameters if all are available
     if "CRVAL1" in df.columns and "CRPIX1" in df.columns and "CDELT1" in df.columns and "NUMCHN" in df.columns:
         df["CENTFREQ"] = [
