@@ -1336,7 +1336,6 @@ class TestGBTIDLRegression:
         # String columns: must match exactly (after stripping whitespace)
         # FILE is excluded — dysh uses the output filename, GBTIDL uses the original
         # DATEOBS is excluded — GBTIDL truncates to date-only in some cases
-        # WCALPOS is excluded — GBTIDL derives from CALPOSITION which dysh doesn't always have
         str_cols = [
             "PROJECT",
             "SOURCE",
@@ -1348,6 +1347,7 @@ class TestGBTIDLRegression:
             "SAMPLER",
             "TIMESTAMP",
             "PROCTYPE",
+            "WCALPOS",
         ]
         for col in str_cols:
             if col in dysh_df.columns and col in gbtidl_df.columns:
