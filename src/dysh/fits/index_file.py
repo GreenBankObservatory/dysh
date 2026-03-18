@@ -98,6 +98,13 @@ SDFITS_INDEX_TO_DYSH_MAP = {
     "LONGITUDE": "CRVAL2",  # .index LONGITUDE = FITS CRVAL2 (lon-like coordinate)
     "LATITUDE": "CRVAL3",  # .index LATITUDE = FITS CRVAL3 (lat-like coordinate)
     "CENTFREQ": "CRVAL1",  # .index CENTFREQ = FITS CRVAL1 (center frequency)
+    # WCALPOS was originally added to the index format for the W-band receiver's
+    # calibration vane positions ("Vane", "Observing", "Cold1", "Cold2"), hence
+    # the "W" prefix. However, sparrow/sparrow3/GBTIDL all populate it from the
+    # generic FITS column CALPOSITION for ALL backends (defaulting to "Unknown").
+    # So despite the W-band-specific name, it's a general-purpose column.
+    # See sparrow3 IndexWriter.py:345 and sparrow IndexWriter.py:330.
+    "WCALPOS": "CALPOSITION",
 }
 
 DYSH_TO_SDFITS_INDEX_MAP = {v: k for k, v in SDFITS_INDEX_TO_DYSH_MAP.items()}
@@ -725,6 +732,7 @@ def _prepare_for_writing(df: pd.DataFrame) -> pd.DataFrame:
         "ELEVATIO": "ELEVATION",
         "CRVAL2": "LONGITUDE",
         "CRVAL3": "LATITUDE",
+        "CALPOSITION": "WCALPOS",
         # Abbreviated → canonical (for DataFrames from old dysh-written index files)
         "EXT": "EXTENSION",
         "POL": "POLARIZATION",
