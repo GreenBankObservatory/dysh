@@ -1839,18 +1839,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 s._rename_binary_table_column("int", "intnum")
             return
 
-        intnumarray = np.empty(len(self._selection), dtype=int)
-        # Leverage pandas to group things by scan and observing time.
-        dfs = self._selection.groupby(["SCAN"])
-        for _, group in dfs:
-            # Group by FITSINDEX since different banks can have different time stamps.
-            dfsf = group.groupby("FITSINDEX")
-            for _, fg in dfsf:
-                dfsft = fg.groupby("DATE-OBS")
-                intnums = np.arange(0, len(dfsft.groups))
-                for i, (_, g) in enumerate(dfsft):
-                    idx = g.index
-                    intnumarray[idx] = intnums[i]
+        intnumarray = (
+            self._selection.groupby(["SCAN", "FITSINDEX"])["DATE-OBS"]
+            .rank(method="dense")
+            .sub(1)
+            .astype(int)
+            .to_numpy()
+        )
         self._selection["INTNUM"] = intnumarray
         self._flag["INTNUM"] = intnumarray
 
