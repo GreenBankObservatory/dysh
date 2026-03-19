@@ -8,6 +8,7 @@ from astropy.io import fits
 
 from dysh.coordinates import Observatory
 from dysh.fits.gbtfitsload import GBTFITSLoad
+from dysh.spectra import spectrum as spectrum_module
 from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum, average_spectra
 from dysh.util import get_project_testdata
 
@@ -307,7 +308,15 @@ class TestSpectrum:
         # Check additional object properties.
         # Not all of them make sense, since their shapes will be different.
         for k in spec_pars:
-            assert vars(trimmed)[k] == vars(self.ps0)[k]
+            a = vars(trimmed)[k]
+            b = vars(self.ps0)[k]
+            if hasattr(a, "separation"):
+                # SkyCoord: compare positions with angular tolerance; proper motions
+                # can differ at machine-epsilon level depending on how the target was
+                # created (from precomputed target vs from meta CRVAL2/CRVAL3).
+                assert a.separation(b).arcsec < 1e-6
+            else:
+                assert a == b
         # Check that we can plot.
         trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs", interactive=False)
         # Check that we can write.
@@ -335,7 +344,11 @@ class TestSpectrum:
                 except TypeError:
                     assert trimmed_nu.meta[k] == v
         for k in spec_pars:
-            assert vars(trimmed_nu)[k] == vars(self.ps0)[k]
+            a, b = vars(trimmed_nu)[k], vars(self.ps0)[k]
+            if hasattr(a, "separation"):
+                assert a.separation(b).arcsec < 1e-6
+            else:
+                assert a == b
         trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK", interactive=False)
 
         # km/s.
@@ -351,7 +364,11 @@ class TestSpectrum:
                 except TypeError:
                     assert trimmed_vel.meta[k] == v
         for k in spec_pars:
-            assert vars(trimmed_vel)[k] == vars(self.ps0)[k]
+            a, b = vars(trimmed_vel)[k], vars(self.ps0)[k]
+            if hasattr(a, "separation"):
+                assert a.separation(b).arcsec < 1e-6
+            else:
+                assert a == b
         trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK", interactive=False)
 
         # m.
@@ -425,6 +442,15 @@ class TestSpectrum:
         assert len(trimmed_sp.data) == len(self.ps0.data) - 100
         assert np.all(trimmed_sp.flux == self.ps0.flux[s])
         assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[s]).value < tol)
+
+    def test_slice_without_wcs(self):
+        s = Spectrum.fake_spectrum(use_wcs=False, seed=1)
+        trimmed = s[100:200]
+
+        assert np.all(trimmed.flux == s.flux[100:200])
+        assert np.all(trimmed.mask == s.mask[100:200])
+        assert np.all(trimmed.spectral_axis == s.spectral_axis[100:200])
+        assert trimmed.meta["CRPIX1"] == 1.0
 
     def test_radiometer(self):
         """Test the radiometer equation"""
@@ -726,10 +752,22 @@ class TestSpectrum:
         avg = average_spectra((self.ps0, self.ps1))
         avg2 = self.ps0.average(self.ps1)
         compare_spectrum(avg, avg2, ignore_history=True, ignore_comments=True)
+        assert np.all(avg.spectral_axis == self.ps0.spectral_axis)
 
         avg = average_spectra((self.ps0, self.ps1), align=True)
         compare_spectrum(ps0_org, self.ps0, ignore_history=True, ignore_comments=True)
         compare_spectrum(ps1_org, self.ps1, ignore_history=True, ignore_comments=True)
+        assert np.all(avg.spectral_axis == self.ps0.spectral_axis)
+
+    def test_average_spectra_reuses_target(self, monkeypatch):
+        def fail_make_target(*args, **kwargs):
+            raise AssertionError("average_spectra should reuse the input target")
+
+        monkeypatch.setattr("dysh.spectra.spectrum.make_target", fail_make_target)
+
+        avg = average_spectra((self.ps0, self.ps1))
+
+        assert avg.target is not None
 
     def test_spectrum_with_frame(self):
         """Regression test for issue #401 to ensure Spectrum.with_frame functions as advertised.
@@ -897,7 +935,7 @@ class TestSpectrum:
         in_reg = [21 * u.cm, 21.5 * u.cm]
         dysh_spec.baseline(order, include=in_reg, model="chebyshev")
 
-    def test_make_spectrum(self):
+    def test_make_spectrum(self, monkeypatch):
         """
         * Test that make_spectrum raises ValueError
         """
@@ -950,6 +988,19 @@ class TestSpectrum:
             data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
         )
         assert s.meta["RADESYS"] == meta["RADECSYS"]
+        assert s.obstime.isot.startswith("2021-02-10T07:38:37")
+        assert s.wcs.wcs.dateobs != "2000-01-01T00:00:00"
+        assert s.spectral_axis[0].to_value("Hz") == pytest.approx(meta["CRVAL1"])
+        assert (s.spectral_axis[1] - s.spectral_axis[0]).to_value("Hz") == pytest.approx(meta["CDELT1"])
+
+        monkeypatch.setattr(
+            spectrum_module, "_cached_wcs_template", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError)
+        )
+        s_fallback = Spectrum.make_spectrum(
+            data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+        )
+        assert s_fallback.wcs.wcs.dateobs == s.wcs.wcs.dateobs
+        assert np.allclose(s_fallback.spectral_axis.to_value("Hz"), s.spectral_axis.to_value("Hz"))
 
     def test_get_selected_regions(self):
         """

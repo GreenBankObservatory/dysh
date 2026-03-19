@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.io import fits
+from astropy.time import Time
 from astropy.units.quantity import Quantity
 from numpy.typing import ArrayLike
 
@@ -27,7 +28,7 @@ from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
-from ..spectra.core import make_channel_slice, mean_data
+from ..spectra.core import find_non_blanks, make_channel_slice, mean_data, mean_tsys, tsys_weight
 from ..spectra.scan import (
     FSScan,
     NodScan,
@@ -54,11 +55,9 @@ from ..util import (
     show_dataframe,
     uniq,
 )
-from ..util.calibrator import Calibrator
 from ..util.files import dysh_data
 from ..util.gaincorrection import GBTGainCorrection
 from ..util.selection import Flag, Selection  # noqa: F811
-from ..util.weatherforecast import GBTWeatherForecast
 from . import conf, core
 from .sdfitsload import FITSBackend, SDFITSLoad, _log_mem
 
@@ -68,6 +67,44 @@ try:
     HAS_FITSIO = True
 except ImportError:
     HAS_FITSIO = False
+
+_SCAN_LAZY_METADATA_COLUMNS = (
+    "TCAL",
+    "TSYS",
+    "EXPOSURE",
+    "DURATION",
+    "CDELT1",
+    "CRPIX1",
+    "RESTFREQ",
+    "CTYPE1",
+    "CTYPE2",
+    "CTYPE3",
+    "CRVAL1",
+    "CRVAL2",
+    "CRVAL3",
+    "CRVAL4",
+    "DATE-OBS",
+    "VELOCITY",
+    "EQUINOX",
+    "RADESYS",
+    "VELDEF",
+    "OBSFREQ",
+    "ELEVATIO",
+    "SITELONG",
+    "SITELAT",
+    "SITEELEV",
+)
+
+_VANE_LAZY_METADATA_COLUMNS = (
+    "TWARM",
+    "TAMBIENT",
+)
+
+_VEGAS_SPUR_COLUMNS = (
+    "VSPRVAL",
+    "VSPDELT",
+    "VSPRPIX",
+)
 
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
@@ -355,6 +392,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             logger.info(f"Loaded {lsdf} FITS files")
         self.add_history(f"Project ID: {self.projectID}", add_time=True)
         self._qd_corrected = False
+        self._fully_loaded_columns = set()
         if self._any_index_file():
             logger.info(
                 "Index loaded from .index file (44/93 columns). "
@@ -1662,18 +1700,59 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if not has_index_loaded:
             return df  # All data loaded from FITS, columns should exist if valid
 
-        # Check which columns are missing
-        missing_cols = [c for c in required_columns if c.upper() not in df.columns]
+        calibration_metadata_needed = any(col.upper() in {"TCAL", "TSYS"} for col in required_columns)
+        vane_metadata_needed = any(col.upper() in _VANE_LAZY_METADATA_COLUMNS for col in required_columns)
+        columns_needed_for_rows = list(required_columns)
+        if calibration_metadata_needed:
+            columns_needed_for_rows.extend(_SCAN_LAZY_METADATA_COLUMNS)
+        if vane_metadata_needed:
+            columns_needed_for_rows.extend(_VANE_LAZY_METADATA_COLUMNS)
+
+        # Check which columns are missing. For calibration-path metadata, do not trust
+        # the global fully-loaded shortcut because previous lazy loads may only have
+        # populated a different file/bintable chunk.
+        if calibration_metadata_needed:
+            missing_cols = [c for c in columns_needed_for_rows if c.upper() not in df.columns]
+        else:
+            missing_cols = [
+                c
+                for c in required_columns
+                if c.upper() not in df.columns and c.upper() not in self._fully_loaded_columns
+            ]
 
         # In hybrid mode, also check if the selected rows have NaN in any required column
         # (columns may exist but specific rows may not have been loaded yet)
+        # Skip this check for columns we know are fully loaded.
         rows_need_loading = False
         if not missing_cols:
-            for col in required_columns:
+            for col in columns_needed_for_rows:
                 col_upper = col.upper()
+                if not calibration_metadata_needed and col_upper in self._fully_loaded_columns:
+                    continue
                 if col_upper in df.columns and df[col_upper].isna().any():
                     rows_need_loading = True
                     break
+
+        columns_to_load = list(missing_cols)
+        columns_to_load_upper = {c.upper() for c in columns_to_load}
+        if calibration_metadata_needed:
+            for col in _SCAN_LAZY_METADATA_COLUMNS:
+                if col not in columns_to_load_upper:
+                    columns_to_load.append(col)
+                    columns_to_load_upper.add(col)
+        if vane_metadata_needed:
+            for col in _VANE_LAZY_METADATA_COLUMNS:
+                if col not in columns_to_load_upper:
+                    columns_to_load.append(col)
+                    columns_to_load_upper.add(col)
+        if rows_need_loading:
+            for col in required_columns:
+                col_upper = col.upper()
+                if col_upper in self._fully_loaded_columns:
+                    continue
+                if col_upper not in columns_to_load_upper:
+                    columns_to_load.append(col)
+                    columns_to_load_upper.add(col_upper)
 
         if not missing_cols and not rows_need_loading and not force:
             return df  # All required columns already present with data
@@ -1682,31 +1761,39 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         logger.debug(f"Lazy loading full rows for {len(df)} selected rows (missing: {missing_cols})...")
 
         # Group rows by FITSINDEX (which SDFITSLoad they belong to)
-        # and load full rows from FITS
-        result_dfs = []
+        # and load the missing FITS columns only for the requested rows.
+        # For selective operations like gettp/getsigref, loading whole
+        # bintables creates a large avoidable pandas/index rebuild tax.
+        any_rows_loaded = False
+
         for fitsindex, group in df.groupby("FITSINDEX"):
             sdf = self._sdf[int(fitsindex)]
 
             # Only load if this SDFITSLoad was loaded from .index file or is in hybrid mode
             if getattr(sdf, "_index_source", None) not in ("index_file", "hybrid"):
-                result_dfs.append(group)
                 continue
 
-            rows = group["ROW"].to_numpy()
             bintable = self._get_bintable(group)
-            # Load full rows from FITS
-            fits_df = sdf.load_full_rows(rows, bintable)
+            all_rows_df = sdf.index(bintable=bintable)
+            if force:
+                rows = all_rows_df["ROW"].to_numpy()
+            else:
+                rows = pd.unique(group["ROW"])
 
-            if len(fits_df) == 0:
-                result_dfs.append(group)
+            # Load full rows from FITS
+            _rows_array, fits_data = sdf._read_full_row_columns(rows, bintable, columns=columns_to_load or None)
+
+            if fits_data is None:
                 continue
+            any_rows_loaded = True
 
             # IMPORTANT: Also update the underlying SDFITSLoad's _index
             # This is needed because Scan classes access sdf.index() directly
             # We need to add new columns to ALL SDFITSLoads, not just this one,
             # because later operations might access different SDFITSLoads
-            for col in fits_df.columns:
-                col_dtype = fits_df[col].dtype
+            indices = all_rows_df.index[all_rows_df["ROW"].isin(rows)]
+            for col, values in fits_data.items():
+                col_dtype = values.dtype
                 # Add column to ALL underlying SDFITSLoads if missing
                 for other_sdf in self._sdf:
                     if col not in other_sdf._index.columns:
@@ -1719,53 +1806,63 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         else:
                             # Float columns: use NaN with the same dtype
                             other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=col_dtype)
-                # Update the specific rows we loaded in the current SDFITSLoad
-                # Note Index is not always equal to ROW if there are multiple binary tables,
-                # so we need to isolate the DataFrame Index for the specific rows and binary table.
-                dfbin = sdf.index(bintable=bintable)
-                dfrows = dfbin["ROW"].isin(rows)
-                indices = dfbin[dfrows].index
-                sdf._index.loc[indices, col] = fits_df[col].values  # noqa: PD011
+                        other_sdf._clear_index_cache()
+            for col, values in fits_data.items():
+                sdf._index.loc[indices, col] = values
+            sdf._clear_index_cache()
             # Mark that we've started loading from FITS (hybrid mode)
             if force:
                 sdf._index_source = "fits"
             else:
                 sdf._index_source = "hybrid"
 
-            # Merge: start with FITS data, then overlay .index data for columns that exist in both
-            # This ensures FITS data wins for any columns that might be different
-            merged = fits_df.copy()
+            # Only mark columns as fully loaded when we actually loaded the whole bintable.
+            if force or len(rows) == len(all_rows_df):
+                self._fully_loaded_columns.update(c.upper() for c in fits_data)
 
-            # Preserve the original DataFrame index
-            merged.index = group.index
+        if not any_rows_loaded:
+            return df
 
-            # Add columns from .index that aren't in FITS (like FITSINDEX, ROW)
-            for col in group.columns:
-                if col not in merged.columns:
-                    merged[col] = group[col].values  # noqa: PD011
-
-            result_dfs.append(merged)
-
-        result = pd.concat(result_dfs, axis=0)
-        # Restore original row order
-        result = result.loc[df.index]
-
-        logger.debug(f"   Loaded full rows. DataFrame now has {len(result.columns)} columns")
+        logger.debug(f"   Loaded full rows. DataFrame now has {len(self._selection.columns)} columns")
 
         # Update self._selection with the newly loaded columns so that other code
-        # paths that access self._index (which returns self._selection) will see them
-        self._rebuild_merged_index()
+        # paths that access self._index (which returns self._selection) will see them.
+        # Some metadata fixups, such as RADESYS normalization, happen on the merged
+        # index after the FITS rows are loaded, so refresh the returned rows from the
+        # rebuilt selection instead of returning the pre-fixup DataFrame.
+        self._rebuild_merged_index(rebuild_flag=False)
         self._update_radesys()
 
-        return result
+        # Cannot use self._selection.loc[df.index] because Selection.final/merge
+        # resets df.index to 0-based integers, which collide with unrelated rows
+        # in self._selection (which has its own 0-based index over all 300+ rows).
+        # Instead, re-extract the updated rows from sdf._index by matching on ROW.
+        result_parts = []
+        for fitsindex_val, group in df.groupby("FITSINDEX"):
+            sdf = self._sdf[int(fitsindex_val)]
+            bintable = self._get_bintable(group)
+            sdf_idx = sdf.index(bintable=bintable)
+            matching = sdf_idx[sdf_idx["ROW"].isin(group["ROW"])]
+            result_parts.append(matching)
+        if result_parts:
+            return pd.concat(result_parts)
+        return df
 
-    def _rebuild_merged_index(self):
+    def _rebuild_merged_index(self, rebuild_flag: bool = True):
         """
         Rebuild the merged index from all SDFITSLoad objects.
 
         This is called after lazy loading triggers a full index load for some files,
         to update the merged index with the newly available columns.
         """
+        if not rebuild_flag and len(self._sdf) == 1 and self._selection is not None:
+            sdf_index = self._sdf[0]._index
+            if len(self._selection) == len(sdf_index) and np.array_equal(
+                self._selection.index.to_numpy(), sdf_index.index.to_numpy()
+            ):
+                pd.DataFrame.__init__(self._selection, sdf_index, copy=False)
+                return
+
         df = None
         for i, s in enumerate(self._sdf):
             # Make sure FITSINDEX is set
@@ -1784,11 +1881,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         old_flag_rules = self._flag._selection_rules.copy() if hasattr(self._flag, "_selection_rules") else {}
 
         self._selection = Selection(df)
-        self._flag = Flag(df)
+        if rebuild_flag:
+            self._flag = Flag(df)
 
         # Restore selection rules
         self._selection._selection_rules = old_selection_rules
-        self._flag._selection_rules = old_flag_rules
+        if rebuild_flag:
+            self._flag._selection_rules = old_flag_rules
 
     def _construct_procedure(self):
         """
@@ -1816,6 +1915,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             sdf._index["PROC"] = df[0]
             sdf._index["OBSTYPE"] = df[1]
             sdf._index["SUBOBSMODE"] = df[2]
+            sdf._clear_index_cache()
 
     def _construct_integration_number(self):
         """Construct the integration number (INTNUM) for all scans and add it to the index (i.e., a new SDFITS column)
@@ -1879,6 +1979,30 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             return get_valid_channel_range(channel)
 
+    def _simple_select_from_kwargs(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame | None:
+        """Fast-path exact-match selection for simple scalar/list kwargs.
+
+        Falls back to the Selection machinery by returning ``None`` when any
+        value requires richer matching semantics.
+        """
+        simple_df = df
+        for key, value in kwargs.items():
+            if key not in simple_df.columns:
+                return None
+            if isinstance(value, range):
+                value = list(value)
+            if isinstance(value, np.ndarray):
+                if value.ndim != 1:
+                    return None
+                value = value.tolist()
+            if isinstance(value, (list, tuple, set)):
+                simple_df = simple_df.loc[simple_df[key].isin(list(value))]
+            elif isinstance(value, (str, bytes, numbers.Number, np.generic, bool)):
+                simple_df = simple_df.loc[simple_df[key] == value]
+            else:
+                return None
+        return simple_df
+
     def _common_selection(self, ifnum, plnum, fdnum, **kwargs):
         """Do selection and flag application common to all calibration methods.
         Flags are not applied unless selection results in non-zero length data selection.
@@ -1941,10 +2065,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             kwargs["SCAN"] = list(scans_to_add)
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
-        ps_selection = copy.deepcopy(self._selection)
-        # now downselect with any additional kwargs
-        ps_selection._select_from_mixed_kwargs(**kwargs)
-        _sf = ps_selection.final
+        if len(self._selection._selection_rules) == 0 and "PROCKEY" not in kwargs and "PROCVALS" not in kwargs:
+            _sf = self._simple_select_from_kwargs(_final, **kwargs)
+        else:
+            _sf = None
+        if _sf is None:
+            ps_selection = self._selection._lightweight_copy()
+            # now downselect with any additional kwargs
+            ps_selection._select_from_mixed_kwargs(**kwargs)
+            _sf = ps_selection.final
         # now remove rows that have been entirely flagged
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
@@ -2030,7 +2159,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
         _log_mem(f"gettp: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if vane is not None:
+            lazy_columns.extend(_VANE_LAZY_METADATA_COLUMNS)
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2042,14 +2176,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
+        scan_groups = {scan_value: group for scan_value, group in _sf.groupby("SCAN", sort=False)}
         for scan in scans:
-            _sifdf = select_from("SCAN", scan, _sf)
-            if len(_sifdf) == 0:
+            _sifdf = scan_groups.get(scan)
+            if _sifdf is None or len(_sifdf) == 0:
                 continue
-            dfcalT = select_from("CAL", "T", _sifdf)
-            dfcalF = select_from("CAL", "F", _sifdf)
-            calrows["ON"] = dfcalT["ROW"].to_numpy()
-            calrows["OFF"] = dfcalF["ROW"].to_numpy()
+            cal_mask = _sifdf["CAL"].to_numpy()
+            on_mask = cal_mask == "T"
+            off_mask = cal_mask == "F"
+            calrows["ON"] = _sifdf.loc[on_mask, "ROW"].to_numpy()
+            calrows["OFF"] = _sifdf.loc[off_mask, "ROW"].to_numpy()
             if len(calrows["ON"]) != len(calrows["OFF"]):
                 if len(calrows["ON"]) > 0:
                     raise Exception(f"unbalanced calrows {len(calrows['ON'])} != {len(calrows['OFF'])}")
@@ -2057,16 +2193,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # they are not in kwargs and in SDFITS header
             # they are not booleans but chars
             if sig is not None:
-                _sifdf = select_from("SIG", TF[sig], _sifdf)
+                _sifdf = _sifdf.loc[_sifdf["SIG"].to_numpy() == TF[sig]]
             if _bintable is None:
                 _bintable = self._get_bintable(_sifdf)
             if t_cal is not None:
                 _tcal = t_cal
             else:
-                _tcal = self._get_tcal(dfcalF["TCAL"])
+                _tcal = self._get_tcal(
+                    _sifdf.loc[off_mask if sig is None else (_sifdf["CAL"].to_numpy() == "F"), "TCAL"]
+                )
             if len(calrows["ON"]) == 0:
                 if tsys is None:
-                    _tsys = dfcalF["TSYS"].to_numpy()
+                    _tsys = _sifdf.loc[_sifdf["CAL"].to_numpy() == "F", "TSYS"].to_numpy()
                     if vane is None:
                         logger.info("Using TSYS column")
                     logger.debug(f"Scan: {scan}")
@@ -2291,7 +2429,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         )
         _log_mem(f"getsigref: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2316,7 +2457,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 channel=_channel,
                 vane=vane,
                 **kwargs,
-            ).timeaverage(weights=weights)
+            ).timeaverage(weights=weights, use_wcs=_channel is not None)
         else:
             refspec = ref._copy()  # Needs to be a copy since we will change it afterwards.
 
@@ -2334,18 +2475,26 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             tsys = _parse_tsys(tsys, scans)  # Put it in a known format.
 
         scanblock = ScanBlock()
+        fits_groups = {fitsindex: group for fitsindex, group in _sf.groupby("FITSINDEX", sort=False)}
         for i in range(len(self._sdf)):
-            _df = select_from("FITSINDEX", i, _sf)
-            if len(_df) == 0:
+            _df = fits_groups.get(i)
+            if _df is None or len(_df) == 0:
                 continue
             if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                 logger.debug(f"scans {scans} not found, continuing")
                 continue
             rows = {}
+            scan_groups = {scan_value: group for scan_value, group in _df.groupby("SCAN", sort=False)}
+            cal_mask = _df["CAL"].to_numpy()
+            calrows = {
+                "ON": list(_df.loc[cal_mask == "T", "ROW"]),
+                "OFF": list(_df.loc[cal_mask == "F", "ROW"]),
+            }
+            dfoncalF_cache = {}
 
             for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
-                _ondf = select_from("SCAN", on, _df)
-                _offdf = select_from("SCAN", off, _df)
+                _ondf = scan_groups.get(on, _df.iloc[0:0])
+                _offdf = scan_groups.get(off, _df.iloc[0:0])
                 if _bintable is None:
                     _bintable = self._get_bintable(_ondf)
                 rows["ON"] = list(_ondf["ROW"])
@@ -2355,16 +2504,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         raise Exception(f"{key} scans not found in scan list {scans}")
                 # do not pass scan list here. We need all the cal rows. They will
                 # be intersected with scan rows in PSScan
-                calrows = {}
-                dfcalT = select_from("CAL", "T", _df)
-                dfcalF = select_from("CAL", "F", _df)
-                calrows["ON"] = list(dfcalT["ROW"])
-                calrows["OFF"] = list(dfcalF["ROW"])
                 d = {"ON": on, "OFF": off}
                 if len(calrows["ON"]) == 0 or nocal:
                     _nocal = True
                     if tsys is None:
-                        dfoncalF = select_from("CAL", "F", _ondf)
+                        dfoncalF = dfoncalF_cache.get(on)
+                        if dfoncalF is None:
+                            dfoncalF = _ondf.loc[_ondf["CAL"].to_numpy() == "F"]
+                            dfoncalF_cache[on] = dfoncalF
                         _tsys = dfoncalF["TSYS"].to_numpy()
                         if vane is None:
                             logger.info("Using TSYS column")
@@ -2547,7 +2694,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2783,7 +2933,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -3056,7 +3209,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _channel = self._normalize_channel_range(channel)
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -3298,6 +3454,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if name is None:
             name = _sf["OBJECT"].unique()[0]
+        from ..util.calibrator import Calibrator
+
         target = Calibrator.from_name(name, scale=fluxscale)
 
         proc = _sf["PROC"].unique()[0]
@@ -3460,7 +3618,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -4115,6 +4276,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             sdfi = self._sdf[i].index()
             _mask = self._sdf[i]._column_mask(mask_dict)
             sdfi.loc[_mask, column] = new_val
+            self._sdf[i]._clear_index_cache()
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
@@ -4673,39 +4835,27 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             sky_scan = scan
             vane_scan = scan - 1
 
-        vane = self.gettp(
-            scan=vane_scan,
-            fdnum=fdnum,
+        self._prefetch_vanecal_metadata(vane_scan=vane_scan, sky_scan=sky_scan, ifnum=ifnum, plnum=plnum)
+        scan_cache = self._get_vanecal_scan_cache(
+            vane_scan=vane_scan,
+            sky_scan=sky_scan,
             ifnum=ifnum,
             plnum=plnum,
-            calibrate=True,
-            cal=False,
             apply_flags=apply_flags,
             flag_vegas=flag_vegas,
-            vane=True,
-        ).timeaverage(use_wcs=False)
-        sky = self.gettp(
-            scan=sky_scan,
-            fdnum=fdnum,
-            ifnum=ifnum,
-            plnum=plnum,
-            calibrate=True,
-            cal=False,
-            apply_flags=apply_flags,
-            flag_vegas=flag_vegas,
-            vane=True,
-        ).timeaverage(use_wcs=False)
-
-        if twarm is None:
-            twarm = sky.meta["TWARM"] + 273.15  # TWARM is recorded in Celsius when using RcvrArray75_115 (Argus).
+        )
+        vane = scan_cache[vane_scan][fdnum]
+        sky = scan_cache[sky_scan][fdnum]
 
         if zenith_opacity is None:
             try:
+                from ..util.weatherforecast import GBTWeatherForecast
+
                 gbwf = GBTWeatherForecast()
                 result = gbwf.fetch(
                     vartype="Opacity",
-                    specval=sky.spectral_axis.quantity.mean(),
-                    mjd=sky.obstime.mjd,
+                    specval=sky["specval"],
+                    mjd=sky["obstime_mjd"],
                 )
                 zenith_opacity = result[:, -1]
             except ValueError as e:
@@ -4713,8 +4863,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if tatm is None:
             try:
+                from ..util.weatherforecast import GBTWeatherForecast
+
                 gbwf = GBTWeatherForecast()
-                result = gbwf.fetch(vartype="Tatm", specval=sky.spectral_axis.quantity.mean(), mjd=sky.obstime.mjd)
+                result = gbwf.fetch(vartype="Tatm", specval=sky["specval"], mjd=sky["obstime_mjd"])
                 tatm = result[:, -1]
             except ValueError as e:
                 logger.debug("Could not get forecasted atmospheric temperature ", e)
@@ -4722,29 +4874,164 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if tcal is None:
             logger.info("No calibration temperature provided.")
             if zenith_opacity is None:
-                tcal = sky.meta["TAMBIENT"]
+                tcal = sky["meta"]["TAMBIENT"]
                 logger.info(
                     f"No zenith opacity provided. Will approximate the calibration temperature to the ambient temperature {tcal} K."
                 )
             elif tatm is not None:
-                airmass = GBTGainCorrection().airmass(sky.meta["ELEVATIO"] * u.deg, zd=False)
+                if twarm is None:
+                    twarm = sky["meta"]["TWARM"] + 273.15
+                airmass = GBTGainCorrection().airmass(sky["meta"]["ELEVATIO"] * u.deg, zd=False)
                 tcal = (tatm - tbkg) + (twarm - tatm) * np.exp(zenith_opacity * airmass)
 
         match mode:
             case 0:
-                mean_off = mean_data(sky.data)
-                mean_dif = mean_data(vane.data - sky.data)
+                mean_off = mean_data(sky["data"])
+                mean_dif = mean_data(vane["data"] - sky["data"])
                 tsys = tcal * mean_off / mean_dif
             case 1:
-                tsys = tcal / mean_data((vane.data - sky.data) / sky.data)
+                tsys = tcal / mean_data((vane["data"] - sky["data"]) / sky["data"])
             case 2:
-                tsys = tcal / np.nanmedian((vane.data - sky.data) / sky.data)
+                tsys = tcal / np.ma.median((vane["data"] - sky["data"]) / sky["data"])
 
         logger.debug(f"TCAL={tcal} K")
         logger.debug(f"mode={mode}")
         logger.debug(f"TSYS={tsys} K")
 
         return tsys
+
+    def _prefetch_vanecal_metadata(self, vane_scan: int, sky_scan: int, ifnum: int, plnum: int) -> None:
+        """Eagerly load the metadata needed by repeated Argus vane/sky TP selections.
+
+        Argus vane calibration is typically run across every feed for the same vane/sky
+        scan pair. Preloading the scan-pair metadata once avoids repeated lazy-load and
+        merged-index rebuild work inside the 32 subsequent ``gettp()`` calls.
+        """
+        if not (self._any_index_file() or self._any_hybrid()):
+            return
+
+        cache = getattr(self, "_vanecal_prefetched", None)
+        if cache is None:
+            cache = set()
+            self._vanecal_prefetched = cache
+
+        key = (vane_scan, sky_scan, ifnum, plnum)
+        if key in cache:
+            return
+
+        df = self._index
+        rows = df[df["SCAN"].isin([vane_scan, sky_scan]) & (df["IFNUM"] == ifnum) & (df["PLNUM"] == plnum)]
+        if len(rows) == 0:
+            cache.add(key)
+            return
+
+        self._load_full_rows_if_needed(rows, ["TCAL", "TSYS", "TWARM", "TAMBIENT", *_VEGAS_SPUR_COLUMNS])
+        cache.add(key)
+
+    def _get_vanecal_scan_cache(
+        self,
+        vane_scan: int,
+        sky_scan: int,
+        ifnum: int,
+        plnum: int,
+        apply_flags: bool,
+        flag_vegas: bool = True,
+    ) -> dict[int, dict[int, dict[str, object]]]:
+        cache = getattr(self, "_vanecal_scan_cache", None)
+        if cache is None:
+            cache = {}
+            self._vanecal_scan_cache = cache
+
+        key = (vane_scan, sky_scan, ifnum, plnum, apply_flags, flag_vegas)
+        if key not in cache:
+            cache[key] = {
+                vane_scan: self._compute_vanecal_tp_averages(vane_scan, ifnum, plnum, apply_flags, flag_vegas),
+                sky_scan: self._compute_vanecal_tp_averages(sky_scan, ifnum, plnum, apply_flags, flag_vegas),
+            }
+        return cache[key]
+
+    def _compute_vanecal_tp_averages(
+        self,
+        scan: int,
+        ifnum: int,
+        plnum: int,
+        apply_flags: bool,
+        flag_vegas: bool = True,
+    ) -> dict[int, dict[str, object]]:
+        _, selected = self._common_selection(
+            fdnum=None,
+            ifnum=ifnum,
+            plnum=plnum,
+            apply_flags=apply_flags,
+            scan=[scan],
+        )
+        lazy_columns = ["TCAL", "TSYS", "TWARM", "TAMBIENT"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        selected = self._load_full_rows_if_needed(selected, lazy_columns)
+        if flag_vegas:
+            self.flag_vegas_spurs(selection=selected)
+            if apply_flags:
+                self.apply_flags()
+
+        results: dict[int, dict[str, object]] = {}
+        for fitsindex, fits_group in selected.groupby("FITSINDEX", sort=False):
+            sdf = self._sdf[int(fitsindex)]
+            for bintable, group in fits_group.groupby("BINTABLE", sort=False):
+                ordered = group.reset_index(drop=True)
+                rows = ordered["ROW"].to_numpy()
+                spectra = sdf.rawspectra(int(bintable), setmask=apply_flags, rows=rows)
+
+                for fdnum, fd_group in ordered.groupby("FDNUM", sort=False):
+                    positions = fd_group.index.to_numpy()
+                    fd_spectra = spectra[positions]
+                    cal_series = fd_group["CAL"].astype(str).str.upper()
+                    on_positions = np.flatnonzero(cal_series == "T")
+                    off_positions = np.flatnonzero(cal_series == "F")
+                    if len(off_positions) == 0:
+                        continue
+
+                    cal_off = fd_spectra[off_positions]
+                    if len(on_positions) == 0:
+                        good = find_non_blanks(cal_off)
+                        cal_on = None
+                    else:
+                        cal_on = fd_spectra[on_positions]
+                        good = np.intersect1d(find_non_blanks(cal_on), find_non_blanks(cal_off))
+                    if len(good) == 0:
+                        continue
+
+                    if cal_on is not None:
+                        cal_on = cal_on[good]
+                    cal_off = cal_off[good]
+                    off_meta = fd_group.iloc[off_positions].iloc[good]
+
+                    if cal_on is None:
+                        tsys = np.ones(len(good), dtype=float)
+                    else:
+                        tcal = off_meta["TCAL"].to_numpy(dtype=float)
+                        tsys = np.array(
+                            [mean_tsys(calon=cal_on[i], caloff=cal_off[i], tcal=tcal[i]) for i in range(len(good))]
+                        )
+                    exposure = off_meta["EXPOSURE"].to_numpy(dtype=float)
+                    duration = off_meta["DURATION"].to_numpy(dtype=float)
+                    delta_freq = off_meta["CDELT1"].to_numpy(dtype=float)
+                    weights = tsys_weight(exposure, delta_freq, tsys)
+                    data_avg = np.ma.average(cal_off, axis=0, weights=weights)
+
+                    meta = off_meta.iloc[0].to_dict()
+                    meta["EXPOSURE"] = float(np.sum(exposure))
+                    meta["DURATION"] = float(np.sum(duration))
+                    meta["TSYS"] = float(np.sqrt(np.sum(np.max(weights) * tsys**2) / np.sum(np.max(weights))))
+                    meta["WTTSYS"] = meta["TSYS"]
+                    results[int(fdnum)] = {
+                        "data": data_avg,
+                        "meta": meta,
+                        "specval": float(meta["OBSFREQ"]) * u.Hz,
+                        "obstime_mjd": Time(meta["DATE-OBS"]).mjd,
+                    }
+
+        return results
 
     def _get_bintable(self, df: pd.DataFrame) -> int:
         """

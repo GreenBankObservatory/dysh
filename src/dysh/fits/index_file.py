@@ -98,6 +98,7 @@ SDFITS_INDEX_TO_DYSH_MAP = {
     "LONGITUDE": "CRVAL2",  # .index LONGITUDE = FITS CRVAL2 (lon-like coordinate)
     "LATITUDE": "CRVAL3",  # .index LATITUDE = FITS CRVAL3 (lat-like coordinate)
     "CENTFREQ": "CRVAL1",  # .index CENTFREQ = FITS CRVAL1 (center frequency)
+    "BANDWIDTH": "BANDWID",  # .index BANDWIDTH = FITS BANDWID
 }
 
 DYSH_TO_SDFITS_INDEX_MAP = {v: k for k, v in SDFITS_INDEX_TO_DYSH_MAP.items()}

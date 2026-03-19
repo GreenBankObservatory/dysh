@@ -212,7 +212,7 @@ filterwarnings = [
 ]
 addopts = [
   "--timeout=300",
-  "-m not gbo_only"  # Skip GBO-only
+  "-m not gbo_only and not requires_internet"  # Skip GBO-only and internet-requiring tests by default
 ]
 markers = [
     "slow: marks tests as slow (run with 'pytest -m slow' or 'pytest -m \"\"')",

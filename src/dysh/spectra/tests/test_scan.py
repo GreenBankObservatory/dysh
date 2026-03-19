@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pytest
 from astropy import units as u
@@ -5,6 +7,8 @@ from astropy.io import fits
 
 import dysh.util as util
 from dysh.fits import gbtfitsload
+from dysh.spectra import core
+from dysh.spectra.core import _BaselineInfo
 
 
 class TestPSScan:
@@ -241,6 +245,23 @@ class TestPSScan:
         sb1 = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.1, units="ta*")
         x = sb1.timeaverage()
         assert pytest.approx(x.meta["TAU_Z"] / 0.1) == 1
+
+    def test_default_ta_scan_skips_gain_metadata_computation(self, data_dir, monkeypatch):
+        data_path = f"{data_dir}/AGBT18B_354_03"
+        sdf_file = f"{data_path}/AGBT18B_354_03.raw.vegas"
+
+        def fail(*args, **kwargs):
+            raise AssertionError("gain metadata should not be computed for default Ta scans")
+
+        monkeypatch.setattr("dysh.spectra.scan.GBTGainCorrection.aperture_efficiency", fail)
+        monkeypatch.setattr("dysh.spectra.scan.GBTGainCorrection._surface_error_array", fail)
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ta = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0).timeaverage()
+
+        assert np.isnan(ta.meta["AP_EFF"])
+        assert np.isnan(ta.meta["SURF_ERR"])
+        assert ta.meta["SE_UNIT"] == ""
 
     def test_vane(self, data_dir):
         """Test for getps with vane."""
@@ -553,6 +574,44 @@ class TestScanBase:
         assert np.all(tp.weights[: channel[0]] == pytest.approx(tp_sb[0].tsys_weight.sum()))
         # Channel selection in dysh is inclusive of the upper edge.
         assert np.all(tp.weights[channel[1] + 1 :] == pytest.approx(tp_sb[0].tsys_weight.sum()))
+        assert np.all(tp.spectral_axis == tp_sb[0].getspec(0).spectral_axis)
+
+    def test_timeaverage_single_scanblock_matches_scan(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        tp_sb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+
+        scan_avg = tp_sb[0].timeaverage()
+        block_avg = tp_sb.timeaverage()
+
+        assert np.all(block_avg.spectral_axis == scan_avg.spectral_axis)
+        assert np.allclose(block_avg.data, scan_avg.data, equal_nan=True)
+        assert block_avg.meta["EXPOSURE"] == scan_avg.meta["EXPOSURE"]
+        assert block_avg.meta["TSYS"] == pytest.approx(scan_avg.meta["TSYS"])
+        expected_weights = np.where(
+            scan_avg.mask,
+            0.0,
+            core.tsys_weight(scan_avg.meta["EXPOSURE"], scan_avg.meta["CDELT1"], scan_avg.meta["TSYS"]),
+        )
+        assert np.allclose(np.asarray(block_avg.weights), expected_weights, equal_nan=True)
+
+    def test_timeaverage_single_scanblock_matches_scan_without_wcs(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        tp_sb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+
+        scan_avg = tp_sb[0].timeaverage(use_wcs=False)
+        block_avg = tp_sb.timeaverage(use_wcs=False)
+
+        assert np.allclose(block_avg.data, scan_avg.data, equal_nan=True)
+        assert block_avg.meta["EXPOSURE"] == scan_avg.meta["EXPOSURE"]
+        assert block_avg.meta["TSYS"] == pytest.approx(scan_avg.meta["TSYS"])
+        expected_weights = np.where(
+            scan_avg.mask,
+            0.0,
+            core.tsys_weight(scan_avg.meta["EXPOSURE"], scan_avg.meta["CDELT1"], scan_avg.meta["TSYS"]),
+        )
+        assert np.allclose(np.asarray(block_avg.weights), expected_weights, equal_nan=True)
 
 
 class TestTPScan:
@@ -936,8 +995,8 @@ class TestNodScan:
         """
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
-        nod_sb_org = sdf.getnod(scan=62, ifnum=0, plnum=0)
-        nod_sb_cal = sdf.getnod(scan=62, ifnum=0, plnum=0, t_cal=1.0)
+        nod_sb_org = sdf.getnod(scan=62, ifnum=0, plnum=0, flag_vegas=False)
+        nod_sb_cal = sdf.getnod(scan=62, ifnum=0, plnum=0, t_cal=1.0, flag_vegas=False)
         nod_org = nod_sb_org[0].timeaverage()
         nod_cal = nod_sb_cal[0].timeaverage()
         assert nod_cal.meta["TSYS"] == pytest.approx(nod_org.meta["TSYS"] / nod_org.meta["TCAL"])
@@ -1098,3 +1157,213 @@ class TestScanBlock:
         assert np.all(sb1.data[0].calibrated == sb1_.data[0].calibrated)
         sb2_ = sdf2.gettp(scan=52, ifnum=0, plnum=0, fdnum=0)
         assert np.all(sb2.data[0].calibrated == sb2_.data[0].calibrated)
+
+
+class TestScanBaseline:
+    """Tests for the vectorized Scan.baseline() and ScanBlock.baseline() methods."""
+
+    @pytest.fixture(scope="class")
+    def ps_scanblock(self, data_dir):
+        """A small PSScan ScanBlock for baseline tests."""
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        return sdf.getps(scan=152, plnum=0, ifnum=0, fdnum=0)
+
+    def _fresh_scanblock(self, data_dir):
+        """Helper that returns a fresh (un-cached) ScanBlock."""
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        return sdf.getps(scan=152, plnum=0, ifnum=0, fdnum=0)
+
+    def test_baseline_removes_known_polynomial(self, data_dir):
+        """Add a known polynomial to already-baselined data, verify it is removed to numerical precision."""
+        # First, get a clean baselined version.
+        sb_ref = self._fresh_scanblock(data_dir)
+        scan_ref = sb_ref[0]
+        scan_ref.baseline(2, model="chebyshev", remove=True)
+        ref_data = scan_ref.calibrated.data.copy()
+
+        # Now get a fresh copy, add a known polynomial, then baseline.
+        sb = self._fresh_scanblock(data_dir)
+        scan = sb[0]
+        nint, nchan = scan.calibrated.shape
+        x = np.arange(nchan, dtype=float)
+        poly_signal = 0.01 * x**2 - 0.5 * x + 100.0
+        for i in range(nint):
+            scan._calibrated[i] += poly_signal
+        scan.baseline(2, model="chebyshev", remove=True)
+
+        # The two should match: baseline fitting is linear, so adding a degree-2 poly
+        # and then fitting degree-2 should give the same residual.
+        for i in range(nint):
+            row_ref = np.asarray(ref_data[i])
+            row_now = np.asarray(scan.calibrated[i].data)
+            if np.all(np.isnan(row_ref)):
+                continue
+            good = ~np.isnan(row_ref) & ~np.isnan(row_now)
+            assert np.allclose(row_now[good], row_ref[good], atol=1e-6), f"Integration {i} not restored"
+
+    def test_baseline_returns_baselineinfo(self, data_dir):
+        """baseline() stores a _BaselineInfo object."""
+        sb = self._fresh_scanblock(data_dir)
+        scan = sb[0]
+        scan.baseline(1, model="chebyshev", remove=True)
+        assert isinstance(scan.baseline_model, _BaselineInfo)
+        assert scan.baseline_model.degree == 1
+        assert scan.baseline_model.model_type == "chebyshev"
+        assert scan.subtracted is True
+
+    def test_baseline_undo(self, data_dir):
+        """baseline() then undo_baseline() recovers original data."""
+        sb = self._fresh_scanblock(data_dir)
+        scan = sb[0]
+        original = scan.calibrated.data.copy()
+        scan.baseline(1, model="chebyshev", remove=True)
+        scan.undo_baseline()
+
+        assert scan.baseline_model is None
+        assert scan.subtracted is False
+        for i in range(scan.nint):
+            row_orig = np.asarray(original[i])
+            row_now = np.asarray(scan.calibrated[i].data)
+            good = ~np.isnan(row_orig) & ~np.isnan(row_now)
+            if good.sum() == 0:
+                continue
+            assert np.allclose(row_now[good], row_orig[good], atol=1e-10), f"Integration {i} not restored after undo"
+
+    def test_baseline_force_warning(self, data_dir):
+        """Second call without force warns and is a no-op; with force=True proceeds."""
+        sb = self._fresh_scanblock(data_dir)
+        scan = sb[0]
+        scan.baseline(1, model="chebyshev", remove=True)
+
+        # Second call should warn.
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            scan.baseline(1, model="chebyshev", remove=True)
+            assert any("already been subtracted" in str(warning.message) for warning in w)
+
+        # With force=True should succeed without warning.
+        scan.baseline(1, model="chebyshev", remove=True, force=True)
+
+    def test_baseline_exclude_channel_tuples(self, data_dir):
+        """Exclude regions given as channel tuples."""
+        sb = self._fresh_scanblock(data_dir)
+        scan = sb[0]
+        nchan = scan.nchan
+        exclude = [(0, 50), (nchan - 50, nchan - 1)]
+        scan.baseline(1, exclude=exclude, model="polynomial", remove=True)
+        assert isinstance(scan.baseline_model, _BaselineInfo)
+        assert scan.baseline_model.model_type == "polynomial"
+
+    def test_baseline_model_types(self, data_dir):
+        """Test chebyshev and polynomial model types."""
+        for model_name in ["chebyshev", "polynomial", "legendre"]:
+            sb = self._fresh_scanblock(data_dir)
+            scan = sb[0]
+            scan.baseline(1, model=model_name, remove=True)
+            assert scan.baseline_model.model_type == model_name
+
+    def test_baseline_minimum_string_match(self, data_dir):
+        """Model name supports minimum string match (e.g., 'poly' -> 'polynomial')."""
+        sb = self._fresh_scanblock(data_dir)
+        scan = sb[0]
+        scan.baseline(1, model="poly", remove=True)
+        assert scan.baseline_model.model_type == "polynomial"
+
+    def test_baseline_remove_false(self, data_dir):
+        """With remove=False, data is unchanged but model is stored."""
+        sb = self._fresh_scanblock(data_dir)
+        scan = sb[0]
+        original = scan.calibrated.data.copy()
+        scan.baseline(1, model="chebyshev", remove=False)
+
+        assert isinstance(scan.baseline_model, _BaselineInfo)
+        assert scan.subtracted is False
+        for i in range(scan.nint):
+            row_orig = np.asarray(original[i])
+            row_now = np.asarray(scan.calibrated[i].data)
+            good = ~np.isnan(row_orig)
+            if good.sum() == 0:
+                continue
+            assert np.allclose(row_now[good], row_orig[good], atol=1e-15), "Data was modified with remove=False"
+
+    def test_baseline_not_calibrated(self, data_dir):
+        """Calling baseline on uncalibrated scan raises ValueError."""
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=152, plnum=0, ifnum=0, fdnum=0, calibrate=False)
+        with pytest.raises(ValueError, match="calibrated"):
+            sb[0].baseline(1)
+
+    def test_getspec_after_baseline(self, data_dir):
+        """getspec returns Spectrum with _baseline_model=None after vectorized baseline."""
+        sb = self._fresh_scanblock(data_dir)
+        scan = sb[0]
+        scan.baseline(1, model="chebyshev", remove=True)
+        spec = scan.getspec(0)
+        # _BaselineInfo doesn't translate to individual Spectrum models.
+        assert spec._baseline_model is None
+        assert spec._subtracted is True
+
+    def test_scanblock_baseline(self, data_dir):
+        """ScanBlock.baseline() applies to all contained scans."""
+        sb = self._fresh_scanblock(data_dir)
+        sb.baseline(1, model="chebyshev", remove=True)
+        for scan in sb.data:
+            assert isinstance(scan.baseline_model, _BaselineInfo)
+            assert scan.subtracted is True
+
+    def test_scanblock_baseline_undo(self, data_dir):
+        """ScanBlock.undo_baseline() restores all scans."""
+        sb = self._fresh_scanblock(data_dir)
+        originals = [scan.calibrated.data.copy() for scan in sb.data]
+        sb.baseline(1, model="chebyshev", remove=True)
+        sb.undo_baseline()
+        for scan, orig in zip(sb.data, originals, strict=True):
+            assert scan.baseline_model is None
+            for i in range(scan.nint):
+                row_orig = np.asarray(orig[i])
+                row_now = np.asarray(scan.calibrated[i].data)
+                good = ~np.isnan(row_orig) & ~np.isnan(row_now)
+                if good.sum() == 0:
+                    continue
+                assert np.allclose(row_now[good], row_orig[good], atol=1e-10)
+
+    def test_consistency_with_manual_channel_loop(self, data_dir):
+        """Verify scan.baseline() gives identical results to applying the same numpy polynomial fit per-integration."""
+        exclude = [(0, 50), (200, 300)]
+
+        # Approach 1: manual channel-space loop (same algorithm as scan.baseline, applied one at a time).
+        sb_loop = self._fresh_scanblock(data_dir)
+        scan_loop = sb_loop[0]
+        nchan = scan_loop.nchan
+        mask = np.ones(nchan, dtype=bool)
+        for lo, hi in exclude:
+            mask[lo : hi + 1] = False
+        x_all = np.arange(nchan, dtype=float)
+        domain = (0, nchan - 1)
+        for i in range(scan_loop.nint):
+            row_data = np.asarray(scan_loop._calibrated[i].data, dtype=float)
+            row_mask = np.ma.getmaskarray(scan_loop._calibrated[i])
+            fit_mask = mask & ~row_mask & ~np.isnan(row_data)
+            if fit_mask.sum() < 2:
+                continue
+            p = np.polynomial.Polynomial.fit(x_all[fit_mask], row_data[fit_mask], 1, domain=domain)
+            scan_loop._calibrated[i] -= p(x_all)
+
+        # Approach 2: vectorized scan.baseline().
+        sb_vec = self._fresh_scanblock(data_dir)
+        scan_vec = sb_vec[0]
+        scan_vec.baseline(1, model="polynomial", exclude=exclude, remove=True)
+
+        # Results must be identical (same algorithm, same coordinate system).
+        for i in range(scan_loop.nint):
+            loop_row = np.asarray(scan_loop.calibrated[i].data)
+            vec_row = np.asarray(scan_vec.calibrated[i].data)
+            good = ~np.isnan(loop_row) & ~np.isnan(vec_row)
+            if good.sum() == 0:
+                continue
+            assert np.allclose(vec_row[good], loop_row[good], atol=1e-12), (
+                f"Integration {i}: vectorized and manual loop results differ"
+            )

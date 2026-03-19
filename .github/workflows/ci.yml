@@ -48,8 +48,8 @@ jobs:
           COVERAGE_FILE: coverage.${{ matrix.os }}.${{ matrix.python-version }}
         run: |
           # Write coverage data files, namespaced using matrix info
-          # Run all tests including slow ones, but skip GBO-only tests that require GBO network access
-          uv run pytest --numprocesses auto --cov=dysh -m "not gbo_only" --timeout=0
+          # Run all tests including slow ones, but skip GBO-only and internet-dependent tests
+          uv run pytest --numprocesses auto --cov=dysh -m "not gbo_only and not requires_internet" --timeout=0
       - name: Upload coverage data
         # Upload only ubuntu results, since we are only running the coverage step on ubuntu
         if: matrix.os == 'ubuntu-latest'
@@ -82,7 +82,7 @@ jobs:
           key: dysh-example-data-v1
       - name: Test with pytest
         run: |
-          uv run pytest --numprocesses auto -m "not gbo_only" --timeout=0
+          uv run pytest --numprocesses auto -m "not gbo_only and not requires_internet" --timeout=0
   coverage:
     needs: tests
     runs-on: ubuntu-latest

@@ -382,3 +382,87 @@ class TestSelection:
         # This shows what the old buggy behavior would be
         final_and = sdf.flags.merge(how="inner")
         assert len(final_and) == 0, "With AND logic (bug), no rows match all rules"
+
+
+class TestLightweightCopy:
+    """Tests for Selection._lightweight_copy isolation guarantees.
+
+    _lightweight_copy is used in _common_selection to create a temporary
+    Selection that receives additional rules (e.g., SCAN, FDNUM) without
+    mutating the original. These tests verify that the copy is properly
+    isolated from the original for all mutation paths.
+    """
+
+    @pytest.fixture()
+    def selection(self):
+        """A small Selection with one pre-existing rule."""
+        df = pd.DataFrame(
+            {
+                "SCAN": [1, 2, 3, 4, 5],
+                "OBJECT": ["A", "A", "B", "B", "C"],
+                "PLNUM": [0, 0, 1, 1, 0],
+                "DATE-OBS": [
+                    "2024-01-01T00:00:00",
+                    "2024-01-01T00:01:00",
+                    "2024-01-01T00:02:00",
+                    "2024-01-01T00:03:00",
+                    "2024-01-01T00:04:00",
+                ],
+            }
+        )
+        sel = Selection(df)
+        sel.select(OBJECT="A")
+        return sel
+
+    def test_add_rule_to_copy_does_not_affect_original(self, selection):
+        """Adding a rule to the copy must not appear in the original."""
+        original_rule_ids = set(selection._selection_rules.keys())
+        original_n_rules = len(original_rule_ids)
+
+        copy = selection._lightweight_copy()
+        copy._base_select(SCAN=1)
+
+        assert set(selection._selection_rules.keys()) == original_rule_ids
+        assert len(selection._selection_rules) == original_n_rules
+        assert len(copy._selection_rules) == original_n_rules + 1
+
+    def test_remove_rule_from_copy_does_not_affect_original(self, selection):
+        """Deleting a rule from the copy must not remove it from the original."""
+        rule_id = next(iter(selection._selection_rules))
+        original_rule_count = len(selection._selection_rules)
+
+        copy = selection._lightweight_copy()
+        copy.remove(id=rule_id)
+
+        assert rule_id in selection._selection_rules
+        assert len(selection._selection_rules) == original_rule_count
+        assert rule_id not in copy._selection_rules
+
+    def test_clear_copy_does_not_affect_original(self, selection):
+        """Clearing all rules on the copy must not touch the original."""
+        original_rule_count = len(selection._selection_rules)
+
+        copy = selection._lightweight_copy()
+        copy.clear()
+
+        assert len(selection._selection_rules) == original_rule_count
+        assert len(copy._selection_rules) == 0
+
+    def test_copy_final_narrows_independently(self, selection):
+        """The copy's .final should reflect its own added rules."""
+        copy = selection._lightweight_copy()
+        copy._base_select(SCAN=1)
+
+        original_final = selection.final
+        copy_final = copy.final
+
+        # Original selected OBJECT="A" -> scans 1,2
+        assert set(original_final["SCAN"]) == {1, 2}
+        # Copy additionally selected SCAN=1 -> intersection is just scan 1
+        assert set(copy_final["SCAN"]) == {1}
+
+    def test_underlying_dataframe_is_shared(self, selection):
+        """The copy should share the same underlying data arrays (not a deep copy)."""
+        copy = selection._lightweight_copy()
+        # Both should see the same data
+        pd.testing.assert_frame_equal(pd.DataFrame(selection), pd.DataFrame(copy))

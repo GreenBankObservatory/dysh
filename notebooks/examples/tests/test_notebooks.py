@@ -15,6 +15,19 @@ ALLOWED_ERROR_NAMES = [
     "requests.exceptions.ReadTimeout",
 ]
 
+# Notebooks that require internet access (e.g. query external services like Splatalogue)
+INTERNET_REQUIRED_NOTEBOOKS = {"line_search.ipynb"}
+
+
+def _notebook_params():
+    params = []
+    for f in NOTEBOOK_FILES:
+        marks = [pytest.mark.notebooks, pytest.mark.slow]
+        if f.name in INTERNET_REQUIRED_NOTEBOOKS:
+            marks.append(pytest.mark.requires_internet)
+        params.append(pytest.param(f, marks=marks))
+    return params
+
 
 def check_notebook_execution(notebook_file):
     """Execute a given notebook and check for errors"""
@@ -39,9 +52,7 @@ def check_notebook_execution(notebook_file):
         os.chdir(cwd)
 
 
-@pytest.mark.notebooks
-@pytest.mark.slow
-@pytest.mark.parametrize("notebook_file", NOTEBOOK_FILES, ids=lambda x: x.name)
+@pytest.mark.parametrize("notebook_file", _notebook_params(), ids=lambda x: x.name)
 def test_notebook_execution(notebook_file):
     """Test that each notebook runs without errors"""
     check_notebook_execution(notebook_file)

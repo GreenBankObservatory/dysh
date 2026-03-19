@@ -3,6 +3,7 @@ Core functions for spectral data.
 """
 
 from copy import deepcopy
+from dataclasses import dataclass
 from functools import reduce
 
 import astropy.units as u
@@ -23,6 +24,97 @@ from specutils.utils import QuantityModel
 
 from ..log import logger
 from ..util import grouper, merge_ranges, minimum_string_match, powerof2
+
+# Mapping from model name to numpy.polynomial class for vectorized baseline fitting.
+_NP_POLY_CLASSES = {
+    "chebyshev": np.polynomial.Chebyshev,
+    "polynomial": np.polynomial.Polynomial,
+    "legendre": np.polynomial.Legendre,
+    "hermite": np.polynomial.hermite.Hermite,
+}
+
+
+@dataclass
+class _BaselineInfo:
+    """Stores per-integration polynomial baseline fit results compactly.
+
+    This avoids the overhead of creating astropy models / QuantityModels
+    for every integration when fitting baselines vectorized over a Scan.
+    """
+
+    coefficients: np.ndarray  # shape (nint, degree+1); NaN rows for blanked integrations
+    model_type: str  # key into _NP_POLY_CLASSES, e.g. 'chebyshev'
+    degree: int
+    domain: tuple  # (0, nchan - 1)
+
+
+def _exclude_to_channel_mask(exclude, nchan, refspec=None):
+    """Convert an ``exclude`` specification to a boolean channel mask.
+
+    Parameters
+    ----------
+    exclude : list or `~specutils.SpectralRegion` or None
+        Exclusion specification in the same format accepted by
+        `~dysh.spectra.spectrum.Spectrum.baseline`.
+    nchan : int
+        Number of channels.
+    refspec : `~dysh.spectra.spectrum.Spectrum`, optional
+        A reference spectrum, needed when *exclude* contains
+        `~astropy.units.Quantity` or `~specutils.SpectralRegion` entries
+        (i.e. anything that isn't plain channel indices).
+
+    Returns
+    -------
+    mask : `~numpy.ndarray` of bool, shape ``(nchan,)``
+        ``True`` for channels to **include** in the fit.
+    """
+    mask = np.ones(nchan, dtype=bool)
+    if exclude is None:
+        return mask
+
+    # Fast path: all entries are plain int tuples / lists.
+    def _is_channel_based(exc):
+        if isinstance(exc, SpectralRegion):
+            return False
+        # Single pair [lo, hi]
+        if len(exc) == 2 and not isinstance(exc[0], (tuple, list)):
+            return not isinstance(exc[0], u.Quantity)
+        # List of pairs
+        for item in exc:
+            if isinstance(item, (tuple, list)):
+                if any(isinstance(v, u.Quantity) for v in item):
+                    return False
+            elif isinstance(item, u.Quantity):
+                return False
+        return True
+
+    if _is_channel_based(exclude):
+        # Normalize to list of (lo, hi) tuples.
+        if len(exclude) == 2 and not isinstance(exclude[0], (tuple, list)):
+            pairs = [(int(exclude[0]), int(exclude[1]))]
+        else:
+            pairs = [(int(p[0]), int(p[1])) for p in exclude]
+        for lo, hi in pairs:
+            lo = max(0, lo)
+            hi = min(nchan - 1, hi)
+            mask[lo : hi + 1] = False
+        return mask
+
+    # Slow path: need a reference spectrum to convert units.
+    if refspec is None:
+        raise ValueError(
+            "A reference spectrum is required to convert Quantity/SpectralRegion exclude regions to channels."
+        )
+    region_list = exclude_to_region_list(exclude, refspec, clip_exclude=True)
+    sa = refspec.spectral_axis
+    for region in region_list:
+        for subregion in region.subregions:
+            lo_val, hi_val = subregion
+            # Find channels within this subregion (inclusive).
+            in_region = (sa >= lo_val) & (sa <= hi_val)
+            mask[in_region.value if hasattr(in_region, "value") else in_region] = False
+    return mask
+
 
 # note that these methods always return odd number in the kernel
 _available_smooth_methods = {
@@ -692,6 +784,33 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
     # GBTIDL also takes abs(Tsys) because it does sqrt(Tsys^2)
     # return np.ma.abs(meanTsys)
     return meanTsys
+
+
+def mean_tsys_vectorized(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
+    """Vectorized version of :func:`mean_tsys` for stacks of spectra."""
+
+    calon = np.asanyarray(calon)
+    caloff = np.asanyarray(caloff)
+    if calon.ndim == 1 or caloff.ndim == 1:
+        return mean_tsys(calon, caloff, tcal, mode=mode, fedge=fedge, nedge=nedge)
+
+    nchan = calon.shape[-1]
+    if nedge is None:
+        nedge = int(nchan * fedge)
+    chrng = slice(nedge, -(nedge - 1), 1)
+
+    calon_ma = np.ma.masked_invalid(np.asanyarray(calon, dtype=np.float64)[..., chrng], copy=False)
+    caloff_ma = np.ma.masked_invalid(np.asanyarray(caloff, dtype=np.float64)[..., chrng], copy=False)
+    tcal = np.asanyarray(tcal, dtype=np.float64)
+
+    if mode == 0:
+        meanoff = np.ma.mean(caloff_ma, axis=-1)
+        meandiff = np.ma.mean(calon_ma - caloff_ma, axis=-1)
+        mean_tsys = meanoff / meandiff * tcal + tcal / 2.0
+    else:
+        mean_tsys = np.ma.mean(caloff_ma / (calon_ma - caloff_ma), axis=-1)
+        mean_tsys = mean_tsys * tcal + tcal / 2.0
+    return mean_tsys
 
 
 def sq_weighted_avg(a, axis=0, weights=None):
