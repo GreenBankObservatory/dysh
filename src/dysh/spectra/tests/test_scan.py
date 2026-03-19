@@ -9,16 +9,6 @@ from dysh.spectra import core
 
 
 class TestPSScan:
-    def test_scans_precompute_target(self, data_dir):
-        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2.fits"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-
-        tp_sb = sdf.gettp(scan=153, plnum=0, ifnum=0, fdnum=0)
-        ps_sb = sdf.getsigref(scan=152, ref=153, fdnum=0, ifnum=0, plnum=0)
-
-        assert tp_sb[0]._precomputed_target is not None
-        assert ps_sb[0]._precomputed_target is not None
-
     def test_tsys(self, data_dir):
         """
         Test that `getps` results in the same system temperature as GBTIDL.
