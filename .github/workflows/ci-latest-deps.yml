@@ -9,6 +9,7 @@ env:
   FORCE_COLOR: '1'
   MPLBACKEND: Agg
   QT_QPA_PLATFORM: offscreen
+  DYSH_DATA: ${{ github.workspace }}/.dysh_cache
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
@@ -38,6 +39,11 @@ jobs:
         run: uv sync -U --all-extras --dev
       - name: Log resolved dependency versions
         run: uv pip list
+      - name: Cache example data
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.dysh_cache
+          key: dysh-example-data-v1
       - name: Test with pytest
         run: |
           uv run pytest --numprocesses auto -m "not gbo_only" --timeout=0
