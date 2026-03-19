@@ -8,6 +8,11 @@ from nbclient import NotebookClient
 # Collect notebook files at module level
 NOTEBOOK_DIR = Path("notebooks/examples/")
 NOTEBOOK_FILES = list(NOTEBOOK_DIR.glob("*.ipynb"))
+ALLOWED_ERROR_NAMES = [
+    "requests.exceptions.ReadTimeout",
+    "requests.exceptions.HTTPError",
+    "requests.exceptions.ConnectTimeout",
+]
 
 # Notebooks that require internet access (e.g. query external services like Splatalogue)
 INTERNET_REQUIRED_NOTEBOOKS = {"line_search.ipynb"}
@@ -39,7 +44,7 @@ def check_notebook_execution(notebook_file):
     try:
         # Change the current working directory to the notebook's directory
         os.chdir(notebook_dir)
-        client = NotebookClient(nb, timeout=600)
+        client = NotebookClient(nb, timeout=600, allow_error_names=ALLOWED_ERROR_NAMES)
         client.execute()
     finally:
         # Always restore directory

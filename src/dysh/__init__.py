@@ -16,7 +16,7 @@ from astropy.utils.iers import conf as iers_conf
 iers_conf.auto_download = False
 IERS_B.open()
 
-__version__ = "0.14.0"
+__version__ = "1.0.1"
 
 all = ["version"]
 

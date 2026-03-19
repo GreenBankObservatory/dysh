@@ -64,7 +64,7 @@ class TestPSScan:
         gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
-        ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
+        ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         ta = ps_scans.timeaverage()
 
         hdu = fits.open(gbtidl_file)
@@ -167,26 +167,26 @@ class TestPSScan:
         flagrange = np.arange(flagarray[0], flagarray[1] + 1)
         sdf.flag(scan=7, channel=[flagarray], intnum=[1])
         sdf.apply_flags()
-        scan_block = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0)
+        scan_block = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         output = tmp_path / "test_sb_flag_write.fits"
         # scanblock flags test
         scan_block.write(output, overwrite=True, flags=True)
         sdfin = gbtfitsload.GBTFITSLoad(output, flag_vegas=False)
         assert np.all(np.where(sdfin._sdf[0]._flagmask[0][1])[0] == flagrange)
         # scan flags test
-        sb = sdfin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        sb = sdfin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert np.all(np.where(sb[0]._calibrated.mask[1])[0] == flagrange)
         scanout = tmp_path / "test_scan_flag_write.fits"
         sb[0].write(scanout, overwrite=True, flags=True)
         scanin = gbtfitsload.GBTFITSLoad(scanout, flag_vegas=False)
         assert np.all(np.where(scanin._sdf[0]._flagmask[0][1])[0] == flagrange)
-        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert np.all(np.where(tpscan[0]._calibrated.mask[1])[0] == flagrange)
         # try with flags=false
         scanout = tmp_path / "test_scan_flag_write2.fits"
         sb[0].write(scanout, overwrite=True, flags=False)
         scanin = gbtfitsload.GBTFITSLoad(scanout, flag_vegas=False)
-        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert len(np.where(tpscan[0]._calibrated.mask[1])[0]) == 0
 
     def test_scale_units(self, data_dir):
@@ -263,7 +263,7 @@ class TestPSScan:
     def test_vane(self, data_dir):
         """Test for getps with vane."""
         data_path = f"{data_dir}/TGBT24B_615_01/TGBT24B_615_01.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(data_path)
+        sdf = gbtfitsload.GBTFITSLoad(data_path, flag_vegas=True)
         pssb = sdf.getps(scan=86, ifnum=0, plnum=0, fdnum=10, vane=84, zenith_opacity=0.14, t_atm=268.85)
         psta = pssb.timeaverage()
         stats = psta.stats()
@@ -344,7 +344,7 @@ class TestSubBeamNod:
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         # Cycle mode.
-        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0).timeaverage()
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, flag_vegas=False).timeaverage()
 
         assert sbn.data.std() == pytest.approx(0.00222391)
         assert sbn.meta["EXPOSURE"] == 2.402706191448039
@@ -352,7 +352,7 @@ class TestSubBeamNod:
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == 1.0
 
-        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, t_sys=105.0).timeaverage()
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, t_sys=105.0, flag_vegas=False).timeaverage()
 
         assert sbn.meta["EXPOSURE"] == 2.402706191448039
         assert sbn.meta["DURATION"] > sbn.meta["EXPOSURE"]
@@ -360,13 +360,15 @@ class TestSubBeamNod:
         assert sbn.meta["TSYS"] == pytest.approx(105.0)
 
         # Scan mode.
-        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan").timeaverage()
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", flag_vegas=False).timeaverage()
 
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == 1.0
         assert sbn.meta["DURATION"] > sbn.meta["EXPOSURE"]
 
-        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0).timeaverage()
+        sbn = sdf.subbeamnod(
+            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, flag_vegas=False
+        ).timeaverage()
 
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == pytest.approx(100.0)
@@ -374,7 +376,7 @@ class TestSubBeamNod:
 
         # Equal weights.
         sbn_eq = sdf.subbeamnod(
-            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, weights=None
+            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, weights=None, flag_vegas=False
         ).timeaverage()
 
         assert (sbn.data - sbn_eq.data).sum() > 0.15
@@ -384,11 +386,11 @@ class TestSubBeamNod:
 
         # Smooth reference.
         sbn_smref = sdf.subbeamnod(
-            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, smoothref=10
+            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, smoothref=10, flag_vegas=False
         ).timeaverage()
         s = slice(2000, 6000)  # Clean channels.
 
-        assert (sbn.data - sbn_smref.data)[s].sum() == pytest.approx(-5.375981637276874)
+        assert (sbn.data - sbn_smref.data)[s].sum() == pytest.approx(-5.375981637276875)
         assert sbn_smref.meta["SCAN"] == 20
         assert sbn_smref.meta["TSYS"] == pytest.approx(100.0)
         assert sbn_smref[s].stats()["rms"].value == pytest.approx(0.17582152178367458)
@@ -465,8 +467,8 @@ class TestSubBeamNod:
             sdf["TCAL"] = tcal
 
         # Calibrate.
-        sbn_cycle = sdf.subbeamnod(scan=43, fdnum=1, plnum=1, ifnum=0).timeaverage()
-        sbn_scan = sdf.subbeamnod(scan=43, fdnum=1, plnum=1, ifnum=0, method="scan").timeaverage()
+        sbn_cycle = sdf.subbeamnod(scan=43, fdnum=1, plnum=1, ifnum=0, flag_vegas=False).timeaverage()
+        sbn_scan = sdf.subbeamnod(scan=43, fdnum=1, plnum=1, ifnum=0, method="scan", flag_vegas=False).timeaverage()
 
         # Check data over a frequency interval.
         s_sbn = slice(30.0 * u.GHz, 30.5 * u.GHz)
@@ -500,7 +502,9 @@ class TestSubBeamNod:
         """Test for subbeamnod with vane."""
         sdf_file = f"{data_dir}/AGBT18B_357_04/AGBT18B_357_04.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, skipflags=True)
-        sbnsb = sdf.subbeamnod(scan=3, vane=1, ifnum=0, plnum=0, fdnum=10, zenith_opacity=0.1, t_atm=257.90)
+        sbnsb = sdf.subbeamnod(
+            scan=3, vane=1, ifnum=0, plnum=0, fdnum=10, zenith_opacity=0.1, t_atm=257.90, flag_vegas=True
+        )
         sbnta = sbnsb.timeaverage()
         stats = sbnta.stats()
         assert stats["mean"].value == pytest.approx(-0.09412889, abs=1e-4)
@@ -523,7 +527,7 @@ class TestWeights:
         # for all rows in the SDFITS File.  Using the index file would cause flag_vegas() to do nothing
         # because is_vegas() can't determine if it is vegas or not.  So weights will be different
         # using index file or SDFITS file.  See https://github.com/GreenBankObservatory/dysh/issues/1023
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file, index_file_threshold=100000000)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, index_file_threshold=100000000, flag_vegas=True)
         sb = sdf.getfs(scan=6, fdnum=0, plnum=0, ifnum=0)
         w = np.ones((3, sb.nchan))
         x = sb.timeaverage(weights=w)
@@ -740,7 +744,7 @@ class TestTPScan:
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
-        tp = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+        tp = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0, flag_vegas=False)
         assert len(tp) == 1
         # tpavg is a Spectrum
         tpavg = tp.timeaverage(weights=None)
@@ -888,7 +892,7 @@ class TestFSScan:
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         # Test without system temperature.
-        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10)
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, flag_vegas=False)
         assert fs_sb[0]._nocal
         fs = fs_sb.timeaverage()
         assert fs.meta["TSYS"] == 1.0
@@ -899,7 +903,7 @@ class TestFSScan:
 
         # Test with system temperature.
         t_sys = 205.0
-        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, t_sys=t_sys)
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, t_sys=t_sys, flag_vegas=False)
         assert fs_sb[0]._nocal
         fs = fs_sb.timeaverage()
         assert fs.meta["TSYS"] == pytest.approx(t_sys)
@@ -908,7 +912,7 @@ class TestFSScan:
         assert fs.stats()["rms"].value == pytest.approx(3.4622800361496875)
 
         # Test with reference smoothing.
-        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, smoothref=256)
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, smoothref=256, flag_vegas=False)
         assert fs_sb[0]._nocal
         fs = fs_sb.timeaverage()
         assert fs.meta["TSYS"] == 1.0
@@ -948,7 +952,7 @@ class TestFSScan:
         sdf_file = (
             util.get_project_testdata() / "AGBT25A_504_03/AGBT25A_504_03.raw.vegas/AGBT25A_504_03.raw.vegas.A.fits"
         )
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=True)
 
         # Using interpolation for the shift.
         ta = sdf.getfs(scan=18, ifnum=0, plnum=1, fdnum=0, shift_method="interpolate").timeaverage()
@@ -974,7 +978,7 @@ class TestNodScan:
         # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
-        nod = sdf.getnod(scan=62, ifnum=0, plnum=0)
+        nod = sdf.getnod(scan=62, ifnum=0, plnum=0, flag_vegas=False)
         assert len(nod) == 2
         nod_sp = nod.timeaverage()
         stats = nod_sp[int(2**15 * 0.1) : int(2**15 * 0.9)].stats()
@@ -1001,7 +1005,7 @@ class TestNodScan:
 
     def test_vane(self):
         fits_path = util.get_project_testdata() / "AGBT22A_325_23/AGBT22A_325_23.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=True)
         nodsb = sdf.getnod(ifnum=0, plnum=0, vane=43, t_atm=265.48, zenith_opacity=0.21)
         assert nodsb[0].tsys.mean() == 195.85427050034397
         assert nodsb[1].tsys.mean() == 185.7013266638696
