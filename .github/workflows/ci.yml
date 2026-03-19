@@ -27,11 +27,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 1
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: 0.9.17 # Update this occasionally to stay up to date!
           python-version: ${{ matrix.python-version }}
@@ -39,7 +39,7 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
       - name: Cache example data
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ github.workspace }}/.dysh_cache
           key: dysh-example-data-v1
@@ -53,7 +53,7 @@ jobs:
       - name: Upload coverage data
         # Upload only ubuntu results, since we are only running the coverage step on ubuntu
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage.${{ matrix.os }}.${{ matrix.python-version }}
           path: coverage.ubuntu-latest*
@@ -62,11 +62,11 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 1
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: 0.9.17
           python-version: '3.13'
@@ -76,7 +76,7 @@ jobs:
       - name: Log resolved dependency versions
         run: uv pip list
       - name: Cache example data
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ github.workspace }}/.dysh_cache
           key: dysh-example-data-v1
@@ -87,17 +87,17 @@ jobs:
     needs: tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 1
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: 0.9.17 # Update this occasionally to stay up to date!
           enable-cache: true
       - name: Install the project
         run: uv sync --all-extras --dev
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: coverage.*
           path: coverage-data
@@ -113,7 +113,7 @@ jobs:
           # Report again and fail if under 100%.
           # coverage report --fail-under=100
       - name: Upload HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: html-report
           path: htmlcov
