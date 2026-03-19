@@ -13,8 +13,9 @@ from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
 from astropy.time import Time
 from astropy.utils.masked import Masked
+from specutils import SpectralRegion
 
-from ..coordinates import Observatory, make_target
+from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
 from ..util import isot_to_mjd, minimum_string_match
 from ..util.docstring_manip import copy_docstring
@@ -433,7 +434,11 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             use_wcs=use_wcs,
         )
         s.merge_commentary(self)
-        s._baseline_model = self._baseline_model
+        # Per-integration _BaselineInfo doesn't translate to individual Spectrum QuantityModels.
+        if isinstance(self._baseline_model, core._BaselineInfo):
+            s._baseline_model = None
+        else:
+            s._baseline_model = self._baseline_model
         s._subtracted = self._subtracted
         return s
 
@@ -650,10 +655,132 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         if self._baseline_model is None:
             return
-        sa = self.getspec(0).spectral_axis
-        self._calibrated += self._baseline_model(sa).value
+        if isinstance(self._baseline_model, core._BaselineInfo):
+            # Vectorized per-integration baseline: reconstruct and add back.
+            info = self._baseline_model
+            PolyClass = core._NP_POLY_CLASSES[info.model_type]
+            x_all = np.arange(info.domain[1] + 1, dtype=float)
+            for i in range(info.coefficients.shape[0]):
+                if np.any(np.isnan(info.coefficients[i])):
+                    continue
+                p = PolyClass(info.coefficients[i], domain=info.domain)
+                self._calibrated[i] += p(x_all)
+        else:
+            sa = self.getspec(0).spectral_axis
+            self._calibrated += self._baseline_model(sa).value
         self._baseline_model = None
         self._subtracted = False
+
+    @log_call_to_history
+    def baseline(self, degree, exclude=None, include=None, model="chebyshev", remove=True, force=False):
+        """
+        Compute and optionally remove a polynomial baseline from every integration in this Scan.
+
+        This is the vectorized equivalent of looping over integrations and calling
+        `Spectrum.baseline()` on each one.  It operates directly on the underlying
+        calibrated data array using numpy polynomial classes, avoiding the per-integration
+        overhead of WCS construction and specutils model objects.
+
+        Parameters
+        ----------
+        degree : int
+            The degree of the polynomial series (baseline order).
+        exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`, optional
+            Region(s) to exclude from the fit.  See `~dysh.spectra.spectrum.Spectrum.baseline`
+            for format details.
+        include : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`, optional
+            Region(s) to include in the fit (everything else excluded).  Mutually exclusive
+            with *exclude*; if both are given, only *include* is used.
+        model : str, optional
+            Polynomial family: ``'chebyshev'``, ``'polynomial'``, ``'legendre'``, or ``'hermite'``.
+            Minimum string matching is applied.  Default is ``'chebyshev'``.
+        remove : bool, optional
+            If True (default), subtract the fitted baseline from the data in place.
+        force : bool, optional
+            If a baseline has already been subtracted, a warning is issued and the call is a
+            no-op unless *force* is True.
+
+        Raises
+        ------
+        ValueError
+            If the data have not been calibrated.
+
+        Returns
+        -------
+        None
+        """
+        if self._calibrated is None:
+            raise ValueError("Data must be calibrated before a baseline can be fitted.")
+        if self._subtracted and not force:
+            warnings.warn(
+                "A baseline has already been subtracted from this scan. "
+                "Use 'force=True' to force fitting of another baseline.",
+                stacklevel=2,
+            )
+            return
+
+        nint, nchan = self._calibrated.shape
+
+        # Resolve include -> exclude.
+        if include is not None:
+            if exclude is not None:
+                logger.warning("Warning: ignoring exclude=%s", exclude)
+            refspec = self.getspec(0)
+            exclude = core.include_to_exclude_spectral_region(include, refspec)
+
+        # Build the channel mask (True = include in fit).
+        refspec_for_mask = None
+        if exclude is not None and not isinstance(exclude, SpectralRegion):
+            # Check whether we need a reference spectrum (Quantity-based exclude).
+            try:
+                channel_mask = core._exclude_to_channel_mask(exclude, nchan)
+            except ValueError:
+                refspec_for_mask = self.getspec(0)
+                channel_mask = core._exclude_to_channel_mask(exclude, nchan, refspec=refspec_for_mask)
+        elif isinstance(exclude, SpectralRegion):
+            refspec_for_mask = self.getspec(0)
+            channel_mask = core._exclude_to_channel_mask(exclude, nchan, refspec=refspec_for_mask)
+        else:
+            channel_mask = core._exclude_to_channel_mask(exclude, nchan)
+
+        # Resolve model string.
+        model_name = minimum_string_match(model, list(core._NP_POLY_CLASSES.keys()))
+        if model_name is None:
+            raise ValueError(f"Unrecognized model '{model}'. Must be one of {list(core._NP_POLY_CLASSES.keys())}")
+        PolyClass = core._NP_POLY_CLASSES[model_name]
+        domain = (0, nchan - 1)
+
+        x_all = np.arange(nchan, dtype=float)
+        coeffs = np.full((nint, degree + 1), np.nan)
+
+        for i in range(nint):
+            row_data = np.asarray(self._calibrated[i].data, dtype=float)
+            row_mask = np.ma.getmaskarray(self._calibrated[i])
+            # Combine: channel_mask (exclude regions) AND not per-channel flags AND not NaN.
+            fit_mask = channel_mask & ~row_mask & ~np.isnan(row_data)
+            if fit_mask.sum() < degree + 1:
+                continue
+            x_fit = x_all[fit_mask]
+            y_fit = row_data[fit_mask]
+            p = PolyClass.fit(x_fit, y_fit, degree, domain=domain)
+            coeffs[i] = p.coef
+
+        info = core._BaselineInfo(
+            coefficients=coeffs,
+            model_type=model_name,
+            degree=degree,
+            domain=domain,
+        )
+
+        if remove:
+            for i in range(nint):
+                if np.any(np.isnan(coeffs[i])):
+                    continue
+                p = PolyClass(coeffs[i], domain=domain)
+                self._calibrated[i] -= p(x_all)
+            self._subtracted = True
+
+        self._baseline_model = info
 
     @property
     def baseline_model(self):
@@ -1463,9 +1590,36 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         """
         return self._scanblock_property("tunit", "brightness units")
 
-    # possible @todo:  We could have a baseline() method with same signature as Spectrum.baseline, which would compute
-    # timeaverage for each Scan in a ScanBlock, and for each Scan calculate and remove that baseline from t
-    # the integrations in that Scan.
+    @log_call_to_history
+    def baseline(self, degree, exclude=None, include=None, model="chebyshev", remove=True, force=False):
+        """
+        Compute and optionally remove a polynomial baseline from every integration of every Scan
+        in this ScanBlock.
+
+        This delegates to `ScanBase.baseline()` for each contained Scan.  See that method for
+        full parameter documentation.
+
+        Parameters
+        ----------
+        degree : int
+            The degree of the polynomial series (baseline order).
+        exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`, optional
+            Region(s) to exclude from the fit.
+        include : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`, optional
+            Region(s) to include in the fit (everything else excluded).
+        model : str, optional
+            Polynomial family.  Default is ``'chebyshev'``.
+        remove : bool, optional
+            If True (default), subtract the fitted baseline from the data in place.
+        force : bool, optional
+            Force re-fitting even if a baseline has already been subtracted.
+
+        Returns
+        -------
+        None
+        """
+        for scan in self.data:
+            scan.baseline(degree, exclude=exclude, include=include, model=model, remove=remove, force=force)
 
     @log_call_to_history
     def subtract_baseline(self, model, tol: int = 1, force: bool = False):
