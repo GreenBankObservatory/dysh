@@ -100,6 +100,12 @@ _VANE_LAZY_METADATA_COLUMNS = (
     "TAMBIENT",
 )
 
+_VEGAS_SPUR_COLUMNS = (
+    "VSPRVAL",
+    "VSPDELT",
+    "VSPRPIX",
+)
+
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 # _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
@@ -2156,6 +2162,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         lazy_columns = ["TCAL", "TSYS"]
         if vane is not None:
             lazy_columns.extend(_VANE_LAZY_METADATA_COLUMNS)
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
         _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
@@ -2421,7 +2429,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         )
         _log_mem(f"getsigref: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2683,7 +2694,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2919,7 +2933,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -3192,7 +3209,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _channel = self._normalize_channel_range(channel)
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -3598,7 +3618,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        lazy_columns = ["TCAL", "TSYS"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        _sf = self._load_full_rows_if_needed(_sf, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -4902,7 +4925,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             cache.add(key)
             return
 
-        self._load_full_rows_if_needed(rows, ["TCAL", "TSYS", "TWARM", "TAMBIENT"])
+        self._load_full_rows_if_needed(rows, ["TCAL", "TSYS", "TWARM", "TAMBIENT", *_VEGAS_SPUR_COLUMNS])
         cache.add(key)
 
     def _get_vanecal_scan_cache(
@@ -4942,7 +4965,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             apply_flags=apply_flags,
             scan=[scan],
         )
-        selected = self._load_full_rows_if_needed(selected, ["TCAL", "TSYS", "TWARM", "TAMBIENT"])
+        lazy_columns = ["TCAL", "TSYS", "TWARM", "TAMBIENT"]
+        if flag_vegas:
+            lazy_columns.extend(_VEGAS_SPUR_COLUMNS)
+        selected = self._load_full_rows_if_needed(selected, lazy_columns)
         if flag_vegas:
             self.flag_vegas_spurs(selection=selected)
             if apply_flags:

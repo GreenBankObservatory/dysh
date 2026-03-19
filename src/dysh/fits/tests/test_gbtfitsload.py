@@ -2756,7 +2756,7 @@ class TestIndexFileLazyLoading:
         """
         sdf = self._make_argus_lazy_loaded_copy()
 
-        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=0, plnum=0, tcal=272)
+        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=0, plnum=0, tcal=272, flag_vegas=False)
         assert tsys == pytest.approx(221.7994624067703)
 
     @pytest.mark.skipif(sys.platform == "win32", reason="fitsio not available on Windows")
@@ -2772,7 +2772,7 @@ class TestIndexFileLazyLoading:
 
         tsys_values = []
         for fdnum in range(16):
-            tsys = sdf.vanecal(scan=329, fdnum=fdnum, ifnum=0, plnum=0, tcal=272)
+            tsys = sdf.vanecal(scan=329, fdnum=fdnum, ifnum=0, plnum=0, tcal=272, flag_vegas=False)
             tsys_values.append(float(tsys))
 
         assert len(tsys_values) == 16

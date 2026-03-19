@@ -995,8 +995,8 @@ class TestNodScan:
         """
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
-        nod_sb_org = sdf.getnod(scan=62, ifnum=0, plnum=0)
-        nod_sb_cal = sdf.getnod(scan=62, ifnum=0, plnum=0, t_cal=1.0)
+        nod_sb_org = sdf.getnod(scan=62, ifnum=0, plnum=0, flag_vegas=False)
+        nod_sb_cal = sdf.getnod(scan=62, ifnum=0, plnum=0, t_cal=1.0, flag_vegas=False)
         nod_org = nod_sb_org[0].timeaverage()
         nod_cal = nod_sb_cal[0].timeaverage()
         assert nod_cal.meta["TSYS"] == pytest.approx(nod_org.meta["TSYS"] / nod_org.meta["TCAL"])
