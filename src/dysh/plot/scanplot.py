@@ -224,7 +224,7 @@ class ScanPlot(PlotBase):
             labeltop=False,
         )
 
-        self.axes.set_xlim(0, stop - 0.5)
+        self.axes.set_xlim(-0.5, stop - 0.5)
         self._set_labels()
 
         self.show()
