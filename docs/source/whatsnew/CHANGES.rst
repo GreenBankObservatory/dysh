@@ -2,6 +2,45 @@
 What's New?
 ***********
 
+Verson 1.1.0
+============
+
+.. _v1-1-0-bugfixes:
+
+Bug Fixes
+---------
+
+- Error setting inclusion regions in ``Spectrum.baseline`` (`#1017 <https://github.com/GreenBankObservatory/dysh/issues/1017>`_)
+- Offset in waterfall plot frequency axis (`#708 <https://github.com/GreenBankObservatory/dysh/issues/708>`_)
+- Wrong CRVAL4 conversion for RL and LR polarizations (`#1072 <https://github.com/GreenBankObservatory/dysh/issues/1072>`_)
+- History cards in header are no longer added to index (`#1093 <https://github.com/GreenBankObservatory/dysh/issues/1093>`_)
+- Spectral line catalog extends to 200 MHz (`#1083 <https://github.com/GreenBankObservatory/dysh/issues/1083>`_)
+- Changing plot units while zoomed in (`#1129 <https://github.com/GreenBankObservatory/dysh/issues/1129>`_)
+- Error retrieving a row using ``GBTFITSLoad.getspec`` (`#1117 <https://github.com/GreenBankObservatory/dysh/issues/1117>`_)
+- Logger dropping kwargs and quotes (`#1108 <https://github.com/GreenBankObservatory/dysh/issues/1108>`_)
+- Calibrating using a channel range updates the BANDWID metadata (`#979 <https://github.com/GreenBankObservatory/dysh/issues/979>`_)
+- Changes to DATA columns are now written to disk when writing a new file (`#1091 <https://github.com/GreenBankObservatory/dysh/issues/1091>`_)
+- Temporary flag files are deleted when garbage collected and at exit (`#1125 <https://github.com/GreenBankObservatory/dysh/issues/1125>`_)
+- Smoothing no longer modifies the Spectrum mask (`#1067 <https://github.com/GreenBankObservatory/dysh/issues/1067>`_)
+- Changing the spectral axis of a ``Spectrum`` using ``with_spectral_axis_unit`` produces a dysh compatible Spectrum (`#1119 <https://github.com/GreenBankObservatory/dysh/issues/1119>`_)
+- Fixes for documentation build timeout
+- Fixes for CI fails using Splatalogue
+- Fixed typos in documentation
+
+.. _v1-1-0-functionality:
+
+Functionality & Enhancements
+----------------------------
+
+- Added :ref:`dysh & GBTIDL examples <dysh-gbtidl-examples>` to documentation
+- Added `dysh.fits.gbtfitsload.GBTFITSLoad.scan_info` to retrieve available IFNUM, PLNUM and FDNUM for a scan
+- Added a more informative error message when scans do not contain data given a selection
+- Added `dysh.system_info` to report system information in bug reports
+- New representation for ``ScanBase``
+- Added MJD to ``Spectrum.meta`` under the ``MJD-OBS`` keyword
+- Improved documentation on baseline exclude/include regions and changing spectral axis
+- Adds ``Spectrum.set_spectral_axis`` to in-place modify the Doppler convention, rest frame and/or unit of a ``Spectrum.spectral_axis``
+
 Version 1.0.1
 =============
 
