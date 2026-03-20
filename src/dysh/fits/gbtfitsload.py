@@ -466,14 +466,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        fitsindex: int
+        fitsindex : int, optional
              The index of the FITS file contained in this GBTFITSLoad.
 
         Returns
         -------
-        bintable: list
-            A list of all the :class:`~astropy.io.fits.hdu.table.BinTableHDU`s in the
-            input fitsindex.
+        bintable : list
+            A list of all the `~astropy.io.fits.hdu.table.BinTableHDU`s in the
+            input `fitsindex`.
         """
         return self.sdf[fitsindex]._bintable
 
@@ -482,14 +482,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        fitsindex: int
+        fitsindex : int, optional
              The index of the FITS file contained in this GBTFITSLoad.
 
         Returns
         -------
-        binheader: list
-            A list of all the :class:`~astropy.io.fits.header.Header`s in the
-            input fitsindex.
+        binheader : list
+            A list of all the `~astropy.io.fits.header.Header`s in the
+            input `fitsindex`.
 
         """
         return self.sdf[fitsindex]._binheader
@@ -501,15 +501,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Parameters
         ----------
         naxis : int
-            The NAXIS whose length is requested
+            The NAXIS whose length is requested.
         bintable :  int
-            The index of the `bintable` attribute
+            The index of the `bintable` attribute.
         fitsindex: int
              The index of the FITS file contained in this GBTFITSLoad.
 
         Returns
         -------
-            naxis : the length of the NAXIS
+        out : int
+            The value of NAXIS.
 
         """
         nax = f"NAXIS{naxis}"
@@ -517,12 +518,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     @property
     def columns(self):
-        """The column names in the binary table, minus the DATA column
+        """The column names in the binary table, minus the DATA column.
 
         Returns
         -------
         `~pandas.Index`
-            The column names as a DataFrame Index
+            The column names.
         """
         # return a list instead?
         return self._selection.columns
@@ -530,12 +531,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @property
     def selection(self):
         """
-        The data selection object
+        The data selection object.
 
         Returns
         -------
         `~dysh.util.Selection`
-            The Selection object
+            The Selection object.
 
         """
         return self._selection
@@ -549,7 +550,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         `~pandas.DataFrame`
-            The final merged selection
+            The final merged selection.
 
         """
         return self._selection.final
@@ -557,12 +558,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @property
     def files(self):
         """
-        The list of SDFITS file(s) that make up this GBTFITSLoad object
+        The list of SDFITS file(s) that make up this GBTFITSLoad object.
 
         Returns
         -------
         files : list
-            list of `~PosixPath` objects
+            list of `~PosixPath` objects.
 
         """
         files = []
@@ -573,12 +574,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @property
     def flags(self):
         """
-        The data flag object
+        The data flag object.
 
         Returns
         -------
         `~dysh.util.Flag`
-            The Flag object
+            The Flag object.
 
         """
         return self._flag
@@ -593,7 +594,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         `~pandas.DataFrame`
-            The final merged flags
+            The final merged flags.
 
         """
         # all_channels_flagged = np.where(self._table["CHAN"] == "")j
@@ -601,34 +602,35 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     def filenames(self):
         """
-        The list of SDFITS filenames(s) that make up this GBTFITSLoad object
+        The list of SDFITS filenames(s) that make up this GBTFITSLoad object.
 
         Returns
         -------
         filenames : list
-            list of str filenames
+            list of str filenames.
 
         """
         return [p.as_posix() for p in self.files]
 
-    def index(self, hdu=None, bintable: int = None, fitsindex=None):  # noqa: RUF013
+    def index(self, hdu: int | None = None, bintable: int | None = None, fitsindex: int | None = None):
         """
-        Return The index table
+        Return the index.
 
         Parameters
         ----------
-        hdu : int or list
-            Header Data Unit to select from the index. Default: all HDUs
-        bintable :  int
+        hdu : None or int or list, optional
+            Header Data Unit to select from the index. If None, select all HDUs. Default: None
+        bintable : int, optional
             The index of the `bintable` attribute, None means all bintables
-        fitsindex: int
+        fitsindex : int, optional
             The index of the FITS file contained in this GBTFITSLoad.
-            Default:None meaning return one index over all files.
+            If None, return one index over all files.
+            Default: None
 
         Returns
         -------
         index : `~pandas.DataFrame`
-            The index of this GBTFITSLoad
+            The index of this GBTFITSLoad.
 
         """
         if fitsindex is None:
@@ -650,14 +652,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        bintable :  int
-            The index of the `bintable` attribute
-        fitsindex: int
+        bintable : int
+            The index of the `bintable` attribute.
+        fitsindex : int
              The index of the FITS file contained in this GBTFITSLoad.
+
         Returns
         -------
         nchan : int
-            Number channels in the first spectrum of the input bintable
+            Number channels in the first spectrum of the input bintable.
 
         """
         return self._sdf[fitsindex].nchan(bintable)
@@ -678,13 +681,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        bintable :  int
+        bintable : int
             The index of the `bintable` attribute to probe.
 
         Returns
         -------
         stats : dict
-            A dictionary with keys
+            Statistics for this GBTFITSLoad.
         """
 
         s = {}
@@ -710,12 +713,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        bintable :  int
-            The index of the `bintable` attribute
-        fitsindex: int
-            the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        bintable : int
+            The index of the `bintable` attribute.
+        fitsindex : int
+            the index of the FITS file contained in this GBTFITSLoad. Default: 0
         setmask : boolean
-            If True, set the mask according to the current flags. Default:False
+            If True, set the mask according to the current flags. Default: False
         rows : array-like or None
             If provided, load only these specific rows. If None, load all rows.
             This is an internal parameter used by Scan classes.
@@ -2159,8 +2162,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Parameters
         ----------
         scan : int or list or `numpy.array`
-            The signal scan numbers to calibrate
-        ref : int or Spectrum
+            The signal scan numbers to calibrate.
+        ref : int or `~dysh.spectra.spectrum.Spectrum`
             The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.  If an integer is given,
             the reference spectrum will be the total power time-averaged spectrum using the weights given.
             If `channel` is given, the reference spectrum will be trimmed to the `channel` range before calibration.
@@ -2171,17 +2174,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         plnum : int
             The polarization number.
         calibrate : boolean, optional
-            Calibrate the scans. The default is True.
+            Calibrate the scans. Default: True.
         smooth_ref : int, optional
-            If >1 smooth the reference with a boxcar kernel with a width of `smooth_ref` channels. The default is to not smooth the reference.
+            If >1 smooth the reference with a boxcar kernel with a width of `smooth_ref` channels. Default: 1
         apply_flags : boolean, optional
             If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        units : str, optional
+        units : {"ta", "ta*", "flux"}, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'   : Antenna Temperature
-                    - 'ta*'  : Antenna temperature corrected to above the atmosphere
-                    - 'flux' : flux density in Jansky
+                - 'ta'   : Antenna Temperature
+                - 'ta*'  : Antenna temperature corrected to above the atmosphere
+                - 'flux' : flux density in Jansky
+
             If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
         zenith_opacity : float, optional
             The zenith opacity to use in calculating the scale factors for the integrations.  Default: None
@@ -2201,12 +2205,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             It can be set to True to override this.
         ap_eff : float or None
             Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
-            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            efficiency must be a number between 0 and 1.  If None, dysh will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
         surface_error : `~astropy.units.Quantity` or None
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
-            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            aperture efficiency.  If None, dysh will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
         channel : list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
@@ -2234,7 +2238,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
-            e.g., `source='NGC123', ` etc.
+            e.g., `source='NGC123'`, etc.
 
         Raises
         ------
@@ -2450,14 +2454,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The number of channels in the reference to boxcar smooth prior to calibration.
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        units : str, optional
+        units : {"ta", "ta*", "flux"}, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'   : Antenna Temperature
-                    - 'ta*'  : Antenna temperature corrected to above the atmosphere
-                    - 'flux' : flux density in Jansky
-            If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
+                - 'ta'   : Antenna Temperature
+                - 'ta*'  : Antenna temperature corrected to above the atmosphere
+                - 'flux' : flux density in Jansky
+
+            If 'ta*' or 'flux' `zenith_opacity` must also be given. Default: 'ta'
         zenith_opacity: float, optional
-            The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
+            The zenith opacity to use in calculating the scale factors for the integrations. Default: None
         t_sys : float
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
@@ -2472,12 +2477,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             It can be set to True to override this. Default: False
         ap_eff : float or None
             Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
-            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            efficiency must be a number between 0 and 1.  If None, dysh will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
         surface_error : `~astropy.units.Quantity` or None
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
-            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            aperture efficiency.  If None, dysh will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
         channel : list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
@@ -2505,7 +2510,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
-            e.g., `scan=[27,30], source='NGC123', ` etc.
+            e.g., `scan=[27,30], source='NGC123'`, etc.
 
         Raises
         ------
@@ -2672,25 +2677,26 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Parameters
         ----------
         ifnum : int
-            The intermediate frequency (IF) number
+            The intermediate frequency (IF) number.
         plnum : int
-            The polarization number
+            The polarization number.
         fdnum :  2-tuple, optional
-            The feed numbers. A pair of feed numbers may be given to choose different nodding beams than were used to obtain the observations.  Default: None which means use the beams found in the data.
+            The feed numbers. A pair of feed numbers may be given to choose different nodding beams than were used to obtain the observations.
+            If None, it will try to determine which beams were used based on the data. Default: None
         calibrate : boolean, optional
-            Calibrate the scans.
-            The default is True.
+            Calibrate the scans. Default: True
         smooth_ref : int, optional
             Smooth the reference spectra using a boxcar kernel with a width of `smooth_ref` channels.
-            The default is to not smooth the reference spectra.
+            If `smooth_ref=1` no smoothing is applied. Default: 1
         apply_flags : boolean, optional.
             If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        units : str, optional
+        units : {"ta", "ta*", "flux"}, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'   : Antenna Temperature
-                    - 'ta*'  : Antenna temperature corrected to above the atmosphere
-                    - 'flux' : flux density in Jansky
+                - 'ta'   : Antenna Temperature
+                - 'ta*'  : Antenna temperature corrected to above the atmosphere
+                - 'flux' : flux density in Jansky
+
             If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
         t_sys : float or list or list of lists or dict, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
@@ -2702,43 +2708,43 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_cal : None or float
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
-            used.
+            used. Default: None
         nocal : bool, optional
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
             It can be set to True to override this. Default: False
-        ap_eff : float or None
+        ap_eff : None or float
             Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
-            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            efficiency must be a number between 0 and 1.  If None, dysh will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
-        surface_error : `~astropy.units.Quantity` or None
+        surface_error : None or `~astropy.units.Quantity`
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
-            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            aperture efficiency.  If None, dysh will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
-        channel : list or None
+        channel : None or list
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
             trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
-        vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
+        vane : None or int or `~dysh.spectra.vane.VaneSpectrum`
             Vane calibration scan. This will be used to derive the system temperature.
             If provided, `t_sys` will be ignored.
-        t_atm : float or None
+        t_atm : None or float
             Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
             the atmospheric temperature. If not provided and `vane` is an `int`, `~dysh.spectra.vane.VaneSpectrum` will try to fetch a
             value from the GBO weather forecast script (only available at GBO).
-        t_bkg : float or None
+        t_bkg : None or float
             Background temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
             the background temperature. If not provided, it will take a default value of 2.725 K, i.e., the CMB at 3 mm.
-        t_warm : float or None
+        t_warm : None or float
             Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
             If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
         flag_vegas : bool
-            If True, VEGAS spurs will be flagged for the row(s) being calibrated.
+            If True, VEGAS spurs will be flagged for the row(s) being calibrated. Default: True
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2944,12 +2950,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        fdnum: int
-            The feed number
+        fdnum : int
+            The feed number.
         ifnum : int
-            The intermediate frequency (IF) number
+            The intermediate frequency (IF) number.
         plnum : int
-            The polarization number
+            The polarization number.
         calibrate : boolean, optional
             Calibrate the scans. The default is True.
         fold : boolean, optional
@@ -2961,18 +2967,21 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Return the sig or ref based spectrum. This applies to both the folded
             and unfolded option.  The default is True.
             NOT IMPLEMENTED YET
-        smooth_ref: int, optional
-            the number of channels in the reference to boxcar smooth prior to calibration
-        apply_flags : boolean, optional.  If True, apply flags before calibration.
+        smooth_ref : int, optional
+            Width of the boxcar kernel to smooth the reference spectrum.
+            The width is specified in channels.
+        apply_flags : boolean, optional.
+            If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        units : str, optional
+        units : {"ta", "ta*", "flux"}, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'   : Antenna Temperature
-                    - 'ta*'  : Antenna temperature corrected to above the atmosphere
-                    - 'flux' : flux density in Jansky
-            If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
-        zenith_opacity: float, optional
-                The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
+                - 'ta'   : Antenna Temperature
+                - 'ta*'  : Antenna temperature corrected to above the atmosphere
+                - 'flux' : flux density in Jansky
+
+            If 'ta*' or 'flux' the `zenith_opacity` must also be given. Default: 'ta'
+        zenith_opacity : float, optional
+            The zenith opacity to use in calculating the scale factors for the integrations.  Default: None
         t_sys : float, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
@@ -2987,13 +2996,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             It can be set to True to override this.
         ap_eff : float or None
             Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
-            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            efficiency must be a number between 0 and 1. If None, dysh will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
         surface_error : `~astropy.units.Quantity` or None
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
-            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
-            can be provided.
+            aperture efficiency. If None, dysh will use the known GBT surface error model.
+            Only one of `ap_eff` or `surface_error` can be provided.
         channel : list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
@@ -3369,8 +3378,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The polarization number.
         method : str
             Method to use when processing. One of 'cycle' or 'scan'.
-            'cycle' (default) treats each SUBREF_STATE independently, resulting in multiple signal and reference states per scan..
-            'scan' averages the SUBREF_STATE rows resulting in one signal and reference state per scan.
+            'cycle' treats each SUBREF_STATE independently, resulting in multiple signal and reference states per scan..
+            'scan' averages the SUBREF_STATE rows resulting in one signal and reference state per scan. Default: 'cycle'
         calibrate : bool
             Whether or not to calibrate the data.
         weights : str or None
@@ -3381,11 +3390,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags : boolean, optional.
             If True, apply flags before calibration.
             See :meth:`apply_flags`.
-        units : str, optional
+        units : {"ta", "Ta*", "flux"}, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'   : Antenna Temperature
-                    - 'ta*'  : Antenna temperature corrected to above the atmosphere
-                    - 'flux' : flux density in Jansky
+                - 'ta'   : Antenna Temperature
+                - 'ta*'  : Antenna temperature corrected to above the atmosphere
+                - 'flux' : flux density in Jansky
+
             If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
         zenith_opacity : float, optional
             The zenith opacity to use to correct the data for atmospheric opacity.
@@ -3404,12 +3414,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         ap_eff : float or None
             Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
-            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            efficiency must be a number between 0 and 1.  If None, dysh will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
         surface_error : `~astropy.units.Quantity` or None
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
-            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            aperture efficiency.  If None, dysh will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane scalibration scan. This will be used to derive the system temperature.
@@ -4651,12 +4661,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If True, apply flags before deriving the system temperature.
         flag_vegas : bool
             If True, VEGAS spurs will be flagged for the row(s) being calibrated.
+
         Returns
         -------
         tsys : float
             System temperature in K.
 
-        .. [1] `D. Frayer et al., "Calibration of Argus and the 4mm Receiver on the GBT" <https://ui.adsabs.harvard.edu/abs/2019nrao.reptE...1F/abstract>`_
+        .. [1] D. Frayer et al., "Calibration of Argus and the 4mm Receiver on the GBT" `(2009) <https://ui.adsabs.harvard.edu/abs/2019nrao.reptE...1F/abstract>`_
         """
         t = set(self._index["OBJECT"][self._index["SCAN"] == scan])
         if len(t) > 1:

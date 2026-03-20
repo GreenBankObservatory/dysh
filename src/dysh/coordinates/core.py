@@ -424,26 +424,25 @@ def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
 
     Parameters
     ----------
-        target: `~astropy.coordinates.SkyCoord`
+        target : `~astropy.coordinates.SkyCoord`
             The sky coordinates of the object including proper motion and distance.
             Note: In order to get around a bug in astropy (link), if the `target` frame or `toframe` is 'lsrk' (`~astropy.coordinates.LSRK`),
-
             done:
 
             * If proper motions attributes of `target` are not set, they will be set to zero.
             * Similarly, if distance attribute of `target` is not set, it will be set to a very large number.
             * This is done on a copy of the coordinate so as not to change the input object.
 
-        toframe: str
+        toframe : str
             The frame into which `coord` should be transformed, e.g.,  'icrs', 'lsrk', 'hcrs'.
             The string 'topo' is interpreted as 'itrs'.
             See `astropy-supported reference frames
             <https://docs.astropy.org/en/stable/coordinates/index.html#module-astropy.coordinates.builtin_frames>`_.
 
-        observer: `~astropy.coordinates.EarthLocation`
+        observer : `~astropy.coordinates.EarthLocation`
             The location of the observer required for certain transformations (e.g. to/from GCRS or ITRS)
 
-        obstime: `~astropy.time.Time`
+        obstime : `~astropy.time.Time`
             The time of the observation, required for for certain transformations (e.g. to/from GCRS or ITRS)
 
     Returns
@@ -474,7 +473,6 @@ def veltofreq(velocity, restfreq, veldef):
 
     Parameters
     ----------
-
     velocity: `~astropy.units.quantity.Quantity`
         The velocity values
     restfreq: `~astropy.units.quantity.Quantity`
@@ -520,9 +518,9 @@ def change_veldef(ctype, toframe):
 
 def make_target(header):
     """
-    Create a SkyCoord object from a SDFITS header dictionary CRVAL2,
+    Create a `~astropy.coordinates.SkyCoord` object from a SDFITS header dictionary CRVAL2,
     CRVAL3 are assumed to be the latitude-like and longitude-like
-    coordinates. VELOCITY is taken to be the radial velocity.  Coordinate
+    coordinates. VELOCITY is taken to be the radial velocity. Coordinate
     frame is determined from RADESYS.
 
     Parameters
@@ -774,16 +772,17 @@ def ra2ha(lst, ra):
 def obsfreq(restfreq: Quantity | float, z: float) -> Quantity | float:
     """
     The observed frequency for a given rest frequency `restfreq` at redshift `z`.
+
     Parameters
     ----------
-    restfreq : Quantity
+    restfreq : `~astropy.units.quantity.Quantity`
         The rest frequency of the source line
     z : float
         The redshift of the source
 
     Returns
     -------
-    obsfreq: Quantity or float, depending on what was input
+    obsfreq : `~astropy.units.quantity.Quantity` or float, depending on what was input
         The frequency at which `restfreq` would be observed.
 
     """
@@ -793,16 +792,17 @@ def obsfreq(restfreq: Quantity | float, z: float) -> Quantity | float:
 def restfreq(obsfreq: Quantity | float, z: float) -> Quantity | float:
     """
     The rest frequency at redfshift `z` for a give observed frequency `obsfreq`.
+
     Parameters
     ----------
-    obsfreq : Quantity
+    obsfreq : `~astropy.units.quantity.Quantity`
         The observed frequency of the source line
     z : float
         The redfshift of the source
 
     Returns
     -------
-    restfreq: Quantity or float, depending on what was input
+    restfreq: `~astropy.units.quantity.Quantity` or float, depending on what was input
         The rest frequency corresponding to `obsfreq` at redshift `z`.
     """
     return obsfreq * (1.0 + z)
