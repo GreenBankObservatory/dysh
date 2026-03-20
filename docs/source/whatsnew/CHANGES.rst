@@ -2,6 +2,28 @@
 What's New?
 ***********
 
+Verson 1.1.0
+============
+
+.. _v1-1-0-bugfixes:
+
+Bug Fixes
+---------
+
+- Error setting inclusion regions in ``Spectrum.baseline`` (`#1017 <https://github.com/GreenBankObservatory/dysh/issues/1017>`_)
+- Offset in waterfall plot frequency axis (`#708 <https://github.com/GreenBankObservatory/dysh/issues/708>`_)
+- Wrong CRVAL4 conversion for RL and LR polarizations (`#1072 <https://github.com/GreenBankObservatory/dysh/issues/1072>`_)
+
+.. _v1-1-0-functionality:
+
+Functionality & Enhancements
+----------------------------
+
+- Added :ref:`dysh & GBTIDL examples <dysh-gbtidl-examples>` to documentation
+- Improved performance
+- Added ``dysh.system_info`` to report system information in bug reports
+- New representation for ``ScanBase``
+
 Version 1.0.1
 =============
 
