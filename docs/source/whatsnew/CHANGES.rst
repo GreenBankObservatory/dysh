@@ -2,6 +2,33 @@
 What's New?
 ***********
 
+Verson 1.1.0
+============
+
+.. _v1-1-0-bugfixes:
+
+Bug Fixes
+---------
+
+- Error setting inclusion regions in ``Spectrum.baseline`` (`#1017 <https://github.com/GreenBankObservatory/dysh/issues/1017>`_)
+- Offset in waterfall plot frequency axis (`#708 <https://github.com/GreenBankObservatory/dysh/issues/708>`_)
+- Wrong CRVAL4 conversion for RL and LR polarizations (`#1072 <https://github.com/GreenBankObservatory/dysh/issues/1072>`_)
+- History cards in header are no longer added to index (`#1093 <https://github.com/GreenBankObservatory/dysh/issues/1093>`_)
+- Spectral line catalog extends to 200 MHz (`#1083 <<https://github.com/GreenBankObservatory/dysh/issues/1083>`_)
+
+.. _v1-1-0-functionality:
+
+Functionality & Enhancements
+----------------------------
+
+- Added :ref:`dysh & GBTIDL examples <dysh-gbtidl-examples>` to documentation
+- Improved performance
+- Added `dysh.fits.gbtfitsload.GBTFITSLoad.scan_info` to retrieve available IFNUM, PLNUM and FDNUM for a scan
+- Added a more informative error message when certain scans do not contain data given a selection
+- Added `dysh.system_info` to report system information in bug reports
+- New representation for ``ScanBase``
+- Added MJD to ``Spectrum.meta`` under the ``MJD-OBS`` keyword
+
 Version 1.0.1
 =============
 

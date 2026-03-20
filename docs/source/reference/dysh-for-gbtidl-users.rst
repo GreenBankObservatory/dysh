@@ -62,6 +62,7 @@ Spectrum Operations
     :class: longtable
     :widths: 10 15 10
 
+.. _dysh-gbtidl-examples:
 
 Side-by-side Examples
 =====================
