@@ -314,10 +314,14 @@ def exclude_to_spectral_region(exclude, refspec):
             sr = SpectralRegion(exclude)
             # The above will error if the elements are not quantities.
             # In that case use the spectral axis to define the exclusion regions.
-        except ValueError:
+        except ValueError as exc:
             # Make sure all the channels are within bounds.
             exclude = np.array(exclude, dtype=int)
             exclude[exclude >= len(sa)] = len(sa) - 1
+            # Remove empty regions (lower bound == upper bound).
+            exclude = exclude[~(np.diff(exclude, axis=1) == 0)[:, 0]]
+            if len(exclude) == 0:
+                raise ValueError(f"Region selection is empty (nchan={len(sa)}).") from exc
             sr = SpectralRegion(sa.quantity[exclude])
 
     return sr
