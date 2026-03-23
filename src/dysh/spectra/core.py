@@ -194,7 +194,7 @@ def sort_spectral_region_subregions(spectral_region):
 
 def invert_spectral_region(sr, refspec):
     """
-    Invert an spectral region. The spectral region is sorted and the ranges has been merged previously.
+    Invert an spectral region. The spectral region, `sr`, must have been sorted and its ranges merged.
 
     Parameters
     ----------
@@ -208,8 +208,10 @@ def invert_spectral_region(sr, refspec):
     `~specutils.SpectralRegion`
         Inverted spectral region.
     """
-    bl = refspec.spectral_axis.to(sr.bounds[0].unit, equivalencies=refspec.equivalencies).quantity.min()
-    bu = refspec.spectral_axis.to(sr.bounds[0].unit, equivalencies=refspec.equivalencies).quantity.max()
+    u_tgt = sr.bounds[0].unit
+    sa_in_tgt_u = refspec.spectral_axis.to(u_tgt, equivalencies=refspec.equivalencies).quantity
+    bl = sa_in_tgt_u.min()
+    bu = sa_in_tgt_u.max()
     sr._reorder()
     ll = [bl, *list(sum(sr._subregions, ())), bu]
     return exclude_to_spectral_region(list(grouper(ll, 2)), refspec)
@@ -323,6 +325,14 @@ def exclude_to_spectral_region(exclude, refspec):
             if len(exclude) == 0:
                 raise ValueError(f"Region selection is empty (nchan={len(sa)}).") from exc
             sr = SpectralRegion(sa.quantity[exclude])
+
+    # Take care of units.
+    # Spectral region does not support mixed units in SpectralRegion,
+    # and astropy does not return the correct value if, e.g., one converts
+    # 1 Hz to GHz -- the last digit gets rounded which means one channel can be
+    # included/excluded when it shouldn't. See issue #1017.
+    tgt_u = sa.unit
+    sr = spectral_region_to_unit(sr, refspec, unit=tgt_u, append_doppler=True)
 
     return sr
 
@@ -495,7 +505,6 @@ def exclude_to_region_list(exclude, spectrum, clip_exclude=True):
     """
 
     spectral_region = exclude_to_spectral_region(exclude, spectrum)
-    spectral_region = spectral_region_to_unit(spectral_region, spectrum)
     sort_spectral_region_subregions(spectral_region)
     if clip_exclude:
         clip_spectral_region_subregions(spectral_region, spectrum)
