@@ -876,9 +876,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             tiple column names must be comma separated.
         col_defs : dict
             Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
-        selected: bool
+        selected : bool
             Show only those rows that are selected by the final selection (AND of all selection rules). Note if no selection rules
             have been set, this will display an empty summary.
+
         Returns
         -------
         summary : `~pandas.DataFrame`
@@ -900,7 +901,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if col_defs is None:
             col_defs = core.summary_column_definitions()
 
-        needed = ["PROJID", "BINTABLE", "SCAN"]
+        groups = ["PROJID", "BINTABLE", "SCAN"]
+        # Define the columns used for sorting.
+        # The order matters.
+        if verbose:
+            sortby = ["DATE-OBS", "SCAN", "ROW"]
+        else:
+            sortby = ["DATE-OBS"]
+        needed = sorted(set(groups + sortby), key=(groups + sortby).index)
 
         # Initial handling of `add_columns` keyword.
         if add_columns is not None and columns is not None:
@@ -949,11 +957,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 ]
         else:
             # Check that the user input won't break anything.
-            columns = self._validate_summary_columns(columns, col_defs, needed, verbose)
+            columns = self._validate_summary_columns(columns, col_defs, groups, verbose)
         ocols = columns + add_columns  # Output columns.
         ocols = sorted(set(ocols), key=ocols.index)  # Remove duplicates preserving order.
         _columns = ocols.copy()
-        for n in needed:
+        for n in needed + sortby:
             try:
                 _columns.remove(n)
             except ValueError:
@@ -995,15 +1003,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if not verbose:
             # Short summary version.
             # Set column operations for aggregation.
-            col_ops = {k: v.operation for k, v in col_defs.items() if k in _columns}
+            col_ops = {k: v.operation for k, v in col_defs.items() if k in _columns + sortby}
             # We have to reset the index and column types.
-            df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes, errors="ignore")
+            df = df.groupby(groups).agg(col_ops).reset_index().astype(col_dtypes, errors="ignore")
             # Post operations.
             col_post_ops = {k: v.post for k, v in col_defs.items() if k in _columns and v.post is not None}
             if len(col_post_ops) > 0:
                 df[list(col_post_ops.keys())] = df.apply(col_post_ops)
             # Sort rows.
-            df = df.sort_values(by=needed)
+            df = df.sort_values(by=sortby)
             # Keep only the columns to be shown.
             df = df[ocols]
             # Set column names.
@@ -1012,8 +1020,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             df = df.rename(columns=col_names)
             df = df[new_columns]
         else:
-            # Ensure column order is preserved.
-            df = df[ocols]
+            # Ensure column order is preserved and sort rows.
+            df = df.sort_values(by=sortby)[ocols]
 
         return df
 
@@ -1041,7 +1049,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             by ellipsis. If set to -1 (Default), the value found in the dysh configuration
             file for `summary_max_rows` will be used. Set to `None` for unlimited rows.
         show_index : bool
-            Show index of the `~pandas.DataFrame`.
+            Show index of the `~pandas.DataFrame`. Not to be confused with the SDFITS index file.
         columns : list or str
             List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN,
             OBJECT, VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED),
@@ -1053,7 +1061,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             List of columns to be added to the default `columns`.
             If `columns` is not None, then this will be ignored.
             If a string, multiple column names must be comma separated.
-        selected: bool
+        selected : bool
             Show only those rows that are selected by the final selection (AND of all selection rules). Note if no selection rules
             have been set, this will display an empty summary.
         """
