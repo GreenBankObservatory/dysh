@@ -203,6 +203,36 @@ class TestBaseline:
         core.exclude_to_spectral_region([[1 * u.m, 10 * u.m], [20 * u.m, 30 * u.m]], s)
         core.exclude_to_spectral_region([(1 * u.m, 10 * u.m), (20 * u.m, 30 * u.m)], s)
 
+    def test_exclude_to_spectral_region_empty(self):
+        """
+        Test for `exclude_to_spectral_region` in cases where there are regions that are empty (i.e., lower bound equal to upper bound).
+        """
+
+        s = Spectrum.fake_spectrum(nchan=512)
+        # Regions with channels outside the spectrum get clipped,
+        # so the second region would be equal to `[nchan,nchan]`
+        # after clipping.
+        r = [[100, 200], [1000, 2000]]
+        sr = core.exclude_to_spectral_region(r, s)
+        assert sr[0].bounds[0] == s.spectral_axis.quantity[r[0][0]]
+        assert sr[0].bounds[1] == s.spectral_axis.quantity[r[0][1]]
+
+        # An empty region should raise a ValueError.
+        with pytest.raises(ValueError):
+            core.exclude_to_spectral_region(r[1], s)
+
+    def test_include_to_exclude_spectral_region(self):
+        """Test the inversion of an inclusion region to an exclusion one."""
+        # Spectral axis will be in Hz by default.
+        s = Spectrum.fake_spectrum(nchan=512)
+        # Use GHz here, to replicate the error due to loss of precision.
+        # See issue #1017.
+        r = [[s.spectral_axis.min().to("GHz") * 0.9, s.spectral_axis.mean().to("GHz")]]
+        r_inv = core.include_to_exclude_spectral_region(r, s)
+        # `SpectralRegion.bounds` gives `[min,max]`.
+        assert r_inv.bounds[0].to("Hz").value == s.spectral_axis.min().value
+        assert r_inv.bounds[1].to("Hz").value == s.spectral_axis.max().value
+
 
 def test_mask_fshift():
     a = np.zeros(5, dtype=bool)
