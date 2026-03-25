@@ -170,12 +170,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         m = self.meta
 
-        proj = m.get('PROJID', 'N/A')
-        src  = m.get('OBJECT', 'N/A')
-        obs  = m.get('OBSERVER', 'N/A')
+        proj = m.get("PROJID", "N/A")
+        src = m.get("OBJECT", "N/A")
+        obs = m.get("OBSERVER", "N/A")
 
         def utc_formatter(ut):
-            dt = ut.split('_')
+            dt = ut.split("_")
             out = f"{dt[3]}  {dt[0]}-{dt[1]}-{dt[2]}"
             return out
 
@@ -184,31 +184,31 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         RA, DEC = coord_formatter(self)
 
-        fsky = f"{m.get('OBSFREQ')/1e9:10.6f}"
+        fsky = f"{m.get('OBSFREQ') / 1e9:10.6f}"
         out += f"Scan : {m.get('SCAN'):>6}       RADec :  {RA} {DEC}      Fsky : {fsky} GHz\n"
 
-        frst = f"{m.get('RESTFRQ')/1e9:10.6f}"
+        frst = f"{m.get('RESTFRQ') / 1e9:10.6f}"
         out += f"Int  :    N/A       Eqnx  :  {m.get('EQUINOX')}                       Frst : {frst} GHz\n"
 
-        velo = f"{m.get('VELOCITY')/1e3:<8.1f}"
-        bw = f"{m.get('BANDWID')/1e6:10.3f}"
+        velo = f"{m.get('VELOCITY') / 1e3:<8.1f}"
+        bw = f"{m.get('BANDWID') / 1e6:10.3f}"
         out += f"Pol  :     {crval4_to_pol[m.get('CRVAL4')]}       V     :  {velo}   {m.get('VELDEF')}          BW   : {bw} MHz\n"
 
         az = f"{m.get('AZIMUTH'):7.3f}"
         el = f"{m.get('ELEVATIO'):7.3f}"
-        delf = f"{m.get('CDELT1')/1e3:10.3f}"
+        delf = f"{m.get('CDELT1') / 1e3:10.3f}"
         out += f"IF   : {m.get('IFNUM'):>6}       AzEl  :  {az} {el}              delF : {delf} kHz\n"
 
-        glon,glat = coord_formatter(self,'galactic',fmt='decimal')
+        glon, glat = coord_formatter(self, "galactic", fmt="decimal")
         exp = f"{m.get('EXPOSURE'):10.1f}"
         out += f"Feed : {m.get('FDNUM'):>6}       Gal   :  {glon} {glat}               Exp  :   {exp} s\n"
 
         tcal = f"{m.get('TCAL'):10.2f}"
-        utc = utc_formatter(m.get('TIMESTAMP'))
+        utc = utc_formatter(m.get("TIMESTAMP"))
         out += f"Proc : {m.get('PROC'):>6}       UT    :  {utc}         Tcal :   {tcal} K\n"
 
-        lst = time_formatter(m.get('LST'))
-        ha = f"{((m.get('LST')/3600.) - m.get('CRVAL2')/360.*24):10.2f}"
+        lst = time_formatter(m.get("LST"))
+        ha = f"{((m.get('LST') / 3600.0) - m.get('CRVAL2') / 360.0 * 24):10.2f}"
         tsys = f"{m.get('TSYS'):10.2f}"
         out += f"Seqn : {m.get('PROCSEQN'):>6}       LST/HA:  {lst} {ha}        Tsys :   {tsys} K\n"
 

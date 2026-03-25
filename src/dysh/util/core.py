@@ -783,7 +783,8 @@ def inner_channel_slice(nchan: int, fedge: float = 0.1) -> slice:
     stop = -(start - 1)
     return slice(start, stop, 1)
 
-def coord_formatter(s,frame='fk5',fmt='hmsdms'):
+
+def coord_formatter(s, frame="fk5", fmt="hmsdms"):
     sc = SkyCoord(
         s.meta["CRVAL2"],
         s.meta["CRVAL3"],
@@ -792,13 +793,14 @@ def coord_formatter(s,frame='fk5',fmt='hmsdms'):
         obstime=s._obstime,
         location=Observatory.get_earth_location(s.meta["SITELONG"], s.meta["SITELAT"], s.meta["SITEELEV"]),
     )
-    if fmt=='decimal':
+    if fmt == "decimal":
         out_str = sc.transform_to(frame).to_string(fmt, precision=3)
     else:
         out_str = sc.transform_to(frame).to_string(fmt, sep=" ", precision=2)[:-1]
     out_ra = out_str[:11]
     out_dec = out_str[12:]
     return out_ra, out_dec
+
 
 def time_formatter(time_sec):
     hh = int(time_sec // 3600)
