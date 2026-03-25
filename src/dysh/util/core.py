@@ -18,10 +18,7 @@ from astropy.time import Time
 from astropy.units.quantity import Quantity
 from IPython.display import HTML, display
 
-from ..coordinates import (
-    Observatory,
-    crval4_to_pol,
-)
+from ..coordinates import Observatory
 
 ALL_CHANNELS = "all channels"
 

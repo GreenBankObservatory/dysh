@@ -168,6 +168,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self.meta.get(prop, None)
 
     def header(self):
+        """
+        Prints useful information about the spectrum.
+        """
         m = self.meta
 
         proj = m.get('PROJID', 'N/A')
@@ -181,7 +184,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         out = "-" * 80 + "\n"
         out += f"Proj: {proj:<15} Src : {src:<25}     Obs : {obs:<15}\n\n"
-
 
         RA, DEC = coord_formatter(self)
 
@@ -214,9 +216,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         out += f"Seqn : {m.get('PROCSEQN'):>6}       LST/HA:  {lst} {ha}        Tsys :   {tsys} K\n"
 
         out += "-" * 80
-
         print(out)
-
 
     @property
     def nchan(self) -> int:
