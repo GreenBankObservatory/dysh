@@ -2,14 +2,7 @@
 Core plotting functions.
 """
 
-from astropy.coordinates import SkyCoord
-
 from dysh.log import logger
-
-from ..coordinates import (
-    Observatory,
-    crval4_to_pol,
-)
 
 
 def check_kwargs(known_kwargs, kwargs):
