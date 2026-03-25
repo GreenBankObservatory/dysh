@@ -12,9 +12,9 @@ jobs:
       # See: https://github.com/pypa/gh-action-pypi-publish#trusted-publishing
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: 0.8.19 # Update this occasionally to stay up to date!
           python-version: '3.10'

@@ -9,6 +9,7 @@ env:
   FORCE_COLOR: '1'
   MPLBACKEND: Agg
   QT_QPA_PLATFORM: offscreen
+  DYSH_DATA: ${{ github.workspace }}/.dysh_cache
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
@@ -27,9 +28,11 @@ jobs:
           - os: windows-latest
             python-version: '3.13'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: 0.9.17
           python-version: ${{ matrix.python-version }}
@@ -38,6 +41,11 @@ jobs:
         run: uv sync -U --all-extras --dev
       - name: Log resolved dependency versions
         run: uv pip list
+      - name: Cache example data
+        uses: actions/cache@v5
+        with:
+          path: ${{ github.workspace }}/.dysh_cache
+          key: dysh-example-data-v1
       - name: Test with pytest
         run: |
           uv run pytest --numprocesses auto -m "not gbo_only" --timeout=0
@@ -49,7 +57,7 @@ jobs:
       issues: write
     steps:
       - name: Create or update failure issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const title = 'CI (Latest Deps) is failing';
