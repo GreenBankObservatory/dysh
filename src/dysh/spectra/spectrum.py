@@ -35,6 +35,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     astropy_convenience_frame_names,
     astropy_frame_dict,
     change_veldef,
+    crval4_to_pol,
     frame_to_label,
     get_velocity_in_frame,
     make_target,
@@ -50,6 +51,7 @@ from ..util import (
     docstring_parameter,
     minimum_string_match,
 )
+from ..util.core import coord_formatter, time_formatter
 from ..util.docstring_manip import copy_docstring
 from . import (
     FWHM_TO_STDDEV,
@@ -161,6 +163,57 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         return self.meta.get(prop, None)
+
+    def header(self):
+        m = self.meta
+
+        proj = m.get('PROJID', 'N/A')
+        src  = m.get('OBJECT', 'N/A')
+        obs  = m.get('OBSERVER', 'N/A')
+
+        def utc_formatter(ut):
+            dt = ut.split('_')
+            out = f"{dt[3]}  {dt[0]}-{dt[1]}-{dt[2]}"
+            return out
+
+        out = "-" * 80 + "\n"
+        out += f"Proj: {proj:<15} Src : {src:<25}     Obs : {obs:<15}\n\n"
+
+
+        RA, DEC = coord_formatter(self)
+
+        fsky = f"{m.get('OBSFREQ')/1e9:10.6f}"
+        out += f"Scan : {m.get('SCAN'):>6}       RADec :  {RA} {DEC}      Fsky : {fsky} GHz\n"
+
+        frst = f"{m.get('RESTFRQ')/1e9:10.6f}"
+        out += f"Int  :    N/A       Eqnx  :  {m.get('EQUINOX')}                       Frst : {frst} GHz\n"
+
+        velo = f"{m.get('VELOCITY')/1e3:<8.1f}"
+        bw = f"{m.get('BANDWID')/1e6:10.3f}"
+        out += f"Pol  :     {crval4_to_pol[m.get('CRVAL4')]}       V     :  {velo}   {m.get('VELDEF')}          BW   : {bw} MHz\n"
+
+        az = f"{m.get('AZIMUTH'):7.3f}"
+        el = f"{m.get('ELEVATIO'):7.3f}"
+        delf = f"{m.get('CDELT1')/1e3:10.3f}"
+        out += f"IF   : {m.get('IFNUM'):>6}       AzEl  :  {az} {el}              delF : {delf} kHz\n"
+
+        glon,glat = coord_formatter(self,'galactic',fmt='decimal')
+        exp = f"{m.get('EXPOSURE'):10.1f}"
+        out += f"Feed : {m.get('FDNUM'):>6}       Gal   :  {glon} {glat}               Exp  :   {exp} s\n"
+
+        tcal = f"{m.get('TCAL'):10.2f}"
+        utc = utc_formatter(m.get('TIMESTAMP'))
+        out += f"Proc : {m.get('PROC'):>6}       UT    :  {utc}         Tcal :   {tcal} K\n"
+
+        lst = time_formatter(m.get('LST'))
+        ha = f"{((m.get('LST')/3600.) - m.get('CRVAL2')/360.*24):10.2f}"
+        tsys = f"{m.get('TSYS'):10.2f}"
+        out += f"Seqn : {m.get('PROCSEQN'):>6}       LST/HA:  {lst} {ha}        Tsys :   {tsys} K\n"
+
+        out += "-" * 80
+
+        print(out)
+
 
     @property
     def nchan(self) -> int:

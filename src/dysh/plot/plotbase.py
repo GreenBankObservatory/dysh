@@ -9,16 +9,14 @@ import sys
 import astropy.units as u
 import matplotlib as mpl
 import numpy as np
-from astropy.coordinates import SkyCoord
 
 from dysh.log import logger
 
 from ..coordinates import (
-    Observatory,
     crval4_to_pol,
     ra2ha,
 )
-from ..util.core import abbreviate_to, in_notebook
+from ..util.core import abbreviate_to, coord_formatter, in_notebook, time_formatter
 
 # Only import the appropriate GUI to avoid errors.
 on_rtd = os.environ.get("READTHEDOCS") == "True"
@@ -133,26 +131,6 @@ class PlotBase:
 
         hcoords = np.array([0.05, 0.21, 0.41, 0.59, 0.77])
         vcoords = np.array([0.94, 0.9, 0.86])
-
-        def time_formatter(time_sec):
-            hh = int(time_sec // 3600)
-            mm = int((time_sec - 3600 * hh) // 60)
-            ss = np.around((time_sec - 3600 * hh - 60 * mm), 1)
-            return f"{str(hh).zfill(2)} {str(mm).zfill(2)} {str(ss).zfill(3)}"
-
-        def coord_formatter(s):
-            sc = SkyCoord(
-                s.meta["CRVAL2"],
-                s.meta["CRVAL3"],
-                unit="deg",
-                frame=s.meta["RADESYS"].lower(),
-                obstime=s._obstime,
-                location=Observatory.get_earth_location(s.meta["SITELONG"], s.meta["SITELAT"], s.meta["SITEELEV"]),
-            )
-            out_str = sc.transform_to("fk5").to_string("hmsdms", sep=" ", precision=2)[:-1]
-            out_ra = out_str[:11]
-            out_dec = out_str[12:]
-            return out_ra, out_dec
 
         # col 1
         self.axis.annotate(f"Scan(s) {self.fmt_scans():>10}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
