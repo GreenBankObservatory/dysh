@@ -38,4 +38,3 @@ def parse_html(s):
     s = s.replace(" (TopModel)", "")
 
     return s
-
