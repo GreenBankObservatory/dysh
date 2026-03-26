@@ -2061,6 +2061,62 @@ def test_parse_tsys():
     assert "Missing system temperature for scan(s): 2,3" in str(excinfo.value)
 
 
+class TestScanInfo:
+    """Tests for scan_info() and partial-match warnings in _common_selection (issues #745 and #748)."""
+
+    def setup_method(self):
+        self.data_dir = util.get_project_testdata()
+        self._file_list = glob.glob(f"{self.data_dir}/TGBT21A_501_11/*.fits")
+        self.sdf = gbtfitsload.GBTFITSLoad(self._file_list[0])
+
+    def test_get_scan_info_single_scan(self):
+        """_get_scan_info returns a DataFrame with the expected columns for a valid scan."""
+        info = self.sdf._get_scan_info(152)
+        assert len(info) > 0
+        assert list(info.columns) == ["SCAN", "IFNUM", "FDNUM", "PLNUM"]
+        assert (info["SCAN"] == 152).all()
+
+    def test_get_scan_info_list_of_scans(self):
+        """_get_scan_info accepts a list of scan numbers."""
+        scans = list(self.sdf._selection["SCAN"].unique()[:2])
+        info = self.sdf._get_scan_info(scans)
+        assert set(info["SCAN"].unique()) == set(scans)
+
+    def test_get_scan_info_invalid_scan(self):
+        """_get_scan_info returns an empty DataFrame for a nonexistent scan."""
+        info = self.sdf._get_scan_info(999999)
+        assert len(info) == 0
+
+    def test_scan_info_prints_output(self, capsys):
+        """scan_info prints formatted output."""
+        self.sdf.scan_info(152)
+        captured = capsys.readouterr()
+        assert "Scan 152:" in captured.out
+        assert "ifnum=" in captured.out
+        assert "plnum=" in captured.out
+        assert "fdnum=" in captured.out
+
+    def test_common_selection_partial_match_warns(self):
+        """When some scans match and others don't, a warning is issued but no error is raised."""
+        # scan 152 exists with ifnum=0, requesting ifnum=99 for a nonexistent combo
+        # We need a real scan and a fake scan number
+        valid_scans = list(self.sdf._selection["SCAN"].unique()[:1])
+        fake_scan = 999999
+        with pytest.warns(UserWarning, match="No data found for scan"):
+            # This should warn about the fake scan but succeed for the valid one
+            result = self.sdf._common_selection(
+                ifnum=0, plnum=0, fdnum=0, SCAN=valid_scans + [fake_scan], APPLY_FLAGS=False
+            )
+        scans, _sf = result
+        assert fake_scan not in scans
+        assert len(_sf) > 0
+
+    def test_common_selection_complete_mismatch_raises(self):
+        """When no scans match at all, an exception is raised."""
+        with pytest.raises(ValueError, match="not found in selected data"):
+            self.sdf._common_selection(ifnum=0, plnum=0, fdnum=0, SCAN=[999999], APPLY_FLAGS=False)
+
+
 class TestOnlineGBTFITSLoad:
     """Tests for OnlineGBTFITSLoad (GBTOnline) functionality."""
 

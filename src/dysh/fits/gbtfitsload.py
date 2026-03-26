@@ -1943,12 +1943,92 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now remove rows that have been entirely flagged
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
+        # Check which requested scans have data after selection and flag elimination
+        found_scans = set(_sf["SCAN"].unique()) if len(_sf) > 0 else set()
+        missing_scans = sorted(set(scans) - found_scans)
+        if missing_scans:
+            info_df = self._get_scan_info(missing_scans)
+            if len(info_df) > 0:
+                info_lines = self._format_scan_info(info_df)
+            else:
+                info_lines = [f"  Scan {s}: no data found" for s in missing_scans]
+            info_str = "\n".join(info_lines)
+            warnings.warn(
+                f"No data found for scan(s) {missing_scans} with the given selection criteria.\n"
+                f"Available parameters for those scans:\n{info_str}"
+            )
+            scans = [s for s in scans if s in found_scans]
         if len(_sf) == 0:
             raise Exception("Didn't find any unflagged data matching the input selection criteria.")
         # Don't apply flags until we are sure that selection succeeded
         if apply_flags:
             self.apply_flags()
         return (scans, _sf)
+
+    def _get_scan_info(self, scan):
+        """Return a DataFrame of unique IFNUM, FDNUM, PLNUM combinations for the given scan(s).
+
+        Parameters
+        ----------
+        scan : int or list of int
+            The scan number(s) to query.
+
+        Returns
+        -------
+        info : `~pandas.DataFrame`
+            A DataFrame with columns SCAN, IFNUM, FDNUM, PLNUM showing the
+            unique parameter combinations available for each requested scan.
+        """
+        if isinstance(scan, (int, np.integer)):
+            scan = [scan]
+        if len(self._selection._selection_rules) > 0:
+            df = self._selection.final
+        else:
+            df = self._selection
+        df = df[df["SCAN"].isin(scan)]
+        if len(df) == 0:
+            return pd.DataFrame(columns=["SCAN", "IFNUM", "FDNUM", "PLNUM"])
+        return df[["SCAN", "IFNUM", "FDNUM", "PLNUM"]].drop_duplicates().sort_values(
+            ["SCAN", "IFNUM", "FDNUM", "PLNUM"]
+        ).reset_index(drop=True)
+
+    def scan_info(self, scan):
+        """Print the available IFNUM, FDNUM, and PLNUM values for the given scan(s).
+
+        Parameters
+        ----------
+        scan : int or list of int
+            The scan number(s) to query.
+        """
+        info = self._get_scan_info(scan)
+        if len(info) == 0:
+            print(f"No data found for scan(s) {scan}")
+        else:
+            for line in self._format_scan_info(info):
+                print(line)
+
+    @staticmethod
+    def _format_scan_info(info):
+        """Format scan info DataFrame as compact summary lines.
+
+        Parameters
+        ----------
+        info : `~pandas.DataFrame`
+            DataFrame with SCAN, IFNUM, FDNUM, PLNUM columns.
+
+        Returns
+        -------
+        lines : list of str
+            One line per scan, e.g. ``"Scan 15: ifnum=[0,2,3] plnum=[0,1] fdnum=[0]"``.
+        """
+        lines = []
+        for s in sorted(info["SCAN"].unique()):
+            sdf = info[info["SCAN"] == s]
+            ifnums = sorted(int(x) for x in sdf["IFNUM"].unique())
+            plnums = sorted(int(x) for x in sdf["PLNUM"].unique())
+            fdnums = sorted(int(x) for x in sdf["FDNUM"].unique())
+            lines.append(f"Scan {int(s)}: ifnum={ifnums} plnum={plnums} fdnum={fdnums}")
+        return lines
 
     def info(self):
         """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
