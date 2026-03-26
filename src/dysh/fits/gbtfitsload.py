@@ -1953,13 +1953,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             else:
                 info_lines = [f"  Scan {s}: no data found" for s in missing_scans]
             info_str = "\n".join(info_lines)
-            warnings.warn(
+            logger.info(
                 f"No data found for scan(s) {missing_scans} with the given selection criteria.\n"
                 f"Available parameters for those scans:\n{info_str}"
             )
             scans = [s for s in scans if s in found_scans]
         if len(_sf) == 0:
-            raise Exception("Didn't find any unflagged data matching the input selection criteria.")
+            scans = kwargs.get("SCANS",None)
+            raise ValueError(f"Didn't find any unflagged data matching the input selection criteria {scans=} {ifnum=} {plnum=} {fdnum=}.")
         # Don't apply flags until we are sure that selection succeeded
         if apply_flags:
             self.apply_flags()
@@ -2352,7 +2353,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             )
         _channel = self._normalize_channel_range(channel)
         if t_sys is not None and t_cal is not None:
-            warnings.warn("Both t_cal and t_sys were set. Only t_sys will be used.", stacklevel=2)
+            logger.info("Both t_cal and t_sys were set. Only t_sys will be used.", stacklevel=2)
 
         scanlist = {}
         if isinstance(scan, int):
@@ -4144,7 +4145,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         low_el_mask = self["ELEVATIO"] < 5
         if low_el_mask.sum() > 0:
             low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
-            warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))  # noqa: B028
+            logger.warning(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))  # noqa: B028
 
         # Azimuth and elevation case.
         self._fix_column("RADESYS", radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
@@ -4259,7 +4260,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
-            warnings.warn(f"Changing an existing SDFITS column {items}")  # noqa: B028
+            logger.warning(f"Changing an existing SDFITS column {items}")  # noqa: B028
         # now deal with values as arrays
         is_array = False
         if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):
@@ -4281,7 +4282,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 start = start + s.total_rows
         selected_cols = self.selection.columns_selected()
         if items in selected_cols:
-            warnings.warn(  # noqa: B028
+            logger.warning(  # noqa: B028
                 f"You have changed the metadata for a column that was previously used in a data selection [{items}]."
                 " You may wish to update the selection. "
             )
