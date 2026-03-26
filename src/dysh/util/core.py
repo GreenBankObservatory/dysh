@@ -791,7 +791,7 @@ def coord_formatter(s, frame="fk5", fmt="hmsdms"):
         unit="deg",
         frame=s.meta["RADESYS"].lower(),
         obstime=s._obstime,
-        location=Observatory.get_earth_location(s.meta["SITELONG"], s.meta["SITELAT"], s.meta["SITEELEV"]),
+        location=Observatory[s.meta["TELESCOP"]],
     )
     if fmt == "decimal":
         out_str = sc.transform_to(frame).to_string(fmt, precision=3)
@@ -807,3 +807,9 @@ def time_formatter(time_sec):
     mm = int((time_sec - 3600 * hh) // 60)
     ss = np.around((time_sec - 3600 * hh - 60 * mm), 1)
     return f"{str(hh).zfill(2)} {str(mm).zfill(2)} {str(ss).zfill(3)}"
+
+
+def utc_formatter(ut):
+    dt = ut.split("_")
+    out = f"{dt[3]}  {dt[0]}-{dt[1]}-{dt[2]}"
+    return out
