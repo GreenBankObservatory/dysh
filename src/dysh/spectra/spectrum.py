@@ -204,7 +204,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         out += f"Proc : {m.get('PROC'):>6}       UT    :  {utc}         Tcal :   {tcal} K\n"
 
         lst = time_formatter(m.get("LST"))
-        #ha = f"{((m.get('LST') / 3600.0) - m.get('CRVAL2') / 360.0 * 24):10.2f}"
         ha = ra2ha(m.get("LST"), m.get("CRVAL2"))
         tsys = f"{m.get('TSYS'):10.2f}"
         out += f"Seqn : {m.get('PROCSEQN'):>6}       LST/HA:  {lst}      {ha}        Tsys :   {tsys} K\n"
