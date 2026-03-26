@@ -39,6 +39,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     frame_to_label,
     get_velocity_in_frame,
     make_target,
+    ra2ha,
     replace_convention,
     sanitize_skycoord,
     veldef_to_convention,
@@ -51,7 +52,7 @@ from ..util import (
     docstring_parameter,
     minimum_string_match,
 )
-from ..util.core import coord_formatter, time_formatter
+from ..util.core import coord_formatter, time_formatter, utc_formatter
 from ..util.docstring_manip import copy_docstring
 from . import (
     FWHM_TO_STDDEV,
@@ -166,18 +167,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def header(self):
         """
-        Prints useful information about the spectrum.
+        Prints header information about the spectrum, including sky coordinates, frequency information, and states.
         """
         m = self.meta
 
         proj = m.get("PROJID", "N/A")
         src = m.get("OBJECT", "N/A")
         obs = m.get("OBSERVER", "N/A")
-
-        def utc_formatter(ut):
-            dt = ut.split("_")
-            out = f"{dt[3]}  {dt[0]}-{dt[1]}-{dt[2]}"
-            return out
 
         out = "-" * 80 + "\n"
         out += f"Proj: {proj:<15} Src : {src:<25}     Obs : {obs:<15}\n\n"
@@ -208,9 +204,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
         out += f"Proc : {m.get('PROC'):>6}       UT    :  {utc}         Tcal :   {tcal} K\n"
 
         lst = time_formatter(m.get("LST"))
-        ha = f"{((m.get('LST') / 3600.0) - m.get('CRVAL2') / 360.0 * 24):10.2f}"
+        #ha = f"{((m.get('LST') / 3600.0) - m.get('CRVAL2') / 360.0 * 24):10.2f}"
+        ha = ra2ha(m.get("LST"), m.get("CRVAL2"))
         tsys = f"{m.get('TSYS'):10.2f}"
-        out += f"Seqn : {m.get('PROCSEQN'):>6}       LST/HA:  {lst} {ha}        Tsys :   {tsys} K\n"
+        out += f"Seqn : {m.get('PROCSEQN'):>6}       LST/HA:  {lst}      {ha}        Tsys :   {tsys} K\n"
 
         out += "-" * 80
         print(out)
