@@ -42,3 +42,8 @@ Utility classes and functions
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. automodule:: dysh.util.system_info
+   :members:
+   :undoc-members:
+   :show-inheritance:

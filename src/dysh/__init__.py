@@ -7,9 +7,9 @@ warnings.filterwarnings("ignore", message="invalid value encountered in do_forma
 # ipympl multiple-inheritance MRO issue with traitlets (ipympl#488)
 warnings.filterwarnings("ignore", message="Passing unrecognized arguments to super")
 
-__version__ = "1.0.2"
+__version__ = "1.1.0"
 
-all = ["version"]
+__all__ = ["version", "system_info"]
 
 
 def version():
@@ -21,3 +21,6 @@ def version():
         dysh version.
     """
     return __version__
+
+
+from dysh.util.system_info import system_info
