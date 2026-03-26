@@ -1988,9 +1988,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         df = df[df["SCAN"].isin(scan)]
         if len(df) == 0:
             return pd.DataFrame(columns=["SCAN", "IFNUM", "FDNUM", "PLNUM"])
-        return df[["SCAN", "IFNUM", "FDNUM", "PLNUM"]].drop_duplicates().sort_values(
-            ["SCAN", "IFNUM", "FDNUM", "PLNUM"]
-        ).reset_index(drop=True)
+        return (
+            df[["SCAN", "IFNUM", "FDNUM", "PLNUM"]]
+            .drop_duplicates()
+            .sort_values(["SCAN", "IFNUM", "FDNUM", "PLNUM"])
+            .reset_index(drop=True)
+        )
 
     def scan_info(self, scan):
         """Print the available IFNUM, FDNUM, and PLNUM values for the given scan(s).
