@@ -124,6 +124,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._obstime = Time(self.meta["MJD-OBS"])
         else:
             self._obstime = None
+        if self._obstime is not None and "MJD-OBS" not in self.meta:
+            self.meta["MJD-OBS"] = self._obstime.mjd
         self._spectral_axis._observer = self.observer
         if self._spectral_axis._observer is not None:
             self._velocity_frame = self._spectral_axis._observer.name
