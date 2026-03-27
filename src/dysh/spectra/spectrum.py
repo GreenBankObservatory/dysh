@@ -168,45 +168,88 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def header(self):
         """
         Prints header information about the spectrum, including sky coordinates, frequency information, and states.
+        RA/Dec coordinates are given in HH:MM:SS, DD:MM:SS; V is given in km/s;
+        Az/El and Galactic coordinates are in decimal degrees; UT is given in YYYY_MM_DD HH:MM:SS;
+        LST is in HH:MM:SS, and HA is in decimal hours.
         """
         m = self.meta
+        out = "-" * 80 + "\n"
 
         proj = m.get("PROJID", "N/A")
-        src = m.get("OBJECT", "N/A")
         obs = m.get("OBSERVER", "N/A")
+        src_pad = 45 - len(obs) # amt of chars of src we can afford to print
+        src = m.get("OBJECT", "N/A")[:src_pad]
 
-        out = "-" * 80 + "\n"
-        out += f"Proj: {proj:<15} Src : {src:<25}     Obs : {obs:<15}\n\n"
+
+        col1 = f"Proj: {proj:<16}"
+        col2 = f"Src : {src:<{src_pad}}"
+        col3 = f"Obs : {obs}"
+        out += f"{col1:<22}{col2}{col3:>{len(obs)+5}}\n\n"
 
         RA, DEC = coord_formatter(self)
 
+        c1_pad = 20
+        c1_subpad = 10
+        c2_pad = 38
+        c3_pad = 10
+
+        #row 2
         fsky = f"{m.get('OBSFREQ') / 1e9:10.6f}"
-        out += f"Scan : {m.get('SCAN'):>6}       RADec :  {RA} {DEC}      Fsky : {fsky} GHz\n"
+        col1 = f"Scan : {m.get('SCAN'):>{c1_subpad}}"
+        col2 = f"RADec :  {RA} {DEC}"
+        col3 = f"Fsky : {fsky:>{c3_pad}} GHz"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
-        frst = f"{m.get('RESTFRQ') / 1e9:10.6f}"
-        out += f"Int  :    N/A       Eqnx  :  {m.get('EQUINOX')}                       Frst : {frst} GHz\n"
+        #row 3
+        frest = f"{m.get('RESTFRQ') / 1e9:10.6f}"
+        col1 = "Int  :        N/A   "
+        col2 = f"Eqnx  :  {m.get('EQUINOX')}"
+        col3 = f"Frst : {frest:>{c3_pad}} GHz"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
+        #row 4
         velo = f"{m.get('VELOCITY') / 1e3:<8.1f}"
         bw = f"{m.get('BANDWID') / 1e6:10.3f}"
-        out += f"Pol  :     {crval4_to_pol[m.get('CRVAL4')]}       V     :  {velo}   {m.get('VELDEF')}          BW   : {bw} MHz\n"
+        col1 = f"Pol  : {crval4_to_pol[m.get('CRVAL4')]:>{c1_subpad}}"
+        col2 = f"V     :  {velo}{m.get('VELDEF'):>8}"
+        col3 = F"BW   : {bw:>{c3_pad}} MHz"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
+        #row 5
         az = f"{m.get('AZIMUTH'):7.3f}"
         el = f"{m.get('ELEVATIO'):7.3f}"
-        delf = f"{m.get('CDELT1') / 1e3:10.3f}"
-        out += f"IF   : {m.get('IFNUM'):>6}       AzEl  :  {az} {el}              delF : {delf} kHz\n"
+        delf = f"{np.abs(m.get('CDELT1')) / 1e3:10.3f}"
+        col1 = f"IF   : {m.get('IFNUM'):>{c1_subpad}}"
+        col2 = f"AzEl  : {az}  {el}"
+        col3 = f"delF : {delf:>{c3_pad}} kHz"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
+        #row 6
         glon, glat = coord_formatter(self, "galactic", fmt="decimal")
+        print(glon)
+        print(glat)
         exp = f"{m.get('EXPOSURE'):10.1f}"
-        out += f"Feed : {m.get('FDNUM'):>6}       Gal   :  {glon} {glat}               Exp  :   {exp} s\n"
+        col1 = f"Feed : {m.get('FDNUM'):>{c1_subpad}}"
+        col2 = f"Gal   : {glon}  {glat}"
+        col3 = f"Exp  : {exp:>{c3_pad}}   s"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
+        #row 7
         tcal = f"{m.get('TCAL'):10.2f}"
         utc = utc_formatter(m.get("TIMESTAMP"))
-        out += f"Proc : {m.get('PROC'):>6}       UT    :  {utc}         Tcal :   {tcal} K\n"
+        col1 = f"Proc : {m.get('PROC')[:9]:>{c1_subpad}}"
+        col2 = f"UT    :  {utc}"
+        col3 = f"Tcal : {tcal:>{c3_pad}}   K"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
+        #row 8
         lst = time_formatter(m.get("LST"))
         ha = ra2ha(m.get("LST"), m.get("CRVAL2"))
         tsys = f"{m.get('TSYS'):10.2f}"
-        out += f"Seqn : {m.get('PROCSEQN'):>6}       LST/HA:  {lst}      {ha}        Tsys :   {tsys} K\n"
+        col1 = f"Seqn : {m.get('PROCSEQN'):>{c1_subpad}}"
+        col2 = f"LST/HA:  {lst}      {ha}"
+        col3 = f"Tsys : {tsys:>{c3_pad}}   K"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
         out += "-" * 80
         print(out)

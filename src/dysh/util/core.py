@@ -794,11 +794,12 @@ def coord_formatter(s, frame="fk5", fmt="hmsdms"):
         location=Observatory[s.meta["TELESCOP"]],
     )
     if fmt == "decimal":
-        out_str = sc.transform_to(frame).to_string(fmt, precision=3)
+        out_str = sc.transform_to(frame).to_string(fmt, precision=3).split(" ")
+        out_ra, out_dec = out_str[0], out_str[1]
     else:
         out_str = sc.transform_to(frame).to_string(fmt, sep=" ", precision=2)[:-1]
-    out_ra = out_str[:11]
-    out_dec = out_str[12:]
+        out_ra = out_str[:11]
+        out_dec = out_str[12:]
     return out_ra, out_dec
 
 
