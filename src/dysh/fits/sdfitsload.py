@@ -1493,7 +1493,7 @@ class SDFITSLoad:
             iset = set(items)
         col_exists = len(set(self.columns).intersection(iset)) > 0
         if col_exists and "DATA" not in items:
-            logger.warning(f"Changing an existing SDFITS column {items}")
+            warnings.warn(f"Changing an existing SDFITS column {items}")  # noqa: B028
         try:
             self._update_column(d)
         except Exception as e:

@@ -946,10 +946,8 @@ class TestGBTFITSLoad:
             g = gbtfitsload.GBTFITSLoad(f, index_file_threshold=100000000)
             for key, val in keyval.items():
                 _set = set([val])
-                caplog.clear()
-                with caplog.at_level(logging.WARNING, logger="dysh"):
+                with pytest.warns(UserWarning):
                     g[key] = val
-                assert "Changing an existing SDFITS column" in caplog.text
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     assert set(sdf[key]) == _set
@@ -967,10 +965,8 @@ class TestGBTFITSLoad:
                     g = gbtfitsload.GBTFITSLoad(o, index_file_threshold=100000000)
             for key, val in keyval.items():
                 _set = set([val])
-                caplog.clear()
-                with caplog.at_level(logging.WARNING, logger="dysh"):
+                with pytest.warns(UserWarning):
                     g[key] = val
-                assert "Changing an existing SDFITS column" in caplog.text
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     assert set(sdf[key]) == _set
@@ -983,10 +979,8 @@ class TestGBTFITSLoad:
             for key, val in keyval.items():
                 array = [val] * g.total_rows
                 _set = set([val])
-                caplog.clear()
-                with caplog.at_level(logging.WARNING, logger="dysh"):
+                with pytest.warns(UserWarning):
                     g[key] = array
-                assert "Changing an existing SDFITS column" in caplog.text
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     for b in sdf._bintable:
@@ -1002,10 +996,8 @@ class TestGBTFITSLoad:
                 g = gbtfitsload.GBTFITSLoad(o, index_file_threshold=100000000)
             for key, val in keyval.items():
                 _set = set([val])
-                caplog.clear()
-                with caplog.at_level(logging.WARNING, logger="dysh"):
+                with pytest.warns(UserWarning):
                     g[key] = val
-                assert "Changing an existing SDFITS column" in caplog.text
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     assert set(sdf[key]) == _set
@@ -1017,7 +1009,9 @@ class TestGBTFITSLoad:
             g = gbtfitsload.GBTFITSLoad(f, index_file_threshold=100000000)
             for key, val in keyval.items():
                 array = [val] * 2 * g.total_rows
-                # This will log a warning and raise an error.
+                # This will log a warning (via logger) and raise an error.
+                # The ValueError is raised before super().__setitem__ so
+                # only the gbtfitsload logger.warning fires, not sdfitsload's warnings.warn.
                 caplog.clear()
                 with caplog.at_level(logging.WARNING, logger="dysh"):
                     with pytest.raises(ValueError):
@@ -1029,7 +1023,8 @@ class TestGBTFITSLoad:
         g.select(ifnum=2)
         caplog.clear()
         with caplog.at_level(logging.WARNING, logger="dysh"):
-            g["ifnum"] = 3
+            with pytest.warns(UserWarning):
+                g["ifnum"] = 3
         assert "previously used in a data selection" in caplog.text
 
         def test_data_access(self):
