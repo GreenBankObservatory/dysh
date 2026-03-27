@@ -2108,19 +2108,19 @@ class TestScanInfo:
         assert "plnum=" in captured.out
         assert "fdnum=" in captured.out
 
-    def test_common_selection_partial_match_warns(self):
+    def test_common_selection_partial_match_warns(self, caplog):
         """When some scans match and others don't, a warning is issued but no error is raised."""
-        # scan 152 exists with ifnum=0, requesting ifnum=99 for a nonexistent combo
-        # We need a real scan and a fake scan number
-        valid_scans = list(self.sdf._selection["SCAN"].unique()[:1])
-        fake_scan = 999999
-        with pytest.warns(UserWarning, match="No data found for scan"):
-            # This should warn about the fake scan but succeed for the valid one
+        # Scan 152 has ifnum=0, scan 177 only has ifnum=7.
+        # Requesting ifnum=0 should match 152 but not 177.
+        caplog.clear()
+        with caplog.at_level(logging.INFO, logger="dysh"):
             result = self.sdf._common_selection(
-                ifnum=0, plnum=0, fdnum=0, SCAN=valid_scans + [fake_scan], APPLY_FLAGS=False
+                ifnum=0, plnum=0, fdnum=0, SCAN=[152, 177], APPLY_FLAGS=False
             )
+        assert "No data found for scan(s) [177]" in caplog.text
         scans, _sf = result
-        assert fake_scan not in scans
+        assert 177 not in scans
+        assert 152 in scans
         assert len(_sf) > 0
 
     def test_common_selection_complete_mismatch_raises(self):
