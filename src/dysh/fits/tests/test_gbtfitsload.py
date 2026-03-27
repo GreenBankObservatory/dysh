@@ -2110,15 +2110,23 @@ class TestScanInfo:
 
     def test_common_selection_partial_match_warns(self, caplog):
         """When some scans match and others don't, a warning is issued but no error is raised."""
-        # Scan 152 has ifnum=0, scan 177 only has ifnum=7.
-        # Requesting ifnum=0 should match 152 but not 177.
+        # Find two scans with different ifnum sets so one will match and the other won't.
+        info = self.sdf._get_scan_info(list(self.sdf._selection["SCAN"].unique()))
+        # Group by scan and find unique ifnums per scan
+        scan_ifnums = info.groupby("SCAN")["IFNUM"].apply(set)
+        # Find a scan that has ifnum=0 and one that doesn't
+        has_if0 = [s for s, ifs in scan_ifnums.items() if 0 in ifs]
+        no_if0 = [s for s, ifs in scan_ifnums.items() if 0 not in ifs]
+        assert len(has_if0) > 0 and len(no_if0) > 0, "Test data needs scans with different ifnum sets"
+        good_scan = has_if0[0]
+        bad_scan = no_if0[0]
         caplog.clear()
         with caplog.at_level(logging.INFO, logger="dysh"):
-            result = self.sdf._common_selection(ifnum=0, plnum=0, fdnum=0, SCAN=[152, 177], APPLY_FLAGS=False)
-        assert "No data found for scan(s) [177]" in caplog.text
+            result = self.sdf._common_selection(ifnum=0, plnum=0, fdnum=0, SCAN=[good_scan, bad_scan], APPLY_FLAGS=False)
+        assert f"No data found for scan(s) [{bad_scan}]" in caplog.text
         scans, _sf = result
-        assert 177 not in scans
-        assert 152 in scans
+        assert bad_scan not in scans
+        assert good_scan in scans
         assert len(_sf) > 0
 
     def test_common_selection_complete_mismatch_raises(self):
