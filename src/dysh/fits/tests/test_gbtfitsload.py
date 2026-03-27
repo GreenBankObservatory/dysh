@@ -2122,7 +2122,9 @@ class TestScanInfo:
         bad_scan = no_if0[0]
         caplog.clear()
         with caplog.at_level(logging.INFO, logger="dysh"):
-            result = self.sdf._common_selection(ifnum=0, plnum=0, fdnum=0, SCAN=[good_scan, bad_scan], APPLY_FLAGS=False)
+            result = self.sdf._common_selection(
+                ifnum=0, plnum=0, fdnum=0, SCAN=[good_scan, bad_scan], APPLY_FLAGS=False
+            )
         assert f"No data found for scan(s) [{bad_scan}]" in caplog.text
         scans, _sf = result
         assert bad_scan not in scans
