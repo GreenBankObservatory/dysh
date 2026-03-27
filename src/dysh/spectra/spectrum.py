@@ -190,21 +190,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         c1_pad = 20
         c1_subpad = 10
-        c2_pad = 38
-        c3_pad = 10
+        c2_pad = 37
+        c3_pad = 9
 
         #row 2
         fsky = f"{m.get('OBSFREQ') / 1e9:10.6f}"
         col1 = f"Scan : {m.get('SCAN'):>{c1_subpad}}"
         col2 = f"RADec :  {RA} {DEC}"
-        col3 = f"Fsky : {fsky:>{c3_pad}} GHz"
+        col3 = f"Fsky  : {fsky:>{c3_pad}} GHz"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
         #row 3
         frest = f"{m.get('RESTFRQ') / 1e9:10.6f}"
         col1 = "Int  :        N/A   "
         col2 = f"Eqnx  :  {m.get('EQUINOX')}"
-        col3 = f"Frst : {frest:>{c3_pad}} GHz"
+        col3 = f"Frest : {frest:>{c3_pad}} GHz"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
         #row 4
@@ -212,7 +212,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         bw = f"{m.get('BANDWID') / 1e6:10.3f}"
         col1 = f"Pol  : {crval4_to_pol[m.get('CRVAL4')]:>{c1_subpad}}"
         col2 = f"V     :  {velo}{m.get('VELDEF'):>8}"
-        col3 = F"BW   : {bw:>{c3_pad}} MHz"
+        col3 = F"BW    : {bw:>{c3_pad}} MHz"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
         #row 5
@@ -221,7 +221,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         delf = f"{np.abs(m.get('CDELT1')) / 1e3:10.3f}"
         col1 = f"IF   : {m.get('IFNUM'):>{c1_subpad}}"
         col2 = f"AzEl  : {az}  {el}"
-        col3 = f"delF : {delf:>{c3_pad}} kHz"
+        col3 = f"delF  : {delf:>{c3_pad}} kHz"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
         #row 6
@@ -231,7 +231,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         exp = f"{m.get('EXPOSURE'):10.1f}"
         col1 = f"Feed : {m.get('FDNUM'):>{c1_subpad}}"
         col2 = f"Gal   : {glon}  {glat}"
-        col3 = f"Exp  : {exp:>{c3_pad}}   s"
+        col3 = f"Exp   : {exp:>{c3_pad}}   s"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
         #row 7
@@ -239,7 +239,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         utc = utc_formatter(m.get("TIMESTAMP"))
         col1 = f"Proc : {m.get('PROC')[:9]:>{c1_subpad}}"
         col2 = f"UT    :  {utc}"
-        col3 = f"Tcal : {tcal:>{c3_pad}}   K"
+        col3 = f"Tcal  : {tcal:>{c3_pad}}   K"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
         #row 8
@@ -248,7 +248,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         tsys = f"{m.get('TSYS'):10.2f}"
         col1 = f"Seqn : {m.get('PROCSEQN'):>{c1_subpad}}"
         col2 = f"LST/HA:  {lst}      {ha}"
-        col3 = f"Tsys : {tsys:>{c3_pad}}   K"
+        col3 = f"Tsys  : {tsys:>{c3_pad}}   K"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
         out += "-" * 80
