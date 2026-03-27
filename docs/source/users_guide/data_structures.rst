@@ -143,7 +143,8 @@ It supports most common velocity reference frames supported by `astropy.coordina
 Spectra can be displayed with  `~dysh.spectra.spectrum.Spectrum.plot`, which opens up an :ref:`interactive plot <iplotter>`.
 The frequency/velocity locations of spectral lines within the spectral window can be listed using `~dysh.spectra.spectrum.Spectrum.query_lines`.
 
-Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal,  `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like  `~dysh.spectra.spectrum.Spectrum.stats`,  `~dysh.spectra.spectrum.Spectrum.roll` ,  `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.Spectrum.normalness`, and  `~dysh.spectra.spectrum.Spectrum.cog` (:ref:`Curve of Growth <cog>`).  Spectrum arithmetic is supported with common operators, e.g.:
+Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal, `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like `~dysh.spectra.spectrum.Spectrum.stats`, `~dysh.spectra.spectrum.Spectrum.roll`, `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.Spectrum.normalness`, and `~dysh.spectra.spectrum.Spectrum.cog` (:ref:`Curve of Growth <cog>`).
+Spectrum arithmetic is supported with common operators, e.g.:
 
 .. code:: Python
 
@@ -151,6 +152,17 @@ Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal, 
     s2 = Spectrum.fake_spectrum(nchan=2048)
     s3 = s1+s2      # Sum of two spectra
     ratio = s2/s1   # Unitless ratio
+
+The spectral axis of a `~dysh.spectra.spectrum.Spectrum` is stored in its ``spectral_axis`` attribute.
+It support unit conversions.
+To change the spectral axis use the `~dysh.spectra.spectrum.Spectrum.velocity_axis_to` function.
+This function returns a new spectral axis in the specified unit, frame and velocity definition.
+Parameters not specified are kept the same as in the original `~dysh.spectra.spectrum.Spectrum.spectral_axis`.
+For example, to get a new spectral axis in km s\ :math:`^{-1}`, in the LSRK frame using the radio velocity definition:
+
+.. code:: Python
+
+    x_axis = s3.velocity_axis_to(unit="km/s", toframe="LSRK", doppler_convention="radio")
 
 `~dysh.spectra.spectrum.Spectrum` objects are returned by operations like `~dysh.spectra.scan.ScanBase.timeaverage` and `~dysh.fits.gbtfitsload.GBTFITSLoad.getspec`.
 A useful method for creating dummy spectra is `~dysh.spectra.spectrum.Spectrum.fake_spectrum`.
@@ -190,7 +202,12 @@ and collected into a common :ref:`usersguide-scanblock`.  Users generally will n
    for i in range(len(sb[0]):
         sb[0].getspec(i).plot()
 
+   # Add a comment to the first PSScan.
    sb[0].add_comment("Integration 12 looks wonky.")
+
+   # View a short summary of the contents of the scans.
+   print(sb)
+
 
 .. _scanblocks:
 .. _usersguide-scanblock:
