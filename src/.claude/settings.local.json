@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//bigdisk/src/dysh/**)",
+      "Bash(gh issue:*)",
+      "Bash(uv run:*)",
+      "Bash(gh pr:*)"
+    ]
+  }
+}

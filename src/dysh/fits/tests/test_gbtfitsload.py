@@ -2114,9 +2114,7 @@ class TestScanInfo:
         # Requesting ifnum=0 should match 152 but not 177.
         caplog.clear()
         with caplog.at_level(logging.INFO, logger="dysh"):
-            result = self.sdf._common_selection(
-                ifnum=0, plnum=0, fdnum=0, SCAN=[152, 177], APPLY_FLAGS=False
-            )
+            result = self.sdf._common_selection(ifnum=0, plnum=0, fdnum=0, SCAN=[152, 177], APPLY_FLAGS=False)
         assert "No data found for scan(s) [177]" in caplog.text
         scans, _sf = result
         assert 177 not in scans

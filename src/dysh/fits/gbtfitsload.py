@@ -1960,7 +1960,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scans = [s for s in scans if s in found_scans]
         if len(_sf) == 0:
             scans = kwargs.get("SCAN",None)
-            raise ValueError(f"Didn't find any unflagged data matching the input selection criteria {scans=} {ifnum=} {plnum=} {fdnum=}.")
+            raise ValueError(
+                f"Didn't find any unflagged data matching the input selection criteria {scans=} {ifnum=} {plnum=} {fdnum=}."
+            )
         # Don't apply flags until we are sure that selection succeeded
         if apply_flags:
             self.apply_flags()
@@ -4145,7 +4147,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         low_el_mask = self["ELEVATIO"] < 5
         if low_el_mask.sum() > 0:
             low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
-            logger.warning(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))  # noqa: B028
+            logger.warning(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
 
         # Azimuth and elevation case.
         self._fix_column("RADESYS", radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
@@ -4260,7 +4262,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
-            logger.warning(f"Changing an existing SDFITS column {items}")  # noqa: B028
+            logger.warning(f"Changing an existing SDFITS column {items}")
         # now deal with values as arrays
         is_array = False
         if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):
@@ -4282,7 +4284,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 start = start + s.total_rows
         selected_cols = self.selection.columns_selected()
         if items in selected_cols:
-            logger.warning(  # noqa: B028
+            logger.warning(
                 f"You have changed the metadata for a column that was previously used in a data selection [{items}]."
                 " You may wish to update the selection. "
             )
