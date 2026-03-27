@@ -17,7 +17,7 @@ from astropy.utils.masked import Masked
 
 from dysh.spectra import core
 
-from ..coordinates import Observatory
+from ..coordinates import Observatory, crval4_to_pol
 from ..log import HistoricalBase, log_call_to_history, logger
 from ..plot import scanplot as sp
 from ..util import isot_to_mjd, minimum_string_match
@@ -1116,6 +1116,17 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         self._tcal = np.empty((self._nint), dtype=float)
         self._tcal[:] = tcal
+
+    def __repr__(self):
+        name = self.__class__.__name__
+        scan = self.scan
+        ifnum = self.ifnum
+        plnum = self.plnum
+        fdnum = self.fdnum
+        source = ",".join(set(self._get_all_meta("OBJECT")))
+        rstfrq = ",".join(format(v, ".2f") for v in set(np.array(self._get_all_meta("RESTFRQ")) * 1e-9))
+        plname = ",".join(crval4_to_pol[crv4] for crv4 in set(self._get_all_meta("CRVAL4")))
+        return f"{name} {scan=} {ifnum=} (rest freq={rstfrq} GHz) {plnum=} ({plname}) {fdnum=} {source=}"
 
 
 class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
