@@ -2073,8 +2073,8 @@ class TestScanInfo:
 
     def setup_method(self):
         self.data_dir = util.get_project_testdata()
-        self._file_list = glob.glob(f"{self.data_dir}/TGBT21A_501_11/*.fits")
-        self.sdf = gbtfitsload.GBTFITSLoad(self._file_list[0])
+        file = f"{self.data_dir}/TGBT21A_501_11/testselection.fits"
+        self.sdf = gbtfitsload.GBTFITSLoad(file)
 
     def test_get_scan_info_single_scan(self):
         """_get_scan_info returns a DataFrame with the expected columns for a valid scan."""
