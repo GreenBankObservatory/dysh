@@ -1959,7 +1959,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             )
             scans = [s for s in scans if s in found_scans]
         if len(_sf) == 0:
-            scans = kwargs.get("SCAN",None)
+            scans = kwargs.get("SCAN", None)
             raise ValueError(
                 f"Didn't find any unflagged data matching the input selection criteria {scans=} {ifnum=} {plnum=} {fdnum=}."
             )
