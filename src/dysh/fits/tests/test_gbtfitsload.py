@@ -2061,6 +2061,165 @@ def test_parse_tsys():
     assert "Missing system temperature for scan(s): 2,3" in str(excinfo.value)
 
 
+class TestWriteIndex:
+    """Tests for write_index integration in GBTFITSLoad.write()."""
+
+    def test_write_alphabetic_naming(self, tmp_path):
+        """Multi-file write should use A, B, C... suffixes instead of 0, 1, 2..."""
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        o = tmp_path / "sub"
+        o.mkdir()
+        output = o / "testmulti.fits"
+        g.write(output, multifile=True, scan=6, overwrite=True)
+        written_files = sorted(o.glob("*.fits"))
+        assert len(written_files) == 4
+        for i, f in enumerate(written_files):
+            expected_letter = chr(ord("A") + i)
+            assert f.name == f"testmulti.{expected_letter}.fits", (
+                f"Expected testmulti.{expected_letter}.fits, got {f.name}"
+            )
+
+    def test_write_index_default_false(self, tmp_path):
+        """write_index=False (default) should not create any .index files."""
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        o = tmp_path / "sub"
+        o.mkdir()
+        output = o / "testmulti.fits"
+        g.write(output, multifile=True, scan=6, overwrite=True)
+        index_files = list(o.glob("*.index"))
+        assert len(index_files) == 0
+
+    def test_write_index_single_file(self, tmp_path):
+        """Writing a single file with write_index=True should create one .index file."""
+        p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
+        data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
+        sdf = gbtfitsload.GBTFITSLoad(data_file, index_file_threshold=1000000000)
+        d = tmp_path / "sub"
+        d.mkdir()
+        output = d / "test_single.fits"
+        sdf.write(output, write_index=True, overwrite=True, flags=False)
+
+        # Verify index file was created
+        index_path = d / "test_single.index"
+        assert index_path.exists()
+
+        # Verify it's parseable and has correct structure
+        from dysh.fits.index_file import parse_sdfits_index_file
+
+        df = parse_sdfits_index_file(index_path)
+        assert len(df) == len(sdf._index)
+        # ROW should start from 0
+        assert df["ROW"].min() == 0
+        # FILE column should reference the output filename
+        assert (df["FILE"] == "test_single.fits").all()
+
+    def test_write_index_multifile(self, tmp_path):
+        """Multi-file write with write_index=True should create per-file + parent indices."""
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        o = tmp_path / "sub"
+        o.mkdir()
+        output = o / "testmulti.fits"
+        g.write(output, multifile=True, scan=6, write_index=True, overwrite=True)
+
+        from dysh.fits.index_file import parse_sdfits_index_file
+
+        # Should have 4 per-file index files + 1 parent index
+        per_file_indices = sorted(o.glob("testmulti.?.index"))
+        assert len(per_file_indices) == 4
+        parent_index = o / "testmulti.index"
+        assert parent_index.exists()
+
+        # Each per-file index should reference only its own FITS file
+        total_per_file_rows = 0
+        for idx_file in per_file_indices:
+            df = parse_sdfits_index_file(idx_file)
+            assert len(df) > 0
+            expected_fits = idx_file.stem + ".fits"
+            assert (df["FILE"] == expected_fits).all()
+            total_per_file_rows += len(df)
+
+        # Parent index should contain all rows
+        parent_df = parse_sdfits_index_file(parent_index)
+        assert len(parent_df) == total_per_file_rows
+        # Parent index should reference multiple FITS files
+        assert parent_df["FILE"].nunique() == 4
+
+    def test_write_index_with_selection(self, tmp_path):
+        """write_index with subselection should only index the selected rows."""
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        o = tmp_path / "sub"
+        o.mkdir()
+        output = o / "selected.fits"
+        g.write(output, multifile=True, scan=6, write_index=True, overwrite=True)
+
+        from dysh.fits.index_file import parse_sdfits_index_file
+
+        # Load all per-file indices and check SCAN values
+        for idx_file in sorted(o.glob("selected.?.index")):
+            df = parse_sdfits_index_file(idx_file)
+            assert set(df["SCAN"].unique()) == {6}
+            # ROW numbering should be sequential starting from 0
+            for hdu_val in df["HDU"].unique():
+                hdu_rows = df[df["HDU"] == hdu_val]["ROW"]
+                assert hdu_rows.min() == 0
+                assert list(hdu_rows) == list(range(len(hdu_rows)))
+
+    def test_write_index_non_multifile(self, tmp_path):
+        """Non-multifile write with write_index=True should create one index."""
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        o = tmp_path / "sub"
+        o.mkdir()
+        output = o / "merged.fits"
+        g.write(output, multifile=False, scan=6, write_index=True, overwrite=True)
+
+        from dysh.fits.index_file import parse_sdfits_index_file
+
+        index_path = o / "merged.index"
+        assert index_path.exists()
+        df = parse_sdfits_index_file(index_path)
+        assert len(df) > 0
+        assert (df["FILE"] == "merged.fits").all()
+        assert set(df["SCAN"].unique()) == {6}
+
+    def test_write_index_roundtrip(self, tmp_path):
+        """Write FITS+index, reload, and verify data matches."""
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        o = tmp_path / "sub"
+        o.mkdir()
+        output = o / "roundtrip.fits"
+        g.write(output, multifile=True, scan=6, write_index=True, overwrite=True)
+
+        # Reload the written files
+        sdf = gbtfitsload.GBTFITSLoad(o)
+        assert set(sdf["SCAN"]) == {6}
+
+    def test_write_parent_index_row_count(self, tmp_path):
+        """Parent index total rows should equal sum of per-file index rows."""
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        o = tmp_path / "sub"
+        o.mkdir()
+        output = o / "testmulti.fits"
+        g.write(output, multifile=True, write_index=True, overwrite=True)
+
+        from dysh.fits.index_file import parse_sdfits_index_file
+
+        per_file_total = 0
+        for idx_file in sorted(o.glob("testmulti.?.index")):
+            per_file_total += len(parse_sdfits_index_file(idx_file))
+
+        parent_df = parse_sdfits_index_file(o / "testmulti.index")
+        assert len(parent_df) == per_file_total
+        # INDEX should be sequential 0..N-1
+        assert list(parent_df["INDEX"]) == list(range(len(parent_df)))
+
+
 class TestOnlineGBTFITSLoad:
     """Tests for OnlineGBTFITSLoad (GBTOnline) functionality."""
 

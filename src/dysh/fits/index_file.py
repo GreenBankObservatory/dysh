@@ -98,9 +98,91 @@ SDFITS_INDEX_TO_DYSH_MAP = {
     "LONGITUDE": "CRVAL2",  # .index LONGITUDE = FITS CRVAL2 (lon-like coordinate)
     "LATITUDE": "CRVAL3",  # .index LATITUDE = FITS CRVAL3 (lat-like coordinate)
     "CENTFREQ": "CRVAL1",  # .index CENTFREQ = FITS CRVAL1 (center frequency)
+    # WCALPOS was originally added to the index format for the W-band receiver's
+    # calibration vane positions ("Vane", "Observing", "Cold1", "Cold2"), hence
+    # the "W" prefix. However, sparrow/sparrow3/GBTIDL all populate it from the
+    # generic FITS column CALPOSITION for ALL backends (defaulting to "Unknown").
+    # So despite the W-band-specific name, it's a general-purpose column.
+    # See sparrow3 IndexWriter.py:345 and sparrow IndexWriter.py:330.
+    "WCALPOS": "CALPOSITION",
 }
 
 DYSH_TO_SDFITS_INDEX_MAP = {v: k for k, v in SDFITS_INDEX_TO_DYSH_MAP.items()}
+
+
+# --- Writer format specification matching sparrow3/GBTIDL IndexWriter exactly ---
+
+_HEADER_LINE_LEN = 256  # Header lines padded to 256 chars (sparrow3's headerLineLen)
+
+# Writer column spec: (canonical_name, col_header_fmt, row_value_fmt, skip_spacing)
+# Matches sparrow3 IndexWriter.cells exactly.
+# - col_header_fmt: formats the column name for the header row (may truncate, e.g. EXTENSION → EXT)
+# - row_value_fmt: formats the data value for each row
+# - skip_spacing: if True, no trailing space in header; in data rows, space added only when int val < 1e6
+_WRITER_SPEC = [
+    ("#INDEX#", "%7.7s", "%6d", True),
+    ("PROJECT", "%16.16s", "%16.16s", False),
+    ("FILE", "%64.64s", "%64.64s", False),
+    ("EXTENSION", "%3.3s", "%3d", False),
+    ("ROW", "%7.7s", "%6d", True),
+    ("SOURCE", "%32.32s", "%32.32s", False),
+    ("PROCEDURE", "%9.9s", "%9.9s", False),
+    ("OBSID", "%32.32s", "%32.32s", False),
+    ("E2ESCAN", "%5.5s", "%5d", False),
+    ("PROCSEQN", "%5.5s", "%5d", False),
+    ("SCAN", "%10.10s", "%10d", False),
+    ("POLARIZATION", "%3.3s", "%3.3s", False),
+    ("PLNUM", "%5.5s", "%5d", False),
+    ("IFNUM", "%5.5s", "%5d", False),
+    ("FEED", "%5.5s", "%5d", False),
+    ("FDNUM", "%5.5s", "%5d", False),
+    ("INT", "%10.10s", "%10d", False),
+    ("NUMCHN", "%6.6s", "%6d", False),
+    ("SIG", "%3.3s", "%3.3s", False),
+    ("CAL", "%3.3s", "%3.3s", False),
+    ("SAMPLER", "%12.12s", "%12.12s", False),
+    ("AZIMUTH", "%16.16s", "%16.9e", False),
+    ("ELEVATION", "%16.16s", "%16.9e", False),
+    ("LONGITUDE", "%16.16s", "%16.9e", False),
+    ("LATITUDE", "%16.16s", "%16.9e", False),
+    ("TRGTLONG", "%16.16s", "%16.9e", False),
+    ("TRGTLAT", "%16.16s", "%16.9e", False),
+    ("SUBREF", "%3.3s", "%3d", False),
+    ("LST", "%16.16s", "%16.9e", False),
+    ("CENTFREQ", "%16.16s", "%16.9e", False),
+    ("RESTFREQ", "%16.16s", "%16.9e", False),
+    ("VELOCITY", "%16.16s", "%16.9e", False),
+    ("FREQINT", "%16.16s", "%16.9e", False),
+    ("FREQRES", "%16.16s", "%16.9e", False),
+    ("DATEOBS", "%22.22s", "%22.22s", False),
+    ("TIMESTAMP", "%22.22s", "%22.22s", False),
+    ("BANDWIDTH", "%16.16s", "%16.9e", False),
+    ("EXPOSURE", "%16.16s", "%16.9e", False),
+    ("TSYS", "%16.16s", "%16.9e", False),
+    ("NSAVE", "%10.10s", "%10d", False),
+    ("PROCSCAN", "%16.16s", "%16.16s", False),
+    ("PROCTYPE", "%16.16s", "%16.16s", False),
+    ("WCALPOS", "%16.16s", "%16.16s", False),
+]
+
+# Column names from the writer spec (#INDEX# → INDEX for DataFrame compatibility)
+_WRITER_COLUMNS = [name if name != "#INDEX#" else "INDEX" for name, _, _, _ in _WRITER_SPEC]
+
+# Stokes/polarization code mapping (FITS CRVAL4 integer → string)
+_POLARIZATION_MAP = {
+    1: "I",
+    2: "Q",
+    3: "U",
+    4: "V",
+    -1: "RR",
+    -2: "LL",
+    -3: "RL",
+    -4: "LR",
+    -5: "XX",
+    -6: "YY",
+    -7: "XY",
+    -8: "YX",
+}
 
 
 def get_index_path(fits_path: str | Path) -> Path:
@@ -531,6 +613,141 @@ def read_index_incremental(index_path: Path, start_row: int = 0, end_row: int | 
     return df
 
 
+def _generate_rows_header() -> str:
+    """Generate the column header row matching sparrow3's IndexWriter format.
+
+    Column names are formatted using the col_header_fmt from _WRITER_SPEC,
+    which truncates long names (e.g., EXTENSION → EXT, POLARIZATION → POL).
+    Skip-spacing columns (#INDEX#, ROW) get no trailing space in the header.
+    """
+    header = ""
+    last_name = _WRITER_SPEC[-1][0]
+    for name, col_fmt, _row_fmt, skip_spacing in _WRITER_SPEC:
+        header += col_fmt % name
+        if name != last_name and not skip_spacing:
+            header += " "
+    return header
+
+
+def _get_polarization(crval4) -> str:
+    """Translate CRVAL4 Stokes parameter integer to polarization string.
+
+    Matches sparrow3's IndexWriter.getPolarization().
+    """
+    try:
+        return _POLARIZATION_MAP.get(int(crval4), "??")
+    except (ValueError, TypeError):
+        return "??"
+
+
+def _get_center_frequency(crval1, crpix1, cdelt1, numchn) -> float:
+    """Compute center frequency from WCS parameters.
+
+    Matches sparrow3's IndexWriter.getCenterFrequency().
+    """
+    center_chan = (float(numchn) / 2.0) - 0.5
+    return ((center_chan - float(crpix1)) * float(cdelt1)) + float(crval1)
+
+
+def _get_procedure(obsmode) -> str:
+    """Extract procedure name from OBSMODE string.
+
+    Matches sparrow3's IndexWriter.getProcedure().
+    """
+    if pd.isna(obsmode) or not obsmode:
+        return ""
+    return str(obsmode).split(":")[0]
+
+
+def _translate_boolean(val) -> str:
+    """Convert a boolean-like value to T/F string.
+
+    Matches sparrow3's IndexWriter.translateBoolean().
+    """
+    if isinstance(val, str):
+        upper = val.strip().upper()
+        if upper in ("T", "TRUE"):
+            return "T"
+        return "F"
+    if pd.isna(val):
+        return "F"
+    return "T" if val else "F"
+
+
+def _prepare_for_writing(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert a dysh/FITS DataFrame to canonical SDFITS index column names for writing.
+
+    Computes derived columns (CENTFREQ, POLARIZATION, PROCEDURE, etc.) and renames
+    columns from dysh/FITS names to canonical SDFITS index names matching sparrow3.
+    """
+    df = df.copy()
+
+    # --- Compute derived columns before renaming ---
+
+    # CENTFREQ: compute from WCS parameters if all are available
+    if "CRVAL1" in df.columns and "CRPIX1" in df.columns and "CDELT1" in df.columns and "NUMCHN" in df.columns:
+        df["CENTFREQ"] = [
+            _get_center_frequency(r["CRVAL1"], r["CRPIX1"], r["CDELT1"], r["NUMCHN"]) for _, r in df.iterrows()
+        ]
+    elif "CRVAL1" in df.columns and "CENTFREQ" not in df.columns:
+        # Fallback: use CRVAL1 as approximate CENTFREQ
+        df["CENTFREQ"] = df["CRVAL1"]
+
+    # POLARIZATION: derive from CRVAL4
+    if "CRVAL4" in df.columns and "POLARIZATION" not in df.columns and "POL" not in df.columns:
+        df["POLARIZATION"] = df["CRVAL4"].apply(_get_polarization)
+
+    # PROCEDURE: extract from OBSMODE
+    if "OBSMODE" in df.columns and "PROCEDURE" not in df.columns and "PROC" not in df.columns:
+        df["PROCEDURE"] = df["OBSMODE"].apply(_get_procedure)
+
+    # FREQINT: from CDELT1
+    if "CDELT1" in df.columns and "FREQINT" not in df.columns:
+        df["FREQINT"] = df["CDELT1"]
+
+    # BANDWIDTH: from BANDWID
+    if "BANDWID" in df.columns and "BANDWIDTH" not in df.columns:
+        df["BANDWIDTH"] = df["BANDWID"]
+
+    # SUBREF: from SUBREF_STATE
+    if "SUBREF_STATE" in df.columns and "SUBREF" not in df.columns and "SUB" not in df.columns:
+        df["SUBREF"] = df["SUBREF_STATE"]
+
+    # E2ESCAN: default to 0 (sparrow3 always sets to 0)
+    if "E2ESCAN" not in df.columns and "E2ESC" not in df.columns:
+        df["E2ESCAN"] = 0
+
+    # --- Rename columns from dysh/FITS names to canonical SDFITS index names ---
+    rename_map = {
+        "INTNUM": "INT",
+        "PROJID": "PROJECT",
+        "DATE-OBS": "DATEOBS",
+        "HDU": "EXTENSION",
+        "OBJECT": "SOURCE",
+        "PROC": "PROCEDURE",
+        "ELEVATIO": "ELEVATION",
+        "CRVAL2": "LONGITUDE",
+        "CRVAL3": "LATITUDE",
+        "CALPOSITION": "WCALPOS",
+        # Abbreviated → canonical (for DataFrames from old dysh-written index files)
+        "EXT": "EXTENSION",
+        "POL": "POLARIZATION",
+        "E2ESC": "E2ESCAN",
+        "PROCS": "PROCSEQN",
+        "SUB": "SUBREF",
+    }
+    actual_renames = {src: dst for src, dst in rename_map.items() if src in df.columns and dst not in df.columns}
+    if actual_renames:
+        df = df.rename(columns=actual_renames)
+
+    # --- Convert SIG/CAL to T/F strings ---
+    for col in ("SIG", "CAL"):
+        if col in df.columns:
+            df[col] = df[col].apply(_translate_boolean)
+
+    return df
+
+
 def write_index(index_path: str | Path, metadata: IndexMetadata, df: pd.DataFrame):
     """
     Write an SDFITS-compatible .index file.
@@ -546,238 +763,108 @@ def write_index(index_path: str | Path, metadata: IndexMetadata, df: pd.DataFram
 
     Notes
     -----
-    Creates an SDFITS-compatible ASCII format with:
-    - Header section with 200-character padded lines
-    - Data section with fixed-width columns
-    - Scientific notation for floats
+    Creates an SDFITS-compatible ASCII format matching sparrow3/GBTIDL:
+    - Header section with 256-character padded lines
+    - Data section with fixed-width columns matching sparrow3's IndexWriter
+    - Scientific notation for floats (%16.9e)
     - T/F for booleans
+    - Column header generated from format specs (matches sparrow3 exactly)
     """
     index_path = Path(index_path)
 
-    # Convert dysh column names to SDFITS index names
-    df_sdfits = convert_dysh_to_sdfits_index(df.copy())
+    # Convert to canonical SDFITS index format
+    df_sdfits = _prepare_for_writing(df)
 
-    # Ensure all 43 standard SDFITS index columns exist (add missing ones with default values)
-    standard_cols = [
-        "INDEX",
-        "PROJECT",
-        "FILE",
-        "EXT",
-        "ROW",
-        "SOURCE",
-        "PROCEDURE",
-        "OBSID",
-        "E2ESC",
-        "PROCS",
-        "SCAN",
-        "POL",
-        "PLNUM",
-        "IFNUM",
-        "FEED",
-        "FDNUM",
-        "INT",
-        "NUMCHN",
-        "SIG",
-        "CAL",
-        "SAMPLER",
-        "AZIMUTH",
-        "ELEVATION",
-        "LONGITUDE",
-        "LATITUDE",
-        "TRGTLONG",
-        "TRGTLAT",
-        "SUB",
-        "LST",
-        "CENTFREQ",
-        "RESTFREQ",
-        "VELOCITY",
-        "FREQINT",
-        "FREQRES",
-        "DATEOBS",
-        "TIMESTAMP",
-        "BANDWIDTH",
-        "EXPOSURE",
-        "TSYS",
-        "NSAVE",
-        "PROCSCAN",
-        "PROCTYPE",
-        "WCALPOS",
-    ]
-
-    for col in standard_cols:
+    # Ensure all standard columns exist with appropriate defaults
+    for col in _WRITER_COLUMNS:
         if col not in df_sdfits.columns:
-            # Add missing column with appropriate default value
-            if col in ["SIG", "CAL"]:
-                df_sdfits[col] = False
-            elif col in [
-                "AZIMUTH",
-                "ELEVATION",
-                "LONGITUDE",
-                "LATITUDE",
-                "TRGTLONG",
-                "TRGTLAT",
-                "LST",
-                "CENTFREQ",
-                "RESTFREQ",
-                "VELOCITY",
-                "FREQINT",
-                "FREQRES",
-                "BANDWIDTH",
-                "EXPOSURE",
-                "TSYS",
-            ]:
-                df_sdfits[col] = 0.0
-            elif col in [
-                "INDEX",
-                "EXT",
-                "ROW",
-                "E2ESC",
-                "PROCS",
-                "SCAN",
-                "PLNUM",
-                "IFNUM",
-                "FEED",
-                "FDNUM",
-                "INT",
-                "NUMCHN",
-                "SUB",
-                "NSAVE",
-            ]:
-                df_sdfits[col] = 0
-            else:
-                df_sdfits[col] = ""
-
-    # Reorder columns to match standard order
-    df_sdfits = df_sdfits[standard_cols]
+            # Find the spec entry for this column
+            spec_name = "#INDEX#" if col == "INDEX" else col
+            spec = next((s for s in _WRITER_SPEC if s[0] == spec_name), None)
+            if spec:
+                row_fmt = spec[2]
+                if col == "NSAVE":
+                    df_sdfits[col] = -1  # sparrow3 defaults NSAVE to -1
+                elif "d" in row_fmt:
+                    df_sdfits[col] = 0
+                elif "e" in row_fmt:
+                    df_sdfits[col] = 0.0
+                else:
+                    df_sdfits[col] = ""
 
     with open(index_path, "w") as f:
         # Write header section
         f.write("[header]\n")
 
-        # Write each metadata field with 200-char padding
+        # Write each metadata field with 256-char padding (matching sparrow3)
         for field in fields(IndexMetadata):
             key = field.name
             value = getattr(metadata, key)
             line = f"{key} = {value}"
-            # Pad to 200 characters
-            line = line.ljust(200)
-            f.write(line + "\n")
+            f.write(line.ljust(_HEADER_LINE_LEN) + "\n")
 
         # Write [rows] marker
         f.write("[rows]\n")
 
-        # Write column header
-        f.write(
-            "#INDEX#  PROJECT          FILE                                                            EXT ROW     SOURCE                           PROCEDURE OBSID                            E2ESC PROCS SCAN       POL PLNUM IFNUM FEED  FDNUM INT        NUMCHN SIG CAL SAMPLER      AZIMUTH          ELEVATION        LONGITUDE        LATITUDE         TRGTLONG         TRGTLAT          SUB LST              CENTFREQ         RESTFREQ         VELOCITY         FREQINT          FREQRES          DATEOBS               TIMESTAMP             BANDWIDTH        EXPOSURE         TSYS             NSAVE      PROCSCAN         PROCTYPE         WCALPOS\n"
-        )
+        # Write column header (generated dynamically to match sparrow3 format)
+        f.write(_generate_rows_header() + "\n")
 
         # Write data rows
         for _, row in df_sdfits.iterrows():
-            line = _format_sdfits_row(row)
-            f.write(line + "\n")
+            f.write(_format_sdfits_row(row) + "\n")
 
 
 def _format_sdfits_row(row: pd.Series) -> str:
-    """Format a single row in SDFITS index format.
+    """Format a single row matching sparrow3's IndexWriter format.
 
     Parameters
     ----------
     row : pd.Series
-        Row with SDFITS index column names
+        Row with canonical SDFITS index column names
 
     Returns
     -------
     str
         Formatted row string
     """
-    # SDFITS column format specification
-    # Format: (column_name, width, format_type)
-    # format_type: 'i'=integer (right-aligned), 'f'=float (scientific), 's'=string (left-aligned), 'b'=boolean (T/F)
-    sdfits_spec = [
-        ("INDEX", 7, "i"),
-        ("PROJECT", 16, "s"),
-        ("FILE", 64, "s"),
-        ("EXT", 3, "i"),
-        ("ROW", 7, "i"),
-        ("SOURCE", 32, "s"),
-        ("PROCEDURE", 9, "s"),
-        ("OBSID", 32, "s"),
-        ("E2ESC", 5, "i"),
-        ("PROCS", 5, "i"),
-        ("SCAN", 10, "i"),
-        ("POL", 3, "s"),
-        ("PLNUM", 5, "i"),
-        ("IFNUM", 5, "i"),
-        ("FEED", 5, "i"),
-        ("FDNUM", 5, "i"),
-        ("INT", 10, "i"),
-        ("NUMCHN", 6, "i"),
-        ("SIG", 3, "b"),
-        ("CAL", 3, "b"),
-        ("SAMPLER", 12, "s"),
-        ("AZIMUTH", 16, "f"),
-        ("ELEVATION", 16, "f"),
-        ("LONGITUDE", 16, "f"),
-        ("LATITUDE", 16, "f"),
-        ("TRGTLONG", 16, "f"),
-        ("TRGTLAT", 16, "f"),
-        ("SUB", 3, "i"),
-        ("LST", 16, "f"),
-        ("CENTFREQ", 16, "f"),
-        ("RESTFREQ", 16, "f"),
-        ("VELOCITY", 16, "f"),
-        ("FREQINT", 16, "f"),
-        ("FREQRES", 16, "f"),
-        ("DATEOBS", 21, "s"),
-        ("TIMESTAMP", 21, "s"),
-        ("BANDWIDTH", 16, "f"),
-        ("EXPOSURE", 16, "f"),
-        ("TSYS", 16, "f"),
-        ("NSAVE", 10, "i"),
-        ("PROCSCAN", 16, "s"),
-        ("PROCTYPE", 16, "s"),
-        ("WCALPOS", 16, "s"),
-    ]
+    result = ""
+    last_name = _WRITER_SPEC[-1][0]
 
-    parts = []
-    for col_name, width, fmt in sdfits_spec:
-        val = row.get(col_name, "")
+    for name, _col_fmt, row_fmt, skip_spacing in _WRITER_SPEC:
+        # Handle #INDEX# which is stored as INDEX in DataFrame
+        lookup_name = "INDEX" if name == "#INDEX#" else name
+        val = row.get(lookup_name)
 
-        # Format based on type
-        if fmt == "i":
-            # Integer: right-aligned
-            if pd.isna(val) or val == "":
-                formatted = str(0).rjust(width)
+        # Determine value type from format string and apply defaults
+        if "d" in row_fmt:
+            # Integer format
+            if pd.isna(val) or val is None or val == "":
+                val = 0
             else:
-                formatted = str(int(val)).rjust(width)
-        elif fmt == "f":
+                val = int(val)
+        elif "e" in row_fmt:
             # Float scientific notation
-            if pd.isna(val) or val == "":
-                formatted = "0.000000000e+00".rjust(width)
+            if pd.isna(val) or val is None or val == "":
+                val = 0.0
             else:
-                formatted = f"{float(val):.9e}".rjust(width)
-        elif fmt == "b":
-            # Boolean: T/F, left-aligned
-            if pd.isna(val) or val == "":
-                formatted = "F".ljust(width)
-            else:
-                val_str = "T" if val else "F"
-                formatted = val_str.ljust(width)
-        elif fmt == "s":
-            # String: left-aligned
-            if pd.isna(val) or val == "":
-                formatted = "".ljust(width)
-            else:
-                formatted = str(val).ljust(width)
+                val = float(val)
+        elif pd.isna(val) or val is None:
+            # String format, missing value
+            val = ""
         else:
-            formatted = str(val).ljust(width)
+            # String format
+            val = str(val)
 
-        # Truncate if too long
-        formatted = formatted[:width]
-        parts.append(formatted)
-        parts.append(" ")  # Space between columns
+        result += row_fmt % val
 
-    return "".join(parts).rstrip()  # Remove trailing space
+        # Spacing logic matching sparrow3's initRowString:
+        # - skip_spacing columns (#INDEX#, ROW): add space only when int value < 1e6
+        # - other columns: always add space (except the last column)
+        if name != last_name:
+            if not skip_spacing or (isinstance(val, int) and val < 1000000):
+                result += " "
+
+    return result
 
 
 def validate_index(fits_path: str | Path, index_path: str | Path) -> bool:
