@@ -177,14 +177,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         proj = m.get("PROJID", "N/A")
         obs = m.get("OBSERVER", "N/A")
-        src_pad = 45 - len(obs) # amt of chars of src we can afford to print
+        src_pad = 45 - len(obs)  # amt of chars of src we can afford to print
         src = m.get("OBJECT", "N/A")[:src_pad]
-
 
         col1 = f"Proj: {proj:<16}"
         col2 = f"Src : {src:<{src_pad}}"
         col3 = f"Obs : {obs}"
-        out += f"{col1:<22}{col2}{col3:>{len(obs)+5}}\n\n"
+        out += f"{col1:<22}{col2}{col3:>{len(obs) + 5}}\n\n"
 
         RA, DEC = coord_formatter(self)
 
@@ -193,29 +192,29 @@ class Spectrum(Spectrum1D, HistoricalBase):
         c2_pad = 37
         c3_pad = 9
 
-        #row 2
+        # row 2
         fsky = f"{m.get('OBSFREQ') / 1e9:10.6f}"
         col1 = f"Scan : {m.get('SCAN'):>{c1_subpad}}"
         col2 = f"RADec :  {RA} {DEC}"
         col3 = f"Fsky  : {fsky:>{c3_pad}} GHz"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
-        #row 3
+        # row 3
         frest = f"{m.get('RESTFRQ') / 1e9:10.6f}"
         col1 = "Int  :        N/A   "
         col2 = f"Eqnx  :  {m.get('EQUINOX')}"
         col3 = f"Frest : {frest:>{c3_pad}} GHz"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
-        #row 4
+        # row 4
         velo = f"{m.get('VELOCITY') / 1e3:<8.1f}"
         bw = f"{m.get('BANDWID') / 1e6:10.3f}"
         col1 = f"Pol  : {crval4_to_pol[m.get('CRVAL4')]:>{c1_subpad}}"
         col2 = f"V     :  {velo}{m.get('VELDEF'):>8}"
-        col3 = F"BW    : {bw:>{c3_pad}} MHz"
+        col3 = f"BW    : {bw:>{c3_pad}} MHz"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
-        #row 5
+        # row 5
         az = f"{m.get('AZIMUTH'):7.3f}"
         el = f"{m.get('ELEVATIO'):7.3f}"
         delf = f"{np.abs(m.get('CDELT1')) / 1e3:10.3f}"
@@ -224,7 +223,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         col3 = f"delF  : {delf:>{c3_pad}} kHz"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
-        #row 6
+        # row 6
         glon, glat = coord_formatter(self, "galactic", fmt="decimal")
         print(glon)
         print(glat)
@@ -234,7 +233,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         col3 = f"Exp   : {exp:>{c3_pad}}   s"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
-        #row 7
+        # row 7
         tcal = f"{m.get('TCAL'):10.2f}"
         utc = utc_formatter(m.get("TIMESTAMP"))
         col1 = f"Proc : {m.get('PROC')[:9]:>{c1_subpad}}"
@@ -242,7 +241,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         col3 = f"Tcal  : {tcal:>{c3_pad}}   K"
         out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
 
-        #row 8
+        # row 8
         lst = time_formatter(m.get("LST"))
         ha = ra2ha(m.get("LST"), m.get("CRVAL2"))
         tsys = f"{m.get('TSYS'):10.2f}"
