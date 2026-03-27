@@ -4993,7 +4993,7 @@ class GBTOffline(GBTFITSLoad):
 #       these two variables with _check_functions() will warn in runtime, but fail in pytest
 #       If you add more to _skip_functions, deduct the number in _need_functions
 _skip_functions = ["velocity_convention", "velocity_frame"]
-_need_functions = 60
+_need_functions = 61
 
 
 def _check_functions(verbose=False):
@@ -5175,6 +5175,10 @@ class GBTOnline(GBTFITSLoad):
     def summary(self, *args, **kwargs):
         self._reload()
         return super().summary(*args, **kwargs)
+
+    def scan_info(self, *args, **kwargs):
+        self._reload()
+        return super().scan_info(*args, **kwargs)
 
     def get_summary(self, *args, **kwargs):
         self._reload()
