@@ -924,7 +924,7 @@ class TestGBTFITSLoad:
         with pytest.raises(KeyError):
             g["FOOBAR"]
 
-    def test_set_item(self, tmp_path):
+    def test_set_item(self, tmp_path, caplog):
         # First test with a single number or string
         keyval = {
             "IFNUM": 12,
@@ -1009,16 +1009,23 @@ class TestGBTFITSLoad:
             g = gbtfitsload.GBTFITSLoad(f, index_file_threshold=100000000)
             for key, val in keyval.items():
                 array = [val] * 2 * g.total_rows
-                # This will warn and raise an error.
-                with pytest.warns(UserWarning):
+                # This will log a warning (via logger) and raise an error.
+                # The ValueError is raised before super().__setitem__ so
+                # only the gbtfitsload logger.warning fires, not sdfitsload's warnings.warn.
+                caplog.clear()
+                with caplog.at_level(logging.WARNING, logger="dysh"):
                     with pytest.raises(ValueError):
                         g[key] = array
+                assert "Changing an existing SDFITS column" in caplog.text
 
         # test that changed a previously selection column results in a warning
         g = gbtfitsload.GBTFITSLoad(files[0], index_file_threshold=100000000)
         g.select(ifnum=2)
-        with pytest.warns(UserWarning):
-            g["ifnum"] = 3
+        caplog.clear()
+        with caplog.at_level(logging.WARNING, logger="dysh"):
+            with pytest.warns(UserWarning):
+                g["ifnum"] = 3
+        assert "previously used in a data selection" in caplog.text
 
         def test_data_access(self):
             """test getting and setting the DATA column of SDFITS"""
@@ -2059,6 +2066,70 @@ def test_parse_tsys():
     with pytest.raises(TypeError) as excinfo:
         _tsys = gbtfitsload._parse_tsys(tsys, scans)
     assert "Missing system temperature for scan(s): 2,3" in str(excinfo.value)
+
+
+class TestScanInfo:
+    """Tests for scan_info() and partial-match warnings in _common_selection (issues #745 and #748)."""
+
+    def setup_method(self):
+        self.data_dir = util.get_project_testdata()
+        file = f"{self.data_dir}/TGBT21A_501_11/testselection.fits"
+        self.sdf = gbtfitsload.GBTFITSLoad(file)
+
+    def test_get_scan_info_single_scan(self):
+        """_get_scan_info returns a DataFrame with the expected columns for a valid scan."""
+        info = self.sdf._get_scan_info(152)
+        assert len(info) > 0
+        assert list(info.columns) == ["SCAN", "IFNUM", "FDNUM", "PLNUM"]
+        assert (info["SCAN"] == 152).all()
+
+    def test_get_scan_info_list_of_scans(self):
+        """_get_scan_info accepts a list of scan numbers."""
+        scans = list(self.sdf._selection["SCAN"].unique()[:2])
+        info = self.sdf._get_scan_info(scans)
+        assert set(info["SCAN"].unique()) == set(scans)
+
+    def test_get_scan_info_invalid_scan(self):
+        """_get_scan_info returns an empty DataFrame for a nonexistent scan."""
+        info = self.sdf._get_scan_info(999999)
+        assert len(info) == 0
+
+    def test_scan_info_prints_output(self, capsys):
+        """scan_info prints formatted output."""
+        self.sdf.scan_info(152)
+        captured = capsys.readouterr()
+        assert "Scan 152:" in captured.out
+        assert "ifnum=" in captured.out
+        assert "plnum=" in captured.out
+        assert "fdnum=" in captured.out
+
+    def test_common_selection_partial_match_warns(self, caplog):
+        """When some scans match and others don't, a warning is issued but no error is raised."""
+        # Find two scans with different ifnum sets so one will match and the other won't.
+        info = self.sdf._get_scan_info(list(self.sdf._selection["SCAN"].unique()))
+        # Group by scan and find unique ifnums per scan
+        scan_ifnums = info.groupby("SCAN")["IFNUM"].apply(set)
+        # Find a scan that has ifnum=0 and one that doesn't
+        has_if0 = [s for s, ifs in scan_ifnums.items() if 0 in ifs]
+        no_if0 = [s for s, ifs in scan_ifnums.items() if 0 not in ifs]
+        assert len(has_if0) > 0 and len(no_if0) > 0, "Test data needs scans with different ifnum sets"
+        good_scan = has_if0[0]
+        bad_scan = no_if0[0]
+        caplog.clear()
+        with caplog.at_level(logging.INFO, logger="dysh"):
+            result = self.sdf._common_selection(
+                ifnum=0, plnum=0, fdnum=0, SCAN=[good_scan, bad_scan], APPLY_FLAGS=False
+            )
+        assert f"No data found for scan(s) [{bad_scan}]" in caplog.text
+        scans, _sf = result
+        assert bad_scan not in scans
+        assert good_scan in scans
+        assert len(_sf) > 0
+
+    def test_common_selection_complete_mismatch_raises(self):
+        """When no scans match at all, an exception is raised."""
+        with pytest.raises(ValueError, match="not found in selected data"):
+            self.sdf._common_selection(ifnum=0, plnum=0, fdnum=0, SCAN=[999999], APPLY_FLAGS=False)
 
 
 class TestOnlineGBTFITSLoad:

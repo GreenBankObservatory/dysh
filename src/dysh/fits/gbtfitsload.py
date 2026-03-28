@@ -1943,12 +1943,98 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now remove rows that have been entirely flagged
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
+        # Check which requested scans have data after selection and flag elimination
+        found_scans = set(_sf["SCAN"].unique()) if len(_sf) > 0 else set()
+        missing_scans = sorted(set(scans) - found_scans)
+        if missing_scans:
+            info_df = self._get_scan_info(missing_scans)
+            if len(info_df) > 0:
+                info_lines = self._format_scan_info(info_df)
+            else:
+                info_lines = [f"  Scan {s}: no data found" for s in missing_scans]
+            info_str = "\n".join(info_lines)
+            logger.info(
+                f"No data found for scan(s) {missing_scans} with the given selection criteria.\n"
+                f"Available parameters for those scans:\n{info_str}"
+            )
+            scans = [s for s in scans if s in found_scans]
         if len(_sf) == 0:
-            raise Exception("Didn't find any unflagged data matching the input selection criteria.")
+            scans = kwargs.get("SCAN", None)
+            raise ValueError(
+                f"Didn't find any unflagged data matching the input selection criteria {scans=} {ifnum=} {plnum=} {fdnum=}."
+            )
         # Don't apply flags until we are sure that selection succeeded
         if apply_flags:
             self.apply_flags()
         return (scans, _sf)
+
+    def _get_scan_info(self, scan):
+        """Return a DataFrame of unique IFNUM, FDNUM, PLNUM combinations for the given scan(s).
+
+        Parameters
+        ----------
+        scan : int or list of int
+            The scan number(s) to query.
+
+        Returns
+        -------
+        info : `~pandas.DataFrame`
+            A DataFrame with columns SCAN, IFNUM, FDNUM, PLNUM showing the
+            unique parameter combinations available for each requested scan.
+        """
+        if isinstance(scan, (int, np.integer)):
+            scan = [scan]
+        if len(self._selection._selection_rules) > 0:
+            df = self._selection.final
+        else:
+            df = self._selection
+        df = df[df["SCAN"].isin(scan)]
+        if len(df) == 0:
+            return pd.DataFrame(columns=["SCAN", "IFNUM", "FDNUM", "PLNUM"])
+        return (
+            df[["SCAN", "IFNUM", "FDNUM", "PLNUM"]]
+            .drop_duplicates()
+            .sort_values(["SCAN", "IFNUM", "FDNUM", "PLNUM"])
+            .reset_index(drop=True)
+        )
+
+    def scan_info(self, scan):
+        """Print the available IFNUM, FDNUM, and PLNUM values for the given scan(s).
+
+        Parameters
+        ----------
+        scan : int or list of int
+            The scan number(s) to query.
+        """
+        info = self._get_scan_info(scan)
+        if len(info) == 0:
+            print(f"No data found for scan(s) {scan}")
+        else:
+            for line in self._format_scan_info(info):
+                print(line)
+
+    @staticmethod
+    def _format_scan_info(info):
+        """Format scan info DataFrame as compact summary lines.
+
+        Parameters
+        ----------
+        info : `~pandas.DataFrame`
+            DataFrame with SCAN, IFNUM, FDNUM, PLNUM columns.
+
+        Returns
+        -------
+        lines : list of str
+            One line per scan, e.g. ``"Scan 15: ifnum=[0,2,3] plnum=[0,1] fdnum=[0]"``.
+        """
+        lines = []
+        for s in sorted(info["SCAN"].unique()):
+            sdf = info[info["SCAN"] == s]
+            ifnums = sorted(int(x) for x in sdf["IFNUM"].unique())
+            plnums = sorted(int(x) for x in sdf["PLNUM"].unique())
+            fdnums = sorted(int(x) for x in sdf["FDNUM"].unique())
+            lines.append(f"Scan {int(s)}: ifnum={ifnums} plnum={plnums} fdnum={fdnums}")
+        return lines
 
     def info(self):
         """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
@@ -2269,7 +2355,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             )
         _channel = self._normalize_channel_range(channel)
         if t_sys is not None and t_cal is not None:
-            warnings.warn("Both t_cal and t_sys were set. Only t_sys will be used.", stacklevel=2)
+            logger.info("Both t_cal and t_sys were set. Only t_sys will be used.", stacklevel=2)
 
         scanlist = {}
         if isinstance(scan, int):
@@ -4061,7 +4147,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         low_el_mask = self["ELEVATIO"] < 5
         if low_el_mask.sum() > 0:
             low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
-            warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))  # noqa: B028
+            logger.warning(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
 
         # Azimuth and elevation case.
         self._fix_column("RADESYS", radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
@@ -4176,7 +4262,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
-            warnings.warn(f"Changing an existing SDFITS column {items}")  # noqa: B028
+            logger.warning(f"Changing an existing SDFITS column {items}")
         # now deal with values as arrays
         is_array = False
         if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):
@@ -4198,7 +4284,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 start = start + s.total_rows
         selected_cols = self.selection.columns_selected()
         if items in selected_cols:
-            warnings.warn(  # noqa: B028
+            logger.warning(
                 f"You have changed the metadata for a column that was previously used in a data selection [{items}]."
                 " You may wish to update the selection. "
             )
@@ -4909,7 +4995,7 @@ class GBTOffline(GBTFITSLoad):
 #       these two variables with _check_functions() will warn in runtime, but fail in pytest
 #       If you add more to _skip_functions, deduct the number in _need_functions
 _skip_functions = ["velocity_convention", "velocity_frame"]
-_need_functions = 60
+_need_functions = 61
 
 
 def _check_functions(verbose=False):
@@ -5091,6 +5177,10 @@ class GBTOnline(GBTFITSLoad):
     def summary(self, *args, **kwargs):
         self._reload()
         return super().summary(*args, **kwargs)
+
+    def scan_info(self, *args, **kwargs):
+        self._reload()
+        return super().scan_info(*args, **kwargs)
 
     def get_summary(self, *args, **kwargs):
         self._reload()
