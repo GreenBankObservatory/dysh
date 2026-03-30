@@ -84,6 +84,16 @@ The most basic description of the data is from `~dysh.fits.gbtfitsload.GBTFITSLo
    # List the default columns plus additional ones
    sdfits.summary(add_columns=["TAMBIENT", "VELDEF"])
 
+Information about individual scans can be seen with the
+`~dysh.fits.gbtfitsload.GBTFITSLoad.scan_info` function. This prints
+the ``ifnum, plnum`` and ``fdnum`` values for each scan requested.
+
+.. code:: Python
+
+   sdf.scan_info(scan=[60,84])
+   Scan 60: ifnum=[0, 1, 2, 3, 4, 5] plnum=[0, 1] fdnum=[0, 1, 2, 3, 4, 5, 6]
+   Scan 84: ifnum=[0, 1, 2, 3, 4] plnum=[0, 1] fdnum=[0, 1, 2, 3, 4, 5, 6]
+
 Data in the individual SDFITS files are accessible via the
 `~dysh.fits.gbtfitsload.GBTFITSLoad.sdf` attribute, a list
 of `~dysh.fits.sdfitsload.SDFITSLoad` with length equal to the number of files.
