@@ -7,7 +7,7 @@ warnings.filterwarnings("ignore", message="invalid value encountered in do_forma
 # ipympl multiple-inheritance MRO issue with traitlets (ipympl#488)
 warnings.filterwarnings("ignore", message="Passing unrecognized arguments to super")
 
-__version__ = "1.1.1"
+__version__ = "1.1.0"
 
 __all__ = ["version", "system_info"]
 
