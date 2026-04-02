@@ -43,7 +43,7 @@ valid_dysh_test = {
 
 
 # http://www.gb.nrao.edu/dysh/example_data or /home/dysh/example_data or $DYSH_DATA/example_data
-# @todo   see if we want the staff training datasets in here
+# These data can only be obtained via dysh_data() if you have a local clone, wget only works on single fits files
 # ~410 GB
 valid_dysh_example = {
     "getps"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits", #  NGC5291  old test1
@@ -78,7 +78,9 @@ valid_dysh_example = {
 }
 
 # /home/dysh/acceptance_testing or $DYSH_DATA/acceptance_testing
-# in acceptance_testing/data
+# in acceptance_testing/data 
+# These data can only be obtained via dysh_data() if you have a local clone, wget only works on single fits files
+#
 # AGBT05B_047_01  AGBT15B_244_07  AGBT18A_503_02  AGBT19A_473_41  TGBT18A_500_06
 # AGBT13A_240_03  AGBT16B_392_01  AGBT18B_014_02  AGBT19B_096_08  TGBT21A_501_10
 # AGBT14B_480_06  AGBT17B_004_14  AGBT18B_354_03  AGBT20B_336_01  TREG_050627
@@ -94,6 +96,7 @@ valid_dysh_accept = {
     "nod7"            : "TGBT21A_501_10/TGBT21A_501_10.raw.vegas",
     "nod8"            : "AGBT19A_340_07/AGBT19A_340_07.raw.vegas",
     "nod9"            : "AGBT12A_076_05/AGBT12A_076_05.raw.acs",
+    "edge"            : "AGBT15B_287_19/AGBT15B_287_19.raw.vegas",
     "multismallsmall" : "AGBT20B_336_01/AGBT20B_336_01.raw.vegas",  # multiple small FITS files (54M each), small flags files (7 lines), RALongMap, gettp
     "multihugesmall"  : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multiple huge FITS files (3.5G each), small flags files (6 lines), PointMap, getsigref
     "multismallbig"   : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas",  # multiple small FITS files (64M each), large flag files (20 lines), getnod fdnum=[0,1]
@@ -182,9 +185,9 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     """
     # fmt:off
     _url                = "http://www.gb.nrao.edu/dysh/"            # base of all things dysh
-    _example_data       = "/home/dysh/public_html/example_data"     # GBO direct access
-    _test_data          = "/home/dysh/public_html/test_data"        # not used ??
-    _accept_data        = "/home/dysh/acceptance_testing/data"      # not in public_html ??
+    _example_data       = "/home/dysh/example_data"                 # GBO direct access [~331GB]
+    _test_data          = "/home/dysh/test_data"                    # other testdata [~281M]
+    _accept_data        = "/home/dysh/acceptance_testing/data"      # not in public_html [~43GB]
     # fmt:on
 
     if type(dysh_data) is str:
