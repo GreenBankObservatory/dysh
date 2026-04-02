@@ -181,6 +181,9 @@ class ScanPlot(PlotBase):
             self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation, vmin=vmin, vmax=vmax, norm=norm
         )
 
+        # Add color bar.
+        self._colorbar = self.figure.colorbar(self.im, label="", pad=0.1)
+
         # address intnum labelling for len(scanblock) > 1
         self.axes.set_xticks(np.arange(self.spectrogram.shape[1]), self._xtick_labels)
         if len(self._xtick_labels) == 1:
@@ -226,6 +229,7 @@ class ScanPlot(PlotBase):
 
         self.axes.set_xlim(-0.5, stop - 0.5)
         self._set_labels()
+        self._set_colorbar_label()
 
         self.show()
         self.figure.canvas.draw_idle()
@@ -253,6 +257,10 @@ class ScanPlot(PlotBase):
             y2_label = f"{nu} ({y2_unit})"
         self._axis2.set_ylabel(y2_label)
 
+    def _set_colorbar_label(self):
+        """
+        Set the color bar label.
+        """
         z_unit = self._spectrum.unit
         if z_unit.is_equivalent(u.K):
             z_label = f"$T_A$ ({z_unit})"
@@ -264,7 +272,6 @@ class ScanPlot(PlotBase):
         else:
             warnings.warn("Flux units are unknown", stacklevel=2)
             z_label = ""
-        self._colorbar = self.figure.colorbar(self.im, label=z_label, pad=0.1)
         # matplotlib won't set this before the Figure is drawn.
         self.figure.draw_without_rendering()
         # If there's an offset, add it to the label and make the offset invisible.
@@ -286,6 +293,7 @@ class ScanPlot(PlotBase):
             The maximum value of the color scale. Default None; to autoscale.
         """
         self.im.set_clim(vmin=vmin, vmax=vmax)
+        self._set_colorbar_label()
         self.figure.canvas.draw_idle()
 
     def set_interpolation(self, interpolation="nearest"):
