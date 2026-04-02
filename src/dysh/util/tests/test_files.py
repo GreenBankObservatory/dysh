@@ -24,3 +24,6 @@ class TestUtil:
         #   this assume DYSH_DATA is not present
         f2 = duf.dysh_data(example="getps")
         assert f2.name == Path("AGBT05B_047_01.raw.acs.fits").name
+        #
+        f3 = duf.dysh_data(accept="nod5")
+        assert f3.name == Path("TSCAL_19Nov2015.raw.acs.fits").name
