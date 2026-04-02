@@ -889,9 +889,7 @@ class TestGBTFITSLoad:
         org_sdf.write(output, overwrite=True, flags=False)
         new_sdf = gbtfitsload.GBTFITSLoad(output)
         # Compare the index for both SDFITS.
-        # Note we now auto-add a HISTORY card at instantiation, so drop that
-        # from the comparison
-        assert_frame_equal(org_sdf._index, new_sdf._index.drop(columns="HISTORY"))
+        assert_frame_equal(org_sdf._index, new_sdf._index)
 
     def test_write_repeated_scans(self, tmp_path):
         """Test that we can write files with repeated scan numbers"""
@@ -2625,3 +2623,15 @@ class TestIndexFileLazyLoading:
             assert result is not None
         except KeyError as e:
             pytest.fail(f"getsigref failed with KeyError (lazy loading issue): {e}")
+
+    def test_history_not_added_to_index(self, tmp_path):
+        """
+        Test for issue #1093
+        Avoid adding HISTORY to the index.
+        """
+        f = util.get_project_testdata() / "AGBT04A_008_02/AGBT04A_008_02.raw.acs"
+        g = gbtfitsload.GBTFITSLoad(f)
+        o = tmp_path / "test_history_not_added_to_index.fits"
+        g.write(o, overwrite=True)
+        g = gbtfitsload.GBTFITSLoad(o)
+        assert "HISTORY" not in g.columns, "HISTORY is a column now"
