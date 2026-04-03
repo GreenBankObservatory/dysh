@@ -35,8 +35,8 @@ class ScanPlot(PlotBase):
 
     Other Parameters
     ----------------
-    spectral_unit : str
-        The units to use on the frequency axis. Can be 'MHz' or 'GHz'.
+    spectral_unit : `~astropy.units.Unit` or str
+        The units to use on the frequency axis.
     """
 
     def __init__(self, scanblock_or_scan, **kwargs):
@@ -144,8 +144,9 @@ class ScanPlot(PlotBase):
 
         Parameters
         ----------
-        spectral_unit : `~astropy.units.Unit`
-            The units to use on the frequency axis. Default: MHz if below 1 GHz, GHz if above. Otherwise, can be any valid frequency unit.
+        spectral_unit : `~astropy.units.Unit` or str
+            The units to use on the frequency axis. If `None` it will use MHz below 1 GHz, GHz if above.
+            Otherwise, can be any valid frequency unit.
         **kwargs : various
             keyword=value arguments drawn from `~matplotlib.axes.Axes.imshow` kwargs.
             Currently implemented kwargs include `cmap`, `interpolation`, `vmin`, `vmax`, and `norm`.
@@ -191,6 +192,7 @@ class ScanPlot(PlotBase):
         else:
             locator = AutoLocator()
         self.axes.xaxis.set_major_locator(locator)
+        self.axes.set_ylim(self.spectrogram.shape[0], 0)
 
         # second "plot" to get different scales on x2, y2 axes
         if spectral_unit is not None:
@@ -202,7 +204,7 @@ class ScanPlot(PlotBase):
         stop = self.spectrogram.shape[1]
         step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
         im2 = self._axis2.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
-        self._axis2.set_ylim((np.min(self._sa).value, np.max(self._sa).value))
+        self._axis2.set_ylim(self._sa[-1].value, self._sa[0].value)
 
         # third axis to plot the scan numbers
         im3 = self._axis3.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
@@ -239,7 +241,6 @@ class ScanPlot(PlotBase):
         # x2: top
         # y1: left
         # y2: right
-        # z: colorbar
 
         x1_label = "Integration"
         self.axes.set_xlabel(x1_label)
@@ -253,8 +254,14 @@ class ScanPlot(PlotBase):
 
         y2_unit = self._sa.unit
         if y2_unit.is_equivalent(u.Hz):
-            nu = r"$\nu$"
-            y2_label = f"{nu} ({y2_unit})"
+            symbol = r"$\nu$"
+        elif y2_unit.is_equivalent(u.m):
+            symbol = r"$\lambda$"
+        elif y2_unit.is_equivalent(u.eV):
+            symbol = r"$h\nu$"
+        elif y2_unit.is_equivalent(u.m / u.s):
+            symbol = r"$v$"
+        y2_label = f"{symbol} ({y2_unit})"
         self._axis2.set_ylabel(y2_label)
 
     def _set_colorbar_label(self):
