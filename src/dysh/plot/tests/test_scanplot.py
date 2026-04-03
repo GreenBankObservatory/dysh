@@ -1,5 +1,6 @@
 """Tests for scanplot."""
 
+import astropy.units as u
 import numpy as np
 
 from dysh.fits import GBTFITSLoad
@@ -30,3 +31,25 @@ class TestScanPlot:
         expected_label = f"Counts($\\times10^{{{exponent:.0f}}}$)"
         assert plot._colorbar.ax.get_ylabel() == expected_label
         assert plot._colorbar.ax.get_ylim() == lims
+
+    def test_spectral_unit_kHz(self):
+        """
+        Test that the y axis range of the image does not extend past
+        the number of channels in the spectra. See issue #901.
+        """
+        plot = self.scan_block_tp.plot(spectral_unit="kHz")
+        assert plot.axes.get_ylim() == (self.scan_block_tp.nchan, 0)
+
+        plot = self.scan_block_tp.plot(spectral_unit="Hz")
+        assert plot.axes.get_ylim() == (self.scan_block_tp.nchan, 0)
+
+    def test_spectral_unit(self):
+        """
+        Test that valid spectral units do not result in exceptions.
+        """
+
+        _ = self.scan_block_tp.plot(spectral_unit="kHz")
+        _ = self.scan_block_tp.plot(spectral_unit="m")
+        _ = self.scan_block_tp.plot(spectral_unit=u.cm)
+        _ = self.scan_block_tp.plot(spectral_unit=u.meV)
+        _ = self.scan_block_tp.plot(spectral_unit=u.km / u.s)
