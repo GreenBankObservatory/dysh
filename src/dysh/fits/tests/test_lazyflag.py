@@ -1,5 +1,7 @@
 """Tests for LazyFlagArray and LazyFlagContainer."""
 
+import os
+
 import numpy as np
 import pytest
 
@@ -304,3 +306,36 @@ class TestLazyFlagContainer:
         """LazyFlagContainer should be truthy (not None)."""
         c = LazyFlagContainer(1)
         assert c is not None
+
+
+class TestLazyFlagCleanup:
+    """Tests for temporary file cleanup (issue #1089)."""
+
+    def test_to_dense_memmap_cleanup(self):
+        """Temp files created by to_dense() are removed by cleanup()."""
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        arr.or_rows([0], np.ones(100, dtype=bool))
+        dense = arr.to_dense()
+        assert isinstance(dense, np.memmap)
+        assert len(arr._tempfiles) == 1
+        path = arr._tempfiles[0]
+        assert os.path.exists(path)
+        arr.cleanup()
+        assert not os.path.exists(path)
+        assert len(arr._tempfiles) == 0
+
+    def test_del_cleans_up_tempfiles(self):
+        """Temp files are removed when the object is deleted."""
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        arr.to_dense()
+        path = arr._tempfiles[0]
+        assert os.path.exists(path)
+        del arr
+        assert not os.path.exists(path)
+
+    def test_cleanup_idempotent(self):
+        """Calling cleanup() multiple times is safe."""
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        arr.to_dense()
+        arr.cleanup()
+        arr.cleanup()  # should not raise

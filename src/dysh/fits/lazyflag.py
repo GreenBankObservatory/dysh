@@ -6,7 +6,10 @@ For a 77GB file (~1.2M rows x 16384 channels), this reduces flag memory
 from ~40GB to a few MB (proportional to flagged rows only).
 """
 
+import atexit
+import os
 import tempfile
+import weakref
 
 import numpy as np
 from astropy.io import fits
@@ -71,6 +74,33 @@ class LazyFlagArray:
         # Deduplicated mask pool: bytes(mask) -> mask array.
         # Multiple rows can reference the same mask object when patterns repeat.
         self._mask_pool = {}
+        # Track temp files created by to_dense() for cleanup
+        self._tempfiles = []
+        # Register atexit cleanup via weak reference so we don't prevent GC
+        weak_self = weakref.ref(self)
+        atexit.register(LazyFlagArray._atexit_cleanup, weak_self)
+
+    def cleanup(self):
+        """Remove all temporary memmap files created by to_dense()."""
+        for path in self._tempfiles:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+        self._tempfiles.clear()
+
+    def __del__(self):
+        try:
+            self.cleanup()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _atexit_cleanup(weak_self):
+        """Atexit handler that cleans up temp files if the object still exists."""
+        self = weak_self()
+        if self is not None:
+            self.cleanup()
 
     @property
     def shape(self):
@@ -330,6 +360,7 @@ class LazyFlagArray:
             logger.info(f"LazyFlagArray.to_dense: using memmap for {estimated_bytes / 1024**3:.1f} GB array")
             tmpfile = tempfile.NamedTemporaryFile(suffix=".flags", delete=False)
             tmpfile.close()
+            self._tempfiles.append(tmpfile.name)
             result = np.memmap(tmpfile.name, dtype=bool, mode="w+", shape=(self._nrows, self._nchan))
         else:
             result = np.zeros((self._nrows, self._nchan), dtype=bool)
