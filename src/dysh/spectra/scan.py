@@ -926,6 +926,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["TUNIT7"] = self._meta[i]["BUNIT"]
             self._meta[i]["TSCALE"] = self.tscale
             self._meta[i]["CRPIX1"] -= self._channel_slice.start  # adjustment for user trimmed channels
+            self._meta[i]["BANDWID"] = abs(self._meta[i]["CDELT1"]) * self.nchan
 
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""

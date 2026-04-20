@@ -803,7 +803,8 @@ class SelectionBase(DataFrame):
         # compute "# Selected" in _addrow
         if self._channel_selection is not None:
             raise ValueError(
-                "You can only have one channel selection rule. Remove the old rule before creating a new one."
+                "You can only have one channel selection rule. Remove the old rule before creating a new one. "
+                "To clear all selection rules use clear_selection()"
             )
         self._check_numbers(chan=channel)
         if isinstance(channel, numbers.Number):
