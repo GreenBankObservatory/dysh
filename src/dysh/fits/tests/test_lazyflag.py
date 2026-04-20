@@ -347,7 +347,6 @@ class TestLazyFlagCleanup:
     def test_low_disk_warning(self, caplog, monkeypatch):
         """A warning is logged when tempdir free space < estimated_bytes."""
         import shutil as _shutil
-
         from collections import namedtuple
 
         Usage = namedtuple("Usage", ["total", "used", "free"])
