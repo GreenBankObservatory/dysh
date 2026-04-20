@@ -1048,6 +1048,26 @@ class TestGBTFITSLoad:
             f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
             g = gbtfitsload.GBTFITSLoad(f)
 
+    @pytest.mark.parametrize("has_fitsio", [True, False])
+    def test_write_mutated_data(self, tmp_path, monkeypatch, has_fitsio):
+        """Regression test for issue #1091: writing must persist in-memory DATA mutations
+        on both the fitsio and astropy code paths."""
+        if has_fitsio and not HAS_FITSIO:
+            pytest.skip("fitsio not installed")
+        monkeypatch.setattr(gbtfitsload, "HAS_FITSIO", has_fitsio)
+
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(f, index_file_threshold=100000000)
+        new_data = np.ones(sdf["DATA"].shape, dtype=sdf["DATA"].dtype)
+        with pytest.warns(UserWarning):
+            sdf["DATA"] = new_data
+
+        out = tmp_path / f"mutated_data_{has_fitsio}.fits"
+        sdf.write(out, overwrite=True, flags=False)
+
+        sdf2 = gbtfitsload.GBTFITSLoad(out, index_file_threshold=100000000)
+        assert np.array_equal(sdf2["DATA"], new_data)
+
     def test_azel_coords(self, tmp_path):
         """
         Test that observations using AzEl coordinates can produce a valid `Spectrum`.

@@ -214,15 +214,12 @@ def _build_chunk_recarray(sdf, bintable_idx, chunk_rows, col_names, include_flag
         for name in mem_only_cols:
             chunk[name] = bt_data[name][chunk_rows]
 
-    # If astropy .data was previously loaded, overlay scalar disk columns from memory
-    # to capture any mutations from sdf["COLNAME"] = value.
-    # DATA is never mutated so we always keep the fitsio version.
+    # If astropy .data was previously loaded, overlay disk columns from memory
+    # to capture any mutations from sdf["COLNAME"] = value (including DATA).
     if data_loaded:
         if not mem_only_cols:
             bt_data = bt.data
         for name in disk_cols:
-            if name == "DATA":
-                continue
             chunk[name] = bt_data[name][chunk_rows]
 
     if include_flags:
