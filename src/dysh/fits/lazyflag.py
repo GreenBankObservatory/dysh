@@ -9,6 +9,7 @@ from ~40GB to a few MB (proportional to flagged rows only).
 import atexit
 import gc
 import os
+import shutil
 import tempfile
 import weakref
 
@@ -370,6 +371,17 @@ class LazyFlagArray:
 
         if use_memmap:
             logger.info(f"LazyFlagArray.to_dense: using memmap for {estimated_bytes / 1024**3:.1f} GB array")
+            tmpdir = tempfile.gettempdir()
+            try:
+                free_bytes = shutil.disk_usage(tmpdir).free
+            except OSError:
+                free_bytes = None
+            if free_bytes is not None and free_bytes < estimated_bytes:
+                logger.warning(
+                    f"LazyFlagArray.to_dense: only {free_bytes / 1024**3:.1f} GB free in {tmpdir}, "
+                    f"but need {estimated_bytes / 1024**3:.1f} GB for memmap; "
+                    f"creation may fail or exhaust disk"
+                )
             tmpfile = tempfile.NamedTemporaryFile(suffix=".flags", delete=False)
             tmpfile.close()
             self._tempfiles.append(tmpfile.name)

@@ -343,3 +343,18 @@ class TestLazyFlagCleanup:
         del dense
         arr.cleanup()
         arr.cleanup()  # should not raise
+
+    def test_low_disk_warning(self, caplog, monkeypatch):
+        """A warning is logged when tempdir free space < estimated_bytes."""
+        import shutil as _shutil
+
+        from collections import namedtuple
+
+        Usage = namedtuple("Usage", ["total", "used", "free"])
+        monkeypatch.setattr(_shutil, "disk_usage", lambda _p: Usage(100, 100, 0))
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        with caplog.at_level("WARNING", logger="dysh"):
+            dense = arr.to_dense()
+        del dense
+        arr.cleanup()
+        assert any("free in" in rec.message and "memmap" in rec.message for rec in caplog.records)
