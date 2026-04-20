@@ -320,6 +320,8 @@ class TestLazyFlagCleanup:
         assert len(arr._tempfiles) == 1
         path = arr._tempfiles[0]
         assert os.path.exists(path)
+        # Release the memmap reference (required on Windows before unlink)
+        del dense
         arr.cleanup()
         assert not os.path.exists(path)
         assert len(arr._tempfiles) == 0
@@ -327,15 +329,17 @@ class TestLazyFlagCleanup:
     def test_del_cleans_up_tempfiles(self):
         """Temp files are removed when the object is deleted."""
         arr = LazyFlagArray(10, 100, memmap_threshold=0)
-        arr.to_dense()
+        dense = arr.to_dense()
         path = arr._tempfiles[0]
         assert os.path.exists(path)
+        del dense
         del arr
         assert not os.path.exists(path)
 
     def test_cleanup_idempotent(self):
         """Calling cleanup() multiple times is safe."""
         arr = LazyFlagArray(10, 100, memmap_threshold=0)
-        arr.to_dense()
+        dense = arr.to_dense()
+        del dense
         arr.cleanup()
         arr.cleanup()  # should not raise

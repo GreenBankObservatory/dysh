@@ -7,6 +7,7 @@ from ~40GB to a few MB (proportional to flagged rows only).
 """
 
 import atexit
+import gc
 import os
 import tempfile
 import weakref
@@ -81,13 +82,24 @@ class LazyFlagArray:
         atexit.register(LazyFlagArray._atexit_cleanup, weak_self)
 
     def cleanup(self):
-        """Remove all temporary memmap files created by to_dense()."""
+        """Remove all temporary memmap files created by to_dense().
+
+        On Windows, a file backing an open memmap cannot be deleted, so we
+        force a GC pass to release any memmaps that are only held by
+        finalizer-tracked references before attempting removal.
+        """
+        if not self._tempfiles:
+            return
+        gc.collect()
+        remaining = []
         for path in self._tempfiles:
             try:
                 os.unlink(path)
-            except OSError:
+            except FileNotFoundError:
                 pass
-        self._tempfiles.clear()
+            except OSError:
+                remaining.append(path)
+        self._tempfiles = remaining
 
     def __del__(self):
         try:
