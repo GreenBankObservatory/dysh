@@ -104,7 +104,7 @@ class SpectrumPlot(PlotBase):
     def _init_selector(self):
         if self._select:
             if not hasattr(self, "_selector") or self._selector is None:
-                self._selector = MultiSpanSelector(self.axes, minspan=1)
+                self._selector = MultiSpanSelector(self.axes, self._spectrum.get_selected_regions, minspan=1)
             elif hasattr(self, "_selector"):
                 self._selector.clear()
         # If select is False, and there is a selector, close it.
@@ -734,7 +734,7 @@ class SpectrumPlot(PlotBase):
 
 
 class MultiSpanSelector:
-    def __init__(self, ax, minspan=1, xy0=(0, 0)):
+    def __init__(self, ax, on_selection=None, minspan=1, xy0=(0, 0)):
         self.ax = ax
         self.canvas = ax.figure.canvas
         self.spans = []
@@ -750,6 +750,7 @@ class MultiSpanSelector:
 
         self.active_span = None
         self.selected_span = None
+        self.on_selection = on_selection
 
     def init_first_span(self):
         """
@@ -776,7 +777,14 @@ class MultiSpanSelector:
         return [span]
 
     def on_select(self, vmin, vmax):
+        """
+        Add a new span after a selection is made when needed,
+        and handle which span is active.
+        This is also where self.on_selection is called.
+        """
         span = vmax - vmin
+        # Here we need to check for all the existing spans,
+        # to make sure we do not create a new one if there's already an incomplete one.
         if span > self.minspan and np.all(np.diff(self.get_selected_regions(False)) > self.minspan):
             if self.active_span is not None:
                 self.active_span.set_active(False)
@@ -786,6 +794,8 @@ class MultiSpanSelector:
         elif self.active_span is not None:
             self.active_span.set_active(False)
             self.active_span = None
+        if self.on_selection is not None:
+            self.on_selection()
         return
 
     def on_press(self, event):

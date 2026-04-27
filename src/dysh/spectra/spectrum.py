@@ -124,6 +124,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._obstime = Time(self.meta["MJD-OBS"])
         else:
             self._obstime = None
+        if self._obstime is not None and "MJD-OBS" not in self.meta:
+            self.meta["MJD-OBS"] = self._obstime.mjd
         self._spectral_axis._observer = self.observer
         if self._spectral_axis._observer is not None:
             self._velocity_frame = self._spectral_axis._observer.name
@@ -138,6 +140,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self._exclude_regions = None
         self._include_regions = None  # do we really need this?
         self._plotter = None
+        self.regions = None
         # `self._resolution` is the spectral resolution in channels.
         # This will be 1 for VEGAS, and >1 for the ACS.
         if "FREQRES" in self.meta and "CDELT1" in self.meta:
@@ -310,7 +313,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self._plotter.plot(**kwargs)
         return self._plotter
 
-    def get_selected_regions(self, unit=None):
+    def get_selected_regions(self, unit=None, ignore_incomplete=True):
         """Get selected regions from plot."""
         if self._plotter is None:
             raise TypeError("No plotter attached to spectrum. Use Spectrum.plot() first.")
@@ -330,6 +333,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             regions = exclude_to_spectral_region(regions, self)
             regions = spectral_region_to_unit(regions, self, unit=unit, append_doppler=True)
             regions = spectral_region_to_list_of_tuples(regions)
+
+        self.regions = regions
 
         return regions
 

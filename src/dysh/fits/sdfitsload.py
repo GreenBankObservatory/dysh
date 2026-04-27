@@ -384,6 +384,7 @@ class SDFITSLoad:
             "PCOUNT",
             "XTENSION",
             "BITPIX",
+            "HISTORY",
         ]
         cols = {}
         for h in self._hdu:

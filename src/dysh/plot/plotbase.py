@@ -73,8 +73,6 @@ class PlotBase:
         self._frontend = GUI(self)
         self._connect()
 
-    #        self._frontend.connect_buttons(self)
-
     def _connect(self):
         if self.figure.canvas is not None:
             self.figure.canvas.mpl_connect("close_event", self._close)
@@ -87,6 +85,7 @@ class PlotBase:
             self._selector = None
         self.figure = None
         self.axes = None
+        self._frontend.root.quit()
 
     def _connect_buttons(self):
         self._frontend.connect_buttons(self)
@@ -111,8 +110,8 @@ class PlotBase:
         """The plot object"""
         return self.__class__.__name__
 
-    def show(self):
-        self._frontend.show()
+    def show(self, *args, **kwargs):
+        self._frontend.show(*args, **kwargs)
 
     @property
     def axis(self):

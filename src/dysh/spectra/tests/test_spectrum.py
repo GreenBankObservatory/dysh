@@ -5,6 +5,7 @@ import astropy.units as u
 import numpy as np
 import pytest
 from astropy.io import fits
+from astropy.time import Time
 
 from dysh.coordinates import Observatory
 from dysh.fits.gbtfitsload import GBTFITSLoad
@@ -951,6 +952,43 @@ class TestSpectrum:
         )
         assert s.meta["RADESYS"] == meta["RADECSYS"]
 
+    def test_mjd_obs_from_date_obs(self):
+        """Test that MJD-OBS is computed from DATE-OBS when not already present."""
+        meta = {
+            "CTYPE4": "Stokes",
+            "CTYPE3": "DEC",
+            "CTYPE2": "RA",
+            "CTYPE1": "FREQ-OBS",
+            "EQUINOX": 2000.0,
+            "VELOCITY": 0.0,
+            "CUNIT1": "Hz",
+            "CUNIT2": "deg",
+            "CUNIT3": "deg",
+            "CRVAL1": 1e9,
+            "CDELT1": 0.1e9,
+            "CRPIX1": 1,
+            "CRVAL2": 121.0,
+            "CRVAL3": 15.0,
+            "CRVAL4": -1,
+            "RADECSYS": "FK5",
+            "VELDEF": "OPTI-HEL",
+            "DATE-OBS": "2021-02-10T07:38:37.50",
+            "RESTFRQ": 1e9,
+        }
+        s = Spectrum.make_spectrum(
+            data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+        )
+        assert "MJD-OBS" in s.meta
+        expected_mjd = Time("2021-02-10T07:38:37.50").mjd
+        assert s.meta["MJD-OBS"] == expected_mjd
+
+        # When MJD-OBS is already present, it should not be overwritten.
+        meta["MJD-OBS"] = 59999.0
+        s2 = Spectrum.make_spectrum(
+            data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+        )
+        assert s2.meta["MJD-OBS"] == 59999.0
+
     def test_get_selected_regions(self):
         """
         * Test that get selected regions raises TypeError if no plotter is found.
@@ -1194,8 +1232,9 @@ class TestSpectrum:
         assert len(tr) == 15
         freq = np.array(
             [
-                1418.1976,
-                1419.1013,
+                1416.8873,
+                1424.617,
+                1424.617,
                 1414.898,
                 1415.462,
                 1416.725,
@@ -1205,17 +1244,17 @@ class TestSpectrum:
                 1423.215,
                 1423.215,
                 1425.106,
-                1416.8873,
-                1424.617,
-                1424.617,
+                1418.1976,
+                1419.1013,
                 1430.3802,
             ]
         )
         assert np.all(np.isclose(tr["rest_frequency"].data - freq, 0, atol=1e-7))
         freq = np.array(
             [
-                1400.33723724,
-                1401.2295563,
+                1399.04343877,
+                1406.6757932,
+                1406.6757932,
                 1397.07919143,
                 1397.63608858,
                 1398.88318273,
@@ -1225,9 +1264,8 @@ class TestSpectrum:
                 1405.29144958,
                 1405.29144958,
                 1407.15863488,
-                1399.04343877,
-                1406.6757932,
-                1406.6757932,
+                1400.33723724,
+                1401.2295563,
                 1412.36641316,
             ]
         )
