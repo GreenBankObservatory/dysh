@@ -238,8 +238,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         remove : bool
             If True, the baseline is removed from the spectrum.
             If False, the baseline will be computed and overlaid on the spectrum. Default: False
-        color : str
-            The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
         exclude_region_upper_bounds : bool
             Makes the upper bound of any excision region(s) inclusive.
             Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
@@ -248,11 +246,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
         exclude_action : str
             How to combine the input exclude region with any existing exclude regions in the input `Spectrum`. Options are
                 
-                - "replace" : replace the `Spectrum` exclude regions with the input region
-                - "append"  : append the input region to the `Spectrum` exclude region list. 
-                - None      : Use the `Spectrum`'s exclude regions, ignoring the input region.
+                - "replace" : replace the `Spectrum.exclude_regions` list with the input region
+                - "append"  : append the input region to the `Spectrum.exclude_regions` list. 
+                - None      : Use the existing `Spectrum.exclude_regions`, ignoring the input region.
                 
             Default: "replace"
+        color : str
+            The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
      
         """
         # fmt: on
