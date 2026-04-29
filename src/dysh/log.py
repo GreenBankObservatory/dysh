@@ -1,4 +1,3 @@
-import inspect
 import logging
 import logging.config
 import os
@@ -214,9 +213,6 @@ def log_function_call(log_level: str = "info"):
         except KeyError:
             raise Exception(f"Log level {log_level} unrecognized. Must be one of {list(logging._nameToLevel.keys())}.")  # noqa: B904
 
-        # Cache signature at decoration time for performance
-        sig = inspect.signature(func)
-
         @wraps(func)
         def func_wrapper(*args, **kwargs):
             try:
@@ -231,9 +227,8 @@ def log_function_call(log_level: str = "info"):
                 # func is  method of a class
                 logmsg += f"{func.__self__.__class__.__name__}"
             logmsg += f".{func.__name__}{args}"
-            if "kwargs" in sig.parameters:
-                for k, v in kwargs.items():
-                    logmsg += f"{k}={v},"
+            for k, v in kwargs.items():
+                logmsg += f"{k}={v!r},"
             logmsg = ensure_ascii(logmsg)
             logger.log(level=ilog_level, msg=logmsg)
             return result
@@ -271,11 +266,11 @@ def format_dysh_log_record(record: logging.LogRecord) -> str:
     logmsg += f"{record.fName}("
     if len(record.args) > 0:
         for a in record.args:
-            logmsg += f"{a},"
+            logmsg += f"{a!r},"
     if hasattr(record, "kwargs"):
         if len(record.kwargs) > 0:
             for k, v in record.kwargs.items():
-                logmsg += f"{k}={v},"
+                logmsg += f"{k}={v!r},"
     logmsg += ")"
     return ensure_ascii(logmsg)
 
@@ -300,9 +295,6 @@ def log_call_to_result(func: Callable):
     # If logging is disabled, return the function unchanged
     if DISABLE_HISTORY_LOGGING:
         return func
-
-    # Cache signature at decoration time for performance
-    sig = inspect.signature(func)
 
     @wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -333,8 +325,7 @@ def log_call_to_result(func: Callable):
                     "modName": func.__module__,
                     "fName": func.__name__,
                 }
-            if "kwargs" in sig.parameters:
-                extra["kwargs"] = kwargs
+            extra["kwargs"] = kwargs
             with dhlogger.log_to_list() as log_list:
                 dhlogger.info(f"DYSH v{dysh_version}", *args, extra=extra)
                 log_str = [format_dysh_log_record(i) for i in log_list]
@@ -368,9 +359,6 @@ def log_call_to_history(func: Callable):
     if DISABLE_HISTORY_LOGGING:
         return func
 
-    # Cache signature at decoration time for performance
-    sig = inspect.signature(func)
-
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self is None:  # not a class, but a function
@@ -394,15 +382,12 @@ def log_call_to_history(func: Callable):
                 raise exc.with_traceback(tb.tb_next) from None
             classname = self.__class__.__name__
             if hasattr(self, "_history"):
-                if "kwargs" in sig.parameters:
-                    extra = {
-                        "modName": func.__module__,
-                        "className": classname,
-                        "fName": func.__name__,
-                        "kwargs": kwargs,
-                    }
-                else:
-                    extra = {"modName": func.__module__, "className": classname, "fName": func.__name__, "extra": {}}
+                extra = {
+                    "modName": func.__module__,
+                    "className": classname,
+                    "fName": func.__name__,
+                    "kwargs": kwargs,
+                }
                 with dhlogger.log_to_list() as log_list:
                     dhlogger.info(f"DYSH v{dysh_version}", *args, extra=extra)
                     log_str = [format_dysh_log_record(i) for i in log_list]
