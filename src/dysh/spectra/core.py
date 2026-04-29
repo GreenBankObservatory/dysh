@@ -534,7 +534,7 @@ def baseline(
     order,
     exclude=None,
     model="chebyshev",
-    fitter=LinearLSQFitter(calc_uncertainties=True),
+    fitter=None, 
     exclude_region_upper_bounds=True,
     clip_exclude=True,
     exclude_action="replace",
@@ -606,6 +606,8 @@ def baseline(
     model = minimum_string_match(model, list(available_models.keys()))
     if model is None:
         raise ValueError(f"Unrecognized input model {model}. Must be one of {list(available_models.keys())}")
+    if fitter is None:
+        fitter = LinearLSQFitter(calc_uncertainties=True)
     sa_min = spectrum.spectral_axis.min().value
     sa_max = spectrum.spectral_axis.max().value
     selected_model = available_models[model](degree=order, domain=(sa_max, sa_min))
