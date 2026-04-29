@@ -529,8 +529,16 @@ def clip_spectral_region_subregions(spectral_region, spectrum):
             spectral_region._subregions[i] = (s[0], sa_max)
 
 
-def baseline(spectrum, order, exclude=None, model = "chebyshev", fitter = LinearLSQFitter(calc_uncertainties=True),
-             exclude_region_upper_bounds=True, clip_exclude=True, exclude_action="replace"):
+def baseline(
+    spectrum,
+    order,
+    exclude=None,
+    model="chebyshev",
+    fitter=LinearLSQFitter(calc_uncertainties=True),
+    exclude_region_upper_bounds=True,
+    clip_exclude=True,
+    exclude_action="replace",
+):
     """Fit a baseline to `spectrum`.
     The code uses `~astropy.modeling.fitting.Fitter` and `~astropy.modeling.polynomial` to compute the baseline.
     See the documentation for those modules for details.
@@ -575,13 +583,13 @@ def baseline(spectrum, order, exclude=None, model = "chebyshev", fitter = Linear
         Whether to clip the exclude or include regions when they extend outside the `spectrum.spectral_axis`.
     exclude_action : str
         How to combine the input exclude region with any existing exclude regions in the input `Spectrum`. Options are
-            
+
             - "replace" : replace the `Spectrum` exclude regions with the input region
-            - "append"  : append the input region to the `Spectrum` exclude region list. 
+            - "append"  : append the input region to the `Spectrum` exclude region list.
             -  None    : Use the `Spectrum`'s exclude regions, ignoring the input region.
-     
+
         Default: "replace"
-            
+
     Returns
     -------
     model : `~specutils.utils.QuantityModel`

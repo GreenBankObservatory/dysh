@@ -198,7 +198,19 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return Masked(self.data * self.unit, mask=self.mask).filled(np.nan)
 
     @log_call_to_history
-    def baseline(self, degree, exclude=None, include=None,  remove=False,  model = "chebyshev", fitter = None ,exclude_region_upper_bounds=True, clip_exclude=True, exclude_action="replace", color="k"):
+    def baseline(
+        self,
+        degree,
+        exclude=None,
+        include=None,
+        remove=False,
+        model="chebyshev",
+        fitter=None,
+        exclude_region_upper_bounds=True,
+        clip_exclude=True,
+        exclude_action="replace",
+        color="k",
+    ):
         # fmt: off
         """
         Compute and optionally remove a baseline.
@@ -245,15 +257,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             Whether to clip the exclude or include regions when they extend outside the `spectrum.spectral_axis`.
         exclude_action : str
             How to combine the input exclude region with any existing exclude regions in the input `Spectrum`. Options are
-                
+
                 - "replace" : replace the `Spectrum.exclude_regions` list with the input region
-                - "append"  : append the input region to the `Spectrum.exclude_regions` list. 
+                - "append"  : append the input region to the `Spectrum.exclude_regions` list.
                 - None      : Use the existing `Spectrum.exclude_regions`, ignoring the input region.
-                
+
             Default: "replace"
         color : str
             The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
-     
+
         """
         # fmt: on
         if fitter is None:
@@ -264,8 +276,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             if exclude is not None:
                 logger.warning(f"Warning: ignoring exclude={exclude}")
             exclude = core.include_to_exclude_spectral_region(include, self)
-        self._baseline_model = baseline(self, order=degree, exclude=exclude, fitter=fitter,
-                                        model=model, exclude_action=exclude_action, clip_exclude=clip_exclude)
+        self._baseline_model = baseline(
+            self,
+            order=degree,
+            exclude=exclude,
+            fitter=fitter,
+            model=model,
+            exclude_action=exclude_action,
+            clip_exclude=clip_exclude,
+        )
         if remove:
             s = self.subtract(self._baseline_model(self.spectral_axis))
             self._data = s._data
