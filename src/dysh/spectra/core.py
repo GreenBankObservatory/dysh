@@ -529,7 +529,8 @@ def clip_spectral_region_subregions(spectral_region, spectrum):
             spectral_region._subregions[i] = (s[0], sa_max)
 
 
-def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
+def baseline(spectrum, order, exclude=None, model = "chebyshev", fitter = LinearLSQFitter(calc_uncertainties=True),
+             exclude_region_upper_bounds=True, clip_exclude=True, exclude_action="replace"):
     """Fit a baseline to `spectrum`.
     The code uses `~astropy.modeling.fitting.Fitter` and `~astropy.modeling.polynomial` to compute the baseline.
     See the documentation for those modules for details.
@@ -563,7 +564,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         Default: no exclude region
 
     model : str
-        One of 'polynomial' or 'chebyshev', Default: 'polynomial'
+        One of 'chebyshev', 'hermite', 'legendre', 'polynomial'.  Default: 'chebyshev'
     fitter : `~astropy.modeling.fitting.Fitter`
         The fitter to use. Default: `~astropy.modeling.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
         Be careful when choosing a different fitter to be sure it is optimized for this problem.
@@ -572,20 +573,21 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
     clip_exclude : bool
         Whether to clip the exclude or include regions when they extend outside the `spectrum.spectral_axis`.
-
+    exclude_action : str
+        How to combine the input exclude region with any existing exclude regions in the input `Spectrum`. Options are
+            
+            - "replace" : replace the `Spectrum` exclude regions with the input region
+            - "append"  : append the input region to the `Spectrum` exclude region list. 
+            -  None    : Use the `Spectrum`'s exclude regions, ignoring the input region.
+     
+        Default: "replace"
+            
     Returns
     -------
     model : `~specutils.utils.QuantityModel`
         Best fit model.
         See `~specutils.fitting.fit_continuum`.
     """
-    kwargs_opts = {
-        "model": "chebyshev",
-        "fitter": LinearLSQFitter(calc_uncertainties=True),
-        "clip_exclude": True,
-        "exclude_action": "replace",
-    }
-    kwargs_opts.update(kwargs)
 
     available_models = {
         "chebyshev": Chebyshev1D,
@@ -593,28 +595,27 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         "legendre": Legendre1D,
         "polynomial": Polynomial1D,
     }
-    model = minimum_string_match(kwargs_opts["model"], list(available_models.keys()))
+    model = minimum_string_match(model, list(available_models.keys()))
     if model is None:
-        raise ValueError(f"Unrecognized input model {kwargs['model']}. Must be one of {list(available_models.keys())}")
+        raise ValueError(f"Unrecognized input model {model}. Must be one of {list(available_models.keys())}")
     sa_min = spectrum.spectral_axis.min().value
     sa_max = spectrum.spectral_axis.max().value
     selected_model = available_models[model](degree=order, domain=(sa_max, sa_min))
 
     _valid_exclude_actions = ["replace", "append", None]
-    if kwargs_opts["exclude_action"] not in _valid_exclude_actions:
+    if exclude_action not in _valid_exclude_actions:
         raise ValueError(
-            f"Unrecognized exclude region action {kwargs['exclude_region']}. Must be one of {_valid_exclude_actions}"
+            f"Unrecognized exclude region action {exclude_action}. Must be one of {_valid_exclude_actions}"
         )
-    fitter = kwargs_opts["fitter"]
     p = spectrum
     if np.isnan(p.data).all():
         # @todo handle masks
         return None  # or raise exception
     if exclude is not None:
-        regionlist = exclude_to_region_list(exclude, spectrum, clip_exclude=kwargs_opts["clip_exclude"])
-        if kwargs_opts["exclude_action"] == "replace":
+        regionlist = exclude_to_region_list(exclude, spectrum, clip_exclude=clip_exclude)
+        if exclude_action == "replace":
             p._exclude_regions = regionlist
-        elif kwargs_opts["exclude_action"] == "append":
+        elif exclude_action == "append":
             p._exclude_regions.extend(regionlist)
             regionlist = p._exclude_regions
     else:
