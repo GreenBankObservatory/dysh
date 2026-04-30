@@ -153,6 +153,41 @@ Plot again, but focus on the line-free regions:
 
 .. image:: files/spectrum_plot_bsub.png
 
+
+Using Exclude Regions
+--------------------------------
+
+When you give an ``exclude`` value to ``baseline``, the default behavior is to store it in the `exclude_regions <dysh.spectra.spectrum.Spectrum.exclude_regions>` property, which is a list of `SpectralRegions <astropy.coordinate.SpectralRegion>`.   Subsequent baseline operations on the spectrum can reuse these exclude regions, append to them, or ignore them, depending on the value of the ``exclude_action`` keyword. Options are:
+
+        - "replace" : replace the `Spectrum.exclude_regions` list with the input region. 
+        - "append" : append the input region to the `Spectrum.exclude_regions` list.
+        - None      : Use the the input region, but do not change the existing `Spectrum.exclude_regions`
+
+
+The default is "replace."   Below is example usage.
+
+.. code:: Python
+
+    s = Spectrum.fake_spectrum(1024)
+    exclude1 = [(1,100)]
+    exclude2 = [(924,1024)]
+
+    # The input exclude regions are used in the baseline and are stored in the Spectrum.
+    s.baseline(degree=1,exclude=exclude1)
+
+    # The input exclude regions are used and replace the previously stored regions.
+    s.baseline(degree=1,exclude=exclude2)
+
+    # The input exclude regions are appended to the stored regions.
+    s.baseline(degree=1,exclude=exclude1, exclude_action="append")
+
+    # The input exclude regions are used but the stored regions are unaffected.
+    s.baseline(degree=1,exclude=exclude2, exclude_action=None)
+
+    # The input exclude regions are used and replace the previously stored regions.
+    s.baseline(degree=1,exclude=exclude1, exclude_action="replace")
+
+
 Polarization Average
 ====================
 
