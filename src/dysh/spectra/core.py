@@ -586,7 +586,7 @@ def baseline(
 
             - "replace" : replace the `Spectrum` exclude regions with the input region
             - "append"  : append the input region to the `Spectrum` exclude region list.
-            -  None    : Use the `Spectrum`'s exclude regions, ignoring the input region.
+            - None      : Use the the input region, but do not change the existing `Spectrum.exclude_regions`
 
         Default: "replace"
 
@@ -628,12 +628,13 @@ def baseline(
         elif exclude_action == "append":
             p._exclude_regions.extend(regionlist)
             regionlist = p._exclude_regions
+        #if exclude is None, we do not touch the existing Spectrum.exclude_regions`
     else:
         # use the spectrum's preset exclude regions if they
         # exist (they will be a list of SpectralRegions or None)
         regionlist = p._exclude_regions
 
-    logger.info(f"EXCLUDING {regionlist}")
+    logger.debug(f"EXCLUDING {regionlist}")
 
     fitted_model = fit_continuum(
         spectrum=p,

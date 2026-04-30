@@ -260,7 +260,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
                 - "replace" : replace the `Spectrum.exclude_regions` list with the input region
                 - "append"  : append the input region to the `Spectrum.exclude_regions` list.
-                - None      : Use the existing `Spectrum.exclude_regions`, ignoring the input region.
+                - None      : Use the the input region, but do not change the existing `Spectrum.exclude_regions`
 
             Default: "replace"
         color : str
