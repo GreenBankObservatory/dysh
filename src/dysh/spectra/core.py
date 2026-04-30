@@ -628,7 +628,7 @@ def baseline(
         elif exclude_action == "append":
             p._exclude_regions.extend(regionlist)
             regionlist = p._exclude_regions
-        #if exclude is None, we do not touch the existing Spectrum.exclude_regions`
+        # if exclude is None, we do not touch the existing Spectrum.exclude_regions`
     else:
         # use the spectrum's preset exclude regions if they
         # exist (they will be a list of SpectralRegions or None)

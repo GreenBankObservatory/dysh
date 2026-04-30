@@ -159,7 +159,7 @@ Using Exclude Regions
 
 When you give an ``exclude`` value to ``baseline``, the default behavior is to store it in the `exclude_regions <dysh.spectra.spectrum.Spectrum.exclude_regions>` property, which is a list of `SpectralRegions <astropy.coordinate.SpectralRegion>`.   Subsequent baseline operations on the spectrum can reuse these exclude regions, append to them, or ignore them, depending on the value of the ``exclude_action`` keyword. Options are:
 
-        - "replace" : replace the `Spectrum.exclude_regions` list with the input region. 
+        - "replace" : replace the `Spectrum.exclude_regions` list with the input region.
         - "append" : append the input region to the `Spectrum.exclude_regions` list.
         - None      : Use the the input region, but do not change the existing `Spectrum.exclude_regions`
 
