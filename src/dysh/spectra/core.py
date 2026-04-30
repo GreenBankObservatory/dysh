@@ -534,7 +534,7 @@ def baseline(
     order,
     exclude=None,
     model="chebyshev",
-    fitter=None, 
+    fitter=None,
     exclude_region_upper_bounds=True,
     clip_exclude=True,
     exclude_action="replace",
