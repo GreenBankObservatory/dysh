@@ -370,7 +370,7 @@ class LazyFlagArray:
         use_memmap = estimated_bytes > self._memmap_threshold
 
         if use_memmap:
-            logger.info(f"LazyFlagArray.to_dense: using memmap for {estimated_bytes / 1024**3:.1f} GB array")
+            logger.debug(f"LazyFlagArray.to_dense: using memmap for {estimated_bytes / 1024**3:.1f} GB array")
             tmpdir = tempfile.gettempdir()
             try:
                 free_bytes = shutil.disk_usage(tmpdir).free
