@@ -327,22 +327,27 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             if fn.exists():
                 return fn
             print("Odd-2, did not find", fn)
-        # last resort, try getting it via from_url, but it will then be a local file in the current directory
+        # last resort, try getting it via from_url
         url = _url + "/example_data/" + my_example
         logger.info(f"url: {url}")
-        filename = url.split("/")[-1]
-        if not os.path.exists(filename):
-            print(f"Downloading {filename} from {url}")
+        if dysh_data is not None:
+            download_dir = dysh_data / "example_data"
+            download_dir.mkdir(parents=True, exist_ok=True)
+            target = download_dir / Path(my_example).name
+        else:
+            target = Path(url.split("/")[-1])
+        if not target.exists():
+            print(f"Downloading {target.name} from {url}")
             try:
-                filename = from_url(url)
+                filename = from_url(url, target.parent)
                 print(f"\nRetrieved {filename}")
             except Exception as e:
-                print(f"\nFailing to retrieve example {filename} ")
+                print(f"\nFailing to retrieve example {target.name}")
                 print(e)
                 return None
         else:
-            print(f"{filename} already downloaded")
-        return Path(filename)
+            print(f"{target.name} already downloaded")
+        return target
 
     # accept:   acceptance_testing/data - from_url not recommended (does not work on multifile fits)
 
@@ -369,22 +374,27 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             if fn.exists():
                 return fn
             print("Odd-2, did not find", fn)
-        # last resort, try getting it via from_url, but it will then be a local file in the current directory
+        # last resort, try getting it via from_url
         url = _url + "/acceptance_testing/data/" + my_accept
         logger.debug(f"url: {url}")
-        filename = url.split("/")[-1]
-        if not os.path.exists(filename):
-            print(f"Downloading {filename} from {url}")
+        if dysh_data is not None:
+            download_dir = dysh_data / "acceptance_testing" / "data"
+            download_dir.mkdir(parents=True, exist_ok=True)
+            target = download_dir / Path(my_accept).name
+        else:
+            target = Path(url.split("/")[-1])
+        if not target.exists():
+            print(f"Downloading {target.name} from {url}")
             try:
-                filename = from_url(url)
+                filename = from_url(url, target.parent)
                 print(f"\nRetrieved {filename}")
             except Exception as e:
-                print(f"\nFailing to retrieve accept {filename}")
+                print(f"\nFailing to retrieve accept {target.name}")
                 print(e)
                 return None
         else:
-            print(f"{filename} already downloaded")
-        return Path(filename)
+            print(f"{target.name} already downloaded")
+        return target
 
     print("You have not given one of:   sdfits=, test=, example=, accept=")
     print("or use ='?' as argument to get a list of valid shortcuts")

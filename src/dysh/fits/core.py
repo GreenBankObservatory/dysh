@@ -204,6 +204,7 @@ def summary_column_definitions():
         "PROJID": str_col,
         "SUBREF_STATE": ColDef("nunique", int, name="# SUBREF"),
         "BINTABLE": ColDef("mean", int),
+        "ROW": ColDef("nunique", int, name="# ROW"),
     }
 
     return col_defs

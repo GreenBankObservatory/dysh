@@ -214,15 +214,12 @@ def _build_chunk_recarray(sdf, bintable_idx, chunk_rows, col_names, include_flag
         for name in mem_only_cols:
             chunk[name] = bt_data[name][chunk_rows]
 
-    # If astropy .data was previously loaded, overlay scalar disk columns from memory
-    # to capture any mutations from sdf["COLNAME"] = value.
-    # DATA is never mutated so we always keep the fitsio version.
+    # If astropy .data was previously loaded, overlay disk columns from memory
+    # to capture any mutations from sdf["COLNAME"] = value (including DATA).
     if data_loaded:
         if not mem_only_cols:
             bt_data = bt.data
         for name in disk_cols:
-            if name == "DATA":
-                continue
             chunk[name] = bt_data[name][chunk_rows]
 
     if include_flags:
@@ -876,9 +873,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             tiple column names must be comma separated.
         col_defs : dict
             Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
-        selected: bool
+        selected : bool
             Show only those rows that are selected by the final selection (AND of all selection rules). Note if no selection rules
             have been set, this will display an empty summary.
+
         Returns
         -------
         summary : `~pandas.DataFrame`
@@ -900,7 +898,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if col_defs is None:
             col_defs = core.summary_column_definitions()
 
-        needed = ["PROJID", "BINTABLE", "SCAN"]
+        groups = ["PROJID", "BINTABLE", "SCAN"]
+        # Define the columns used for sorting.
+        # The order matters.
+        if verbose:
+            sortby = ["DATE-OBS", "SCAN", "ROW"]
+        else:
+            sortby = ["DATE-OBS"]
+        needed = sorted(set(groups + sortby), key=(groups + sortby).index)
 
         # Initial handling of `add_columns` keyword.
         if add_columns is not None and columns is not None:
@@ -949,11 +954,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 ]
         else:
             # Check that the user input won't break anything.
-            columns = self._validate_summary_columns(columns, col_defs, needed, verbose)
+            columns = self._validate_summary_columns(columns, col_defs, groups, verbose)
         ocols = columns + add_columns  # Output columns.
         ocols = sorted(set(ocols), key=ocols.index)  # Remove duplicates preserving order.
         _columns = ocols.copy()
-        for n in needed:
+        for n in needed + sortby:
             try:
                 _columns.remove(n)
             except ValueError:
@@ -995,15 +1000,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if not verbose:
             # Short summary version.
             # Set column operations for aggregation.
-            col_ops = {k: v.operation for k, v in col_defs.items() if k in _columns}
+            col_ops = {k: v.operation for k, v in col_defs.items() if k in _columns + sortby}
             # We have to reset the index and column types.
-            df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes, errors="ignore")
+            df = df.groupby(groups).agg(col_ops).reset_index().astype(col_dtypes, errors="ignore")
             # Post operations.
             col_post_ops = {k: v.post for k, v in col_defs.items() if k in _columns and v.post is not None}
             if len(col_post_ops) > 0:
                 df[list(col_post_ops.keys())] = df.apply(col_post_ops)
             # Sort rows.
-            df = df.sort_values(by=needed)
+            df = df.sort_values(by=sortby)
             # Keep only the columns to be shown.
             df = df[ocols]
             # Set column names.
@@ -1012,8 +1017,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             df = df.rename(columns=col_names)
             df = df[new_columns]
         else:
-            # Ensure column order is preserved.
-            df = df[ocols]
+            # Ensure column order is preserved and sort rows.
+            df = df.sort_values(by=sortby)[ocols]
 
         return df
 
@@ -1041,7 +1046,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             by ellipsis. If set to -1 (Default), the value found in the dysh configuration
             file for `summary_max_rows` will be used. Set to `None` for unlimited rows.
         show_index : bool
-            Show index of the `~pandas.DataFrame`.
+            Show index of the `~pandas.DataFrame`. Not to be confused with the SDFITS index file.
         columns : list or str
             List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN,
             OBJECT, VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED),
@@ -1053,7 +1058,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             List of columns to be added to the default `columns`.
             If `columns` is not None, then this will be ignored.
             If a string, multiple column names must be comma separated.
-        selected: bool
+        selected : bool
             Show only those rows that are selected by the final selection (AND of all selection rules). Note if no selection rules
             have been set, this will display an empty summary.
         """
@@ -1839,18 +1844,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 s._rename_binary_table_column("int", "intnum")
             return
 
-        intnumarray = np.empty(len(self._selection), dtype=int)
-        # Leverage pandas to group things by scan and observing time.
-        dfs = self._selection.groupby(["SCAN"])
-        for _, group in dfs:
-            # Group by FITSINDEX since different banks can have different time stamps.
-            dfsf = group.groupby("FITSINDEX")
-            for _, fg in dfsf:
-                dfsft = fg.groupby("DATE-OBS")
-                intnums = np.arange(0, len(dfsft.groups))
-                for i, (_, g) in enumerate(dfsft):
-                    idx = g.index
-                    intnumarray[idx] = intnums[i]
+        intnumarray = (
+            self._selection.groupby(["SCAN", "FITSINDEX"])["DATE-OBS"]
+            .rank(method="dense")
+            .sub(1)
+            .astype(int)
+            .to_numpy()
+        )
         self._selection["INTNUM"] = intnumarray
         self._flag["INTNUM"] = intnumarray
 
@@ -1948,12 +1948,98 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now remove rows that have been entirely flagged
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
+        # Check which requested scans have data after selection and flag elimination
+        found_scans = set(_sf["SCAN"].unique()) if len(_sf) > 0 else set()
+        missing_scans = sorted(set(scans) - found_scans)
+        if missing_scans:
+            info_df = self._get_scan_info(missing_scans)
+            if len(info_df) > 0:
+                info_lines = self._format_scan_info(info_df)
+            else:
+                info_lines = [f"  Scan {s}: no data found" for s in missing_scans]
+            info_str = "\n".join(info_lines)
+            logger.info(
+                f"No data found for scan(s) {missing_scans} with the given selection criteria.\n"
+                f"Available parameters for those scans:\n{info_str}"
+            )
+            scans = [s for s in scans if s in found_scans]
         if len(_sf) == 0:
-            raise Exception("Didn't find any unflagged data matching the input selection criteria.")
+            scans = kwargs.get("SCAN", None)
+            raise ValueError(
+                f"Didn't find any unflagged data matching the input selection criteria {scans=} {ifnum=} {plnum=} {fdnum=}."
+            )
         # Don't apply flags until we are sure that selection succeeded
         if apply_flags:
             self.apply_flags()
         return (scans, _sf)
+
+    def _get_scan_info(self, scan):
+        """Return a DataFrame of unique IFNUM, FDNUM, PLNUM combinations for the given scan(s).
+
+        Parameters
+        ----------
+        scan : int or list of int
+            The scan number(s) to query.
+
+        Returns
+        -------
+        info : `~pandas.DataFrame`
+            A DataFrame with columns SCAN, IFNUM, FDNUM, PLNUM showing the
+            unique parameter combinations available for each requested scan.
+        """
+        if isinstance(scan, (int, np.integer)):
+            scan = [scan]
+        if len(self._selection._selection_rules) > 0:
+            df = self._selection.final
+        else:
+            df = self._selection
+        df = df[df["SCAN"].isin(scan)]
+        if len(df) == 0:
+            return pd.DataFrame(columns=["SCAN", "IFNUM", "FDNUM", "PLNUM"])
+        return (
+            df[["SCAN", "IFNUM", "FDNUM", "PLNUM"]]
+            .drop_duplicates()
+            .sort_values(["SCAN", "IFNUM", "FDNUM", "PLNUM"])
+            .reset_index(drop=True)
+        )
+
+    def scan_info(self, scan):
+        """Print the available IFNUM, FDNUM, and PLNUM values for the given scan(s).
+
+        Parameters
+        ----------
+        scan : int or list of int
+            The scan number(s) to query.
+        """
+        info = self._get_scan_info(scan)
+        if len(info) == 0:
+            print(f"No data found for scan(s) {scan}")
+        else:
+            for line in self._format_scan_info(info):
+                print(line)
+
+    @staticmethod
+    def _format_scan_info(info):
+        """Format scan info DataFrame as compact summary lines.
+
+        Parameters
+        ----------
+        info : `~pandas.DataFrame`
+            DataFrame with SCAN, IFNUM, FDNUM, PLNUM columns.
+
+        Returns
+        -------
+        lines : list of str
+            One line per scan, e.g. ``"Scan 15: ifnum=[0,2,3] plnum=[0,1] fdnum=[0]"``.
+        """
+        lines = []
+        for s in sorted(info["SCAN"].unique()):
+            sdf = info[info["SCAN"] == s]
+            ifnums = sorted(int(x) for x in sdf["IFNUM"].unique())
+            plnums = sorted(int(x) for x in sdf["PLNUM"].unique())
+            fdnums = sorted(int(x) for x in sdf["FDNUM"].unique())
+            lines.append(f"Scan {int(s)}: ifnum={ifnums} plnum={plnums} fdnum={fdnums}")
+        return lines
 
     def info(self):
         """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
@@ -2274,7 +2360,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             )
         _channel = self._normalize_channel_range(channel)
         if t_sys is not None and t_cal is not None:
-            warnings.warn("Both t_cal and t_sys were set. Only t_sys will be used.", stacklevel=2)
+            logger.info("Both t_cal and t_sys were set. Only t_sys will be used.", stacklevel=2)
 
         scanlist = {}
         if isinstance(scan, int):
@@ -3815,7 +3901,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
                 nrows = len(rows)
                 nchunks = (nrows + chunk_size - 1) // chunk_size
-                logger.info(
+                logger.debug(
                     f"write: bintable {bintable_idx}: {nrows} rows, {nchan} channels, "
                     f"{nchunks} chunk(s) of {chunk_size}"
                 )
@@ -3826,7 +3912,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
                     t0 = time.monotonic()
                     chunk_data = _build_chunk_recarray(sdf, bintable_idx, chunk_rows, col_names, flags, nchan)
-                    logger.info(
+                    logger.debug(
                         f"write: chunk [{chunk_start}:{chunk_end}] of {nrows} rows built ({time.monotonic() - t0:.1f}s)"
                     )
 
@@ -3837,7 +3923,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             first_chunk = False
                         else:
                             f[-1].append(chunk_data)
-                    logger.info(f"write: chunk written to disk ({time.monotonic() - t0:.1f}s)")
+                    logger.debug(f"write: chunk written to disk ({time.monotonic() - t0:.1f}s)")
 
                     total_rows_written += len(chunk_rows)
                     del chunk_data
@@ -4066,7 +4152,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         low_el_mask = self["ELEVATIO"] < 5
         if low_el_mask.sum() > 0:
             low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
-            warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))  # noqa: B028
+            logger.warning(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
 
         # Azimuth and elevation case.
         self._fix_column("RADESYS", radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
@@ -4181,7 +4267,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
-            warnings.warn(f"Changing an existing SDFITS column {items}")  # noqa: B028
+            logger.warning(f"Changing an existing SDFITS column {items}")
         # now deal with values as arrays
         is_array = False
         if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):
@@ -4203,7 +4289,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 start = start + s.total_rows
         selected_cols = self.selection.columns_selected()
         if items in selected_cols:
-            warnings.warn(  # noqa: B028
+            logger.warning(
                 f"You have changed the metadata for a column that was previously used in a data selection [{items}]."
                 " You may wish to update the selection. "
             )
@@ -4914,7 +5000,7 @@ class GBTOffline(GBTFITSLoad):
 #       these two variables with _check_functions() will warn in runtime, but fail in pytest
 #       If you add more to _skip_functions, deduct the number in _need_functions
 _skip_functions = ["velocity_convention", "velocity_frame"]
-_need_functions = 60
+_need_functions = 61
 
 
 def _check_functions(verbose=False):
@@ -5096,6 +5182,10 @@ class GBTOnline(GBTFITSLoad):
     def summary(self, *args, **kwargs):
         self._reload()
         return super().summary(*args, **kwargs)
+
+    def scan_info(self, *args, **kwargs):
+        self._reload()
+        return super().scan_info(*args, **kwargs)
 
     def get_summary(self, *args, **kwargs):
         self._reload()
