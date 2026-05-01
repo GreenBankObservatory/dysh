@@ -1295,3 +1295,7 @@ class TestSpectrum:
             s.append(q)
         x = average_spectra(s, weights="spectral")
         assert np.all(x.weights == np.sum(np.arange(nspec + 1)))
+
+    def test_header(self):
+        s = Spectrum.fake_spectrum()
+        s.header()

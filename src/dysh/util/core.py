@@ -12,10 +12,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from IPython.display import HTML, display
+
+from ..coordinates import Observatory
 
 ALL_CHANNELS = "all channels"
 
@@ -779,3 +782,35 @@ def inner_channel_slice(nchan: int, fedge: float = 0.1) -> slice:
     start = round(nchan * fedge)
     stop = -(start - 1)
     return slice(start, stop, 1)
+
+
+def coord_formatter(s, frame="fk5", fmt="hmsdms"):
+    sc = SkyCoord(
+        s.meta["CRVAL2"],
+        s.meta["CRVAL3"],
+        unit="deg",
+        frame=s.meta["RADESYS"].lower(),
+        obstime=s._obstime,
+        location=Observatory[s.meta["TELESCOP"]],
+    )
+    if fmt == "decimal":
+        out_str = sc.transform_to(frame).to_string(fmt, precision=3).split(" ")
+        out_ra, out_dec = out_str[0], out_str[1]
+    else:
+        out_str = sc.transform_to(frame).to_string(fmt, sep=" ", precision=2)[:-1]
+        out_ra = out_str[:11]
+        out_dec = out_str[12:]
+    return out_ra, out_dec
+
+
+def time_formatter(time_sec):
+    hh = int(time_sec // 3600)
+    mm = int((time_sec - 3600 * hh) // 60)
+    ss = np.around((time_sec - 3600 * hh - 60 * mm), 1)
+    return f"{str(hh).zfill(2)} {str(mm).zfill(2)} {str(ss).zfill(3)}"
+
+
+def utc_formatter(ut):
+    dt = ut.split("_")
+    out = f"{dt[3]}  {dt[0]}-{dt[1]}-{dt[2]}"
+    return out
