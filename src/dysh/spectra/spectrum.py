@@ -198,7 +198,19 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return Masked(self.data * self.unit, mask=self.mask).filled(np.nan)
 
     @log_call_to_history
-    def baseline(self, degree, exclude=None, include=None, color="k", **kwargs):
+    def baseline(
+        self,
+        degree,
+        exclude=None,
+        include=None,
+        remove=False,
+        model="chebyshev",
+        fitter=None,
+        exclude_region_upper_bounds=True,
+        clip_exclude=True,
+        exclude_action="replace",
+        color="k",
+    ):
         # fmt: off
         """
         Compute and optionally remove a baseline.
@@ -230,40 +242,55 @@ class Spectrum(Spectrum1D, HistoricalBase):
         include : list of 2-tuples of int or `~astropy.units.quantity.Quantity`, or `~specutils.SpectralRegion`
             List of region(s) to include in the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
             See `exclude` for examples.
-        color : str
-            The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
-        model : {'chebyshev', 'polynomial', 'legendre', 'hermite'}
-            Model to describe the baseline.
-            Default: 'chebyshev'
+        model : str
+            Model to describe the baseline. One of 'chebyshev', 'hermite', 'legendre', 'polynomial'.  Default: 'chebyshev'
         fitter : `~astropy.modeling.fitting.Fitter`
             The fitter to use. Default: `~astropy.modeling.fitting.LinearLSQFitter` (with `calc_uncertaintes=True`).
             Be careful when choosing a different fitter to be sure it is optimized for this problem.
         remove : bool
             If True, the baseline is removed from the spectrum.
             If False, the baseline will be computed and overlaid on the spectrum. Default: False
+        exclude_region_upper_bounds : bool
+            Makes the upper bound of any excision region(s) inclusive.
+            Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
+        clip_exclude : bool
+            Whether to clip the exclude or include regions when they extend outside the `spectrum.spectral_axis`.
+        exclude_action : str
+            How to combine the input exclude region with any existing exclude regions in the input `Spectrum`. Options are
+
+                - "replace" : replace the `Spectrum.exclude_regions` list with the input region
+                - "append"  : append the input region to the `Spectrum.exclude_regions` list.
+                - None      : Use the the input region, but do not change the existing `Spectrum.exclude_regions`
+
+            Default: "replace"
+        color : str
+            The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
+
         """
         # fmt: on
-        # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
-        kwargs_opts = {
-            "remove": False,
-            "model": "chebyshev",
-            "fitter": LinearLSQFitter(calc_uncertainties=True),
-        }
-        kwargs_opts.update(kwargs)
-
+        if fitter is None:
+            fitter = LinearLSQFitter(calc_uncertainties=True)
         # `include` and `exclude` are mutually exclusive, but we allow `include`
         # if `include` is used, transform it to `exclude`.
         if include is not None:
             if exclude is not None:
                 logger.warning(f"Warning: ignoring exclude={exclude}")
             exclude = core.include_to_exclude_spectral_region(include, self)
-        self._baseline_model = baseline(self, degree, exclude, **kwargs)
-        if kwargs_opts["remove"]:
+        self._baseline_model = baseline(
+            self,
+            order=degree,
+            exclude=exclude,
+            fitter=fitter,
+            model=model,
+            exclude_action=exclude_action,
+            clip_exclude=clip_exclude,
+        )
+        if remove:
             s = self.subtract(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._subtracted = True
         if self._plotter is not None:
-            if kwargs_opts["remove"]:
+            if remove:
                 self._plotter.set_ydata(self.flux, keep_unit=False)
                 self._plotter.clear_overlays(blines=True, oshows=False, catalog=False)
             else:
