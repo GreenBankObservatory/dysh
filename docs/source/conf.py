@@ -239,13 +239,13 @@ numpydoc_class_members_toctree = False
 # Example configuration for intersphinx: refer to the Python standard library.
 # intersphinx_mapping = {"https://docs.python.org/": None}
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3/", None),
-    "numpy": ("https://numpy.org/doc/stable/", None),
-    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
-    "astropy": ("https://docs.astropy.org/en/stable/", None),
-    "matplotib": ("https://matplotlib.org/stable", None),
-    "pandas": ("https://pandas.pydata.org/docs/", None),
-    "specutils": ("https://specutils.readthedocs.io/en/stable/", None),
+    "python": ("https://docs.python.org/3/", "_intersphinx/python.inv"),
+    "numpy": ("https://numpy.org/doc/stable/", "_intersphinx/numpy.inv"),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", "_intersphinx/scipy.inv"),
+    "astropy": ("https://docs.astropy.org/en/stable/", "_intersphinx/astropy.inv"),
+    "matplotib": ("https://matplotlib.org/stable", "_intersphinx/matplotlib.inv"),
+    "pandas": ("https://pandas.pydata.org/docs/", "_intersphinx/pandas.inv"),
+    "specutils": ("https://specutils.readthedocs.io/en/stable/", "_intersphinx/specutils.inv"),
 }
 
 # -- Options for todo extension ----------------------------------------------
