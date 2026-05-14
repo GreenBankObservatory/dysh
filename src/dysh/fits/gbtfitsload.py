@@ -3901,7 +3901,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
                 nrows = len(rows)
                 nchunks = (nrows + chunk_size - 1) // chunk_size
-                logger.info(
+                logger.debug(
                     f"write: bintable {bintable_idx}: {nrows} rows, {nchan} channels, "
                     f"{nchunks} chunk(s) of {chunk_size}"
                 )
@@ -3912,7 +3912,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
                     t0 = time.monotonic()
                     chunk_data = _build_chunk_recarray(sdf, bintable_idx, chunk_rows, col_names, flags, nchan)
-                    logger.info(
+                    logger.debug(
                         f"write: chunk [{chunk_start}:{chunk_end}] of {nrows} rows built ({time.monotonic() - t0:.1f}s)"
                     )
 
@@ -3923,7 +3923,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             first_chunk = False
                         else:
                             f[-1].append(chunk_data)
-                    logger.info(f"write: chunk written to disk ({time.monotonic() - t0:.1f}s)")
+                    logger.debug(f"write: chunk written to disk ({time.monotonic() - t0:.1f}s)")
 
                     total_rows_written += len(chunk_rows)
                     del chunk_data
