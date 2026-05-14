@@ -5,7 +5,7 @@ What's New?
 Version 1.0.1
 =============
 
-.. _v1-0-0-bugfixes:
+.. _v1-0-1-bugfixes:
 
 Bug Fixes
 ---------
