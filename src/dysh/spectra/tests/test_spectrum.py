@@ -264,19 +264,12 @@ class TestSpectrum:
     def test_history_and_comments(self):
         s = self.ps1
         s.baseline(2, remove=True)
-        print(s.comments)
         s.add_comment("I removed a baseline")
         # This tests that the baseline command self-logged to history
         # AND that order is preserved because
         # the baseline history should be the last entry
         # print(s.history)
-        # **************************************************
-        # NOTE: This test is currently hacked to work pending
-        # merge of PR 1109. Once that is merged, this test
-        # must be updated to match the corrected output.
-        # **************************************************
-        assert "baseline(2,)" in s.history[-1]
-        print(s.comments)
+        assert "baseline(2,remove=True,)" in s.history[-1]
         assert "I removed a baseline" in s.comments
 
     def test_slice(self, tmp_path):
