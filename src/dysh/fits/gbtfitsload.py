@@ -782,6 +782,28 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The Spectrum object representing the data row.
 
         """
+        
+        self.select(row=i,bintable=bintable,fitsindex=fitsindex)
+        # Spectrum requires certain columns, so ensure they are loaded before trying to create one.
+        _required = [
+                "CRVAL1",
+                "CRVAL2",
+                "CRVAL3",
+                "CTYPE1",
+                "CTYPE2",
+                "CTYPE3",
+                "CUNIT1",
+                "CUNIT2",
+                "CUNIT3",
+                "VELOCITY",
+                "EQUINOX",
+                "RADESYS",
+                "DATE-OBS",
+                "VELDEF",
+                "RESTFRQ",
+            ]
+        _df = self._load_full_rows_if_needed(self.selection.final, required_columns = _required)
+        self.clear_selection()
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
     def getrow(self, i: int, bintable: int = 0, fitsindex: int = 0) -> int:
