@@ -101,7 +101,7 @@ class TestGBTFITSLoad:
         assert all(spec2.mask[0:101])
         assert all(spec2.mask[102:] == False)  # noqa: E712
         # regression test for #1117
-        fnm = util.get_project_testdata() / "AGBT22A_325_15" # This one has index files
+        fnm = util.get_project_testdata() / "AGBT22A_325_15"  # This one has index files
         sdf = gbtfitsload.GBTFITSLoad(fnm)
         # should not raise an excception
         s = sdf.getspec(0)
