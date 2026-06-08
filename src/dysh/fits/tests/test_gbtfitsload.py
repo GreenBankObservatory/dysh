@@ -104,7 +104,7 @@ class TestGBTFITSLoad:
         fnm = util.get_project_testdata() / "AGBT22A_325_15" # This one has index files
         sdf = gbtfitsload.GBTFITSLoad(fnm)
         # should not raise an excception
-        s = sdf.getspec(0)
+        _s = sdf.getspec(0)
 
     def test_getspec_units(self, tmp_path):
         """
