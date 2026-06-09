@@ -9,10 +9,10 @@ from nbclient import NotebookClient
 NOTEBOOK_DIR = Path("notebooks/examples/")
 NOTEBOOK_FILES = list(NOTEBOOK_DIR.glob("*.ipynb"))
 ALLOWED_ERROR_NAMES = [
-    "requests.exceptions.ConnectionError",
-    "requests.exceptions.ConnectTimeout",
-    "requests.exceptions.HTTPError",
-    "requests.exceptions.ReadTimeout",
+    "ConnectionError",
+    "ConnectTimeout",
+    "HTTPError",
+    "ReadTimeout",
 ]
 
 

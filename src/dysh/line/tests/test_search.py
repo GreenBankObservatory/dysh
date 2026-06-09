@@ -103,3 +103,54 @@ class TestSearchRemote:
         )
         diff = (z["obs_frequency"] * (1.0 + redshift) - z["rest_frequency"]).data
         assert np.all(np.isclose(diff, 0.0, rtol=1e-8))
+
+
+class TestSearchMocked:
+    """Tests for the splatalogue query path using a mocked network response.
+
+    These always run (no requires_internet marker) and verify dysh's own
+    transformation layer: column renaming, obs_frequency computation,
+    intintensity coercion, and column filtering.
+    """
+
+    def test_column_rename(self, mock_splatalogue_query):
+        result = SpectralLineSearch.query_lines(
+            min_frequency=115 * u.GHz,
+            max_frequency=231 * u.GHz,
+        )
+        assert "rest_frequency" in result.colnames
+        assert "orderedfreq" not in result.colnames
+
+    def test_obs_frequency_added_at_zero_redshift(self, mock_splatalogue_query):
+        result = SpectralLineSearch.query_lines(
+            min_frequency=115 * u.GHz,
+            max_frequency=231 * u.GHz,
+        )
+        assert "obs_frequency" in result.colnames
+        assert np.all(np.isclose(result["obs_frequency"], result["rest_frequency"], rtol=1e-8))
+
+    def test_obs_frequency_redshift(self, mock_splatalogue_query):
+        redshift = 1.0
+        result = SpectralLineSearch.query_lines(
+            min_frequency=50 * u.GHz,
+            max_frequency=120 * u.GHz,
+            redshift=redshift,
+        )
+        diff = result["obs_frequency"] * (1.0 + redshift) - result["rest_frequency"]
+        assert np.all(np.isclose(diff, 0.0, rtol=1e-8))
+
+    def test_intintensity_coerced_to_float(self, mock_splatalogue_query):
+        result = SpectralLineSearch.query_lines(
+            min_frequency=115 * u.GHz,
+            max_frequency=231 * u.GHz,
+        )
+        assert result["intintensity"].dtype == float
+
+    def test_column_filtering(self, mock_splatalogue_query):
+        columns = ["rest_frequency", "name"]
+        result = SpectralLineSearch.query_lines(
+            min_frequency=115 * u.GHz,
+            max_frequency=231 * u.GHz,
+            columns=columns,
+        )
+        assert result.colnames == columns
