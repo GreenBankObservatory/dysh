@@ -267,11 +267,11 @@ html_js_files = [
 # Settings for myst_nb notebook rendering
 
 # Cache notebooks to only re-run when cells change.
-nb_execution_mode = "cache"
+# nb_execution_mode = "cache"
 # Use this mode if working on the documentation with sphinx-autobuild.
 # nb_execution_mode = "auto"
 # Use this to skip executing the notebooks.
-# nb_execution_mode = "off"
+nb_execution_mode = "off"
 
 # Execution timeout.
 # -1 should set this to no limit.
