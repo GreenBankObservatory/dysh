@@ -13,6 +13,10 @@ ALLOWED_ERROR_NAMES = [
     "ConnectTimeout",
     "HTTPError",
     "ReadTimeout",
+    # NameError cascades from network failures: when a cell that makes a
+    # network call is allowed to fail, subsequent cells that reference its
+    # output variable will raise NameError.
+    "NameError",
 ]
 
 
