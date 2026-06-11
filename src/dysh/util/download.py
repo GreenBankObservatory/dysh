@@ -34,7 +34,7 @@ def from_url(url, path=Path(".")):
 
     try:
         # Make the HTTPX client
-        client = httpx.Client(follow_redirects=True, timeout=30.0)
+        client = httpx.Client(follow_redirects=True)
 
         with client.stream("GET", url) as resp:
             # Get the filename from the URL
