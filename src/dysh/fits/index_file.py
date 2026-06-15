@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from dysh.coordinates.core import crval4_to_pol
 from dysh.log import logger
 
 # Optional fast Rust-based parser
@@ -169,20 +170,7 @@ _WRITER_SPEC = [
 _WRITER_COLUMNS = [name if name != "#INDEX#" else "INDEX" for name, _, _, _ in _WRITER_SPEC]
 
 # Stokes/polarization code mapping (FITS CRVAL4 integer → string)
-_POLARIZATION_MAP = {
-    1: "I",
-    2: "Q",
-    3: "U",
-    4: "V",
-    -1: "RR",
-    -2: "LL",
-    -3: "RL",
-    -4: "LR",
-    -5: "XX",
-    -6: "YY",
-    -7: "XY",
-    -8: "YX",
-}
+_POLARIZATION_MAP = crval4_to_pol
 
 
 def get_index_path(fits_path: str | Path) -> Path:
