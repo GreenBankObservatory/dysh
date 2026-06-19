@@ -28,6 +28,7 @@ class LabGUI(BaseGUI):
             self.canvas = Canvas(plotbase.figure)
             self.canvas.manager = FigureManager(self.canvas, 0)
         plotbase.figure.canvas.header_visible = False  # Remove canvas header.
+        self.toolbar = self.canvas.manager.toolbar  # Expose the toolbar.
 
         self.button_clear = Button(
             description="Clear All Regions",

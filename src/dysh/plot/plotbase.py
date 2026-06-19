@@ -5,6 +5,7 @@ Plot a spectrum using matplotlib
 import datetime as dt
 import os
 import sys
+from weakref import WeakKeyDictionary
 
 import astropy.units as u
 import matplotlib as mpl
@@ -68,6 +69,7 @@ class PlotBase:
     def __init__(self):
         self._init_plot()
         self._scan_numbers = None
+        self._data_limits = {}
 
     def _set_frontend(self):
         self._frontend = GUI(self)
@@ -270,3 +272,43 @@ class PlotBase:
                 button.set_visible(True)
         else:
             self.figure.savefig(file, *kwargs)
+
+    def _update_home(self, xlim: tuple[float, float], ylim: tuple[float, float]):
+        """
+        Updates the view for the "home" button.
+        This sets the "home" values to the current view,
+        it does not update the plot.
+
+        Parameters
+        ----------
+        xlim : tuple
+            x axis limits in data units.
+        ylim : tuple
+            y axis limits in data units.
+        """
+        if hasattr(self._frontend, "toolbar"):
+            # Clear current values.
+            self._frontend.toolbar._nav_stack.clear()
+            ax_view = {
+                "xlim": xlim,
+                "autoscalex_on": self.axes.get_autoscalex_on(),
+                "ylim": ylim,
+                "autoscaley_on": self.axes.get_autoscaley_on(),
+            }
+            # Push the view to the stack.
+            self._frontend.toolbar._nav_stack.push(
+                WeakKeyDictionary(
+                    {
+                        self.axes: (
+                            ax_view,
+                            # Store both the original and modified positions.
+                            (self.axes.get_position(True).frozen(), self.axes.get_position().frozen()),
+                        )
+                    }
+                )
+            )
+            self._frontend.toolbar.set_history_buttons()
+            # The default push_current uses the current view limits.
+            # That means that when using the home button, you cannot go back
+            # to the full data range if you switched units while zoomed in.
+            # self._frontend.toolbar.push_current()
