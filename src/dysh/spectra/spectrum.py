@@ -228,8 +228,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # row 6
         glon, glat = coord_formatter(self, "galactic", fmt="decimal")
-        print(glon)
-        print(glat)
         exp = f"{m.get('EXPOSURE'):10.1f}"
         col1 = f"Feed : {m.get('FDNUM'):>{c1_subpad}}"
         col2 = f"Gal   : {glon}  {glat}"

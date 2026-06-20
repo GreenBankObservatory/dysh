@@ -785,14 +785,17 @@ def inner_channel_slice(nchan: int, fedge: float = 0.1) -> slice:
 
 
 def coord_formatter(s, frame="fk5", fmt="hmsdms"):
-    sc = SkyCoord(
-        s.meta["CRVAL2"],
-        s.meta["CRVAL3"],
-        unit="deg",
-        frame=s.meta["RADESYS"].lower(),
-        obstime=s._obstime,
-        location=Observatory[s.meta["TELESCOP"]],
-    )
+    if hasattr(s, "target"):
+        sc = s.target
+    else:
+        sc = SkyCoord(
+            s.meta["CRVAL2"],
+            s.meta["CRVAL3"],
+            unit="deg",
+            frame=s.meta["RADESYS"].lower(),
+            obstime=s._obstime,
+            location=Observatory[s.meta["TELESCOP"]],
+        )
     if fmt == "decimal":
         out_str = sc.transform_to(frame).to_string(fmt, precision=3).split(" ")
         out_ra, out_dec = out_str[0], out_str[1]
