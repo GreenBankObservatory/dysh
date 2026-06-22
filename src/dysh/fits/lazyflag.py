@@ -371,7 +371,17 @@ class LazyFlagArray:
 
         if use_memmap:
             logger.debug(f"LazyFlagArray.to_dense: using memmap for {estimated_bytes / 1024**3:.1f} GB array")
+            # Look for a scratch dir so as not to fill up small /tmp filesystems.
+            # We put this inside to_dense instead of in the constructor to allow user to
+            # change environment variable during a dysh session.
+            # Note: With astropy >= 8.0, astropy.config.temporary_cache_dir() may be useful here
+            if _tmpdir := os.getenv("DYSH_SCRATCH") is not None:
+                # XDG_CACHE_HOME will be ignored because astropy steals it. So don't even try.
+                #    _tmpdir = os.getenv("XDG_CACHE_HOME") 
+            #if _tmpdir is not None:
+                tempfile.tempdir == _tmpdir
             tmpdir = tempfile.gettempdir()
+            logger.debug(f"LazyFlagArray.to_dense: Using temporary file directory {tmpdir}")
             try:
                 free_bytes = shutil.disk_usage(tmpdir).free
             except OSError:
@@ -404,7 +414,9 @@ class LazyFlagArray:
         # Apply sparse overlay
         for row_idx, row_mask in self._modified.items():
             result[row_idx] |= row_mask
-
+        # make weakref finalizer so that temporary dense arrays are removed from the filesystem when
+        # there are no longer any strong references.
+        self._mmap_ref = weakref.finalize(result,self.cleanup)
         return result
 
     def rows_as_uint8(self, rows):
