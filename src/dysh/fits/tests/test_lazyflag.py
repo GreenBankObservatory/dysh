@@ -2,8 +2,8 @@
 
 import gc
 import os
+import sys
 import tempfile
-import time
 
 import numpy as np
 import pytest
@@ -403,6 +403,10 @@ class TestLazyFlagCleanup:
             del dense
             arr.cleanup()
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Windows does not release the memmap's file handle synchronously on refcount drop",
+    )
     def test_to_dense_finalize_cleans_up_without_explicit_cleanup(self):
         """The weakref.finalize tied to the dense array removes the temp file on its own,
         without calling arr.cleanup() or deleting arr."""
@@ -411,13 +415,6 @@ class TestLazyFlagCleanup:
         path = arr._tempfiles[0]
         assert os.path.exists(path)
         del dense
-        # On Windows, the OS file handle backing the memmap is not guaranteed to be
-        # released the instant the object is destroyed, even after gc.collect(), so
-        # poll briefly rather than asserting immediately.
-        for _ in range(20):
-            gc.collect()
-            if not os.path.exists(path):
-                break
-            time.sleep(0.1)
+        gc.collect()
         assert not os.path.exists(path)
         assert arr is not None  # keep arr alive past the assertion above
