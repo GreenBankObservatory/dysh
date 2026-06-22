@@ -3,6 +3,7 @@
 import gc
 import os
 import tempfile
+import time
 
 import numpy as np
 import pytest
@@ -410,6 +411,13 @@ class TestLazyFlagCleanup:
         path = arr._tempfiles[0]
         assert os.path.exists(path)
         del dense
-        gc.collect()
+        # On Windows, the OS file handle backing the memmap is not guaranteed to be
+        # released the instant the object is destroyed, even after gc.collect(), so
+        # poll briefly rather than asserting immediately.
+        for _ in range(20):
+            gc.collect()
+            if not os.path.exists(path):
+                break
+            time.sleep(0.1)
         assert not os.path.exists(path)
         assert arr is not None  # keep arr alive past the assertion above
