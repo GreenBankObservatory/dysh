@@ -375,11 +375,11 @@ class LazyFlagArray:
             # We put this inside to_dense instead of in the constructor to allow user to
             # change environment variable during a dysh session.
             # Note: With astropy >= 8.0, astropy.config.temporary_cache_dir() may be useful here
-            if _tmpdir := os.getenv("DYSH_SCRATCH") is not None:
+            if ( _tmpdir := os.getenv("DYSH_SCRATCH") ) is not None:
                 # XDG_CACHE_HOME will be ignored because astropy steals it. So don't even try.
                 #    _tmpdir = os.getenv("XDG_CACHE_HOME") 
             #if _tmpdir is not None:
-                tempfile.tempdir == _tmpdir
+                tempfile.tempdir = _tmpdir
             tmpdir = tempfile.gettempdir()
             logger.debug(f"LazyFlagArray.to_dense: Using temporary file directory {tmpdir}")
             try:
