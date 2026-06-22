@@ -1293,3 +1293,10 @@ class TestSpectrum:
             s.append(q)
         x = average_spectra(s, weights="spectral")
         assert np.all(x.weights == np.sum(np.arange(nspec + 1)))
+
+    def test_header(self, capsys):
+        expected = """--------------------------------------------------------------------------------\nProj: TGBT21A_501_11  Src : NGC2415                          Obs : A. Dysh User\n\nScan :        152   RADec :  07 36 57.31 +35 14 35.3     Fsky  :   1.402545 GHz\nInt  :        N/A   Eqnx  :  2000.0                      Frest :   1.420406 GHz\nPol  :         YY   V     :  3784.0  OPTI-HEL            BW    :     23.438 MHz\nIF   :          0   AzEl  : 285.951   42.101             delF  :      0.715 kHz\nFeed :          0   Gal   : 184.136  23.987              Exp   :       44.9   s\nProc :      OnOff   UT    :  07:38:37  2021-02-10        Tcal  :       1.46   K\nSeqn :          1   LST/HA:  11 41 41.9      4.08        Tsys  :      17.93   K\n--------------------------------------------------------------------------------\n"""
+        s = Spectrum.fake_spectrum()
+        s.header()
+        captured = capsys.readouterr()
+        assert captured.out == expected
