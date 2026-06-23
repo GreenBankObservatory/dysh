@@ -1257,3 +1257,23 @@ class TestSpectrum:
             s.append(q)
         x = average_spectra(s, weights="spectral")
         assert np.all(x.weights == np.sum(np.arange(nspec + 1)))
+
+    def test_set_spectral_axis(self):
+        """
+        Test that the spectral_axis is updated.
+        """
+
+        sp = Spectrum.fake_spectrum()
+        sp.set_spectral_axis(toframe="galactocentric")
+        assert sp.observer.name == "galactocentric"
+        # Try all three options in case the defaults change.
+        if sp.doppler_convention != "radio":
+            expected = "radio"
+        elif sp.doppler_convention != "optical":
+            expected = "optical"
+        else:
+            expected = "relativistic"
+        sp.set_spectral_axis(doppler_convention=expected)
+        assert sp.doppler_convention == expected
+        sp.set_spectral_axis(unit="km/s")
+        assert sp.spectral_axis.unit.to_string() == "km / s"

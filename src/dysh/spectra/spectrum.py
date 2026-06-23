@@ -979,6 +979,37 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self.meta["RESTFREQ"] = value.to("Hz").value
         self.meta["RESTFRQ"] = value.to("Hz").value
 
+    def with_spectral_axis_unit(self, *args, **kwargs):
+        spec = super().with_spectral_axis_unit(*args, **kwargs)
+        spec._observer = self.observer.copy()
+        spec._spectral_axis.observer = self.spectral_axis.observer.copy()
+        spec._target = self.target.copy()
+        spec._spectral_axis.target = self.spectral_axis.target.copy()
+        return spec
+
+    def set_spectral_axis(self, unit=None, toframe=None, doppler_convention=None) -> None:
+        """
+        Modifies the spectral axis to have units of `unit` in reference frame `toframe`
+        using Doppler convention `doppler_convention`. This changes the `Spectrum`.
+
+        Parameters
+        ----------
+        unit : `~astropy.units.quantity.Quantity` or str that can be converted to Quantity
+            The unit to which the axis is to be converted.
+        toframe : str
+            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
+        doppler_convention : None or {'optical', 'radio', 'relativistic'}
+            The Doppler convention to use when converting to velocity.
+            One of 'optical', 'radio', or 'relativistic'.
+        """
+        if unit is None and toframe is not None:
+            self.set_frame(toframe)
+        if unit is None and doppler_convention is not None:
+            self.set_convention(doppler_convention)
+        if unit is not None:
+            sa = self.velocity_axis_to(unit=unit, toframe=toframe, doppler_convention=doppler_convention)
+            self._spectral_axis = sa
+
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
         *Note*: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
