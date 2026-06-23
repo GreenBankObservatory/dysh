@@ -262,6 +262,9 @@ class SpectrumPlot(PlotBase):
                 oshow_kwargs = {}
             self.oshow(oshow, **oshow_kwargs)
 
+        # Ensure we know the data limits.
+        self._set_data_limits()
+
         self.show()
         self.figure.canvas.draw_idle()
 
@@ -549,14 +552,25 @@ class SpectrumPlot(PlotBase):
         )
         self.figure.canvas.draw_idle()
 
-    def update_limits(self):
+    def update_limits(self, visible_only: bool = True):
         """
         Recompute the data limits based on the current artists (`~matplotlib.axes.Axes.relim`),
         and then autoscale the view limits using the data limits (`~matplotlib.axes.Axes.autoscale_view`).
         """
-        self.axes.relim(visible_only=True)
+        self.axes.relim(visible_only=visible_only)
         self.axes.autoscale_view()
         self.figure.canvas.draw_idle()
+
+    def _set_data_limits(self):
+        """
+        Update the `_data_limits` dictionary to the current data ranges with margins.
+        `_data_limits` are used to set the axes limits when changing units and the
+        axes ranges of the "home" button.
+        """
+        xmargin = abs(self._sa.value[0] - self._sa.value[-1]) * self.axes.get_xmargin()
+        self._data_limits["xlim"] = (self._sa.value[0] - xmargin, self._sa.value[-1] + xmargin)
+        ymargin = abs(self._fa.value.max() - self._fa.value.min()) * self.axes.get_ymargin()
+        self._data_limits["ylim"] = (self._fa.value.min() - ymargin, self._fa.value.max() + ymargin)
 
     def set_yaxis_unit(self, yunit: str | Quantity) -> None:
         """
@@ -598,11 +612,14 @@ class SpectrumPlot(PlotBase):
         self._fa = yvals
 
         self.set_ydata(yvals, keep_unit=True)
+        self._set_data_limits()
+        self.axes.set_ylim(*self._data_limits["ylim"])
 
         self._plot_kwargs["yaxis_unit"] = yunit
         self._set_labels(**self._plot_kwargs)
 
         self.update_limits()
+        self._update_home(self._data_limits["xlim"], self._data_limits["ylim"])
 
     def set_xaxis_unit(self, xunit: str | Quantity) -> None:
         """
@@ -635,6 +652,8 @@ class SpectrumPlot(PlotBase):
             doppler_convention=self._sa.doppler_convention,
         )
         self._line.set_xdata(self._sa.value)
+        self._set_data_limits()
+        self.axes.set_xlim(*self._data_limits["xlim"])
 
         # Remove any oshows.
         # We cannot update them since we do not keep a reference to their spectra.
@@ -655,6 +674,7 @@ class SpectrumPlot(PlotBase):
         self._set_labels(**self._plot_kwargs)
 
         self.update_limits()
+        self._update_home(self._data_limits["xlim"], self._data_limits["ylim"])
 
         # Now it should be safe to add a blank span.
         if self._selector is not None:
@@ -688,6 +708,7 @@ class SpectrumPlot(PlotBase):
         self._clear_overlay_objects("lines", "oshow")
 
         self.update_limits()
+        self._update_home(self._data_limits["xlim"], self._data_limits["ylim"])
 
     def show_baseline(self, y, *args, **kwargs) -> None:
         """
