@@ -542,10 +542,13 @@ class TestSpectrum:
         assert f1.mask.sum() == 100
         f2 = f1.smooth("box", 11)
         assert f2.mask.sum() == 10
+        assert f1.mask.sum() == 100
         f3 = f1.smooth("gaussian", 11)
-        assert f3.mask.sum() == 14
+        assert f3.mask.sum() == 12
+        assert f1.mask.sum() == 100
         f4 = f1.smooth("hanning", 11)
-        assert f4.mask.sum() == 14
+        assert f4.mask.sum() == 10
+        assert f1.mask.sum() == 100
 
     def test_smooth_nodecimate(self):
         """Test for smooth without decimation."""
@@ -557,6 +560,11 @@ class TestSpectrum:
         assert ss.meta["NAXIS1"] == len(ss.data)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(width / abs(decimate))
+
+        f1 = Spectrum.fake_spectrum()
+        f1.mask[100:200] = True
+        _ = f1.smooth("box", width, decimate)
+        assert f1.mask.sum() == 100
 
     def test_smooth_multi(self):
         """Test for multiple passes of smooth."""
