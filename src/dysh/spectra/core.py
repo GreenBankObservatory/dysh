@@ -1120,7 +1120,7 @@ def smooth(
     # 4. We create an input mask if the data do not have one and we ensure input NaNs that are smoothed to output Nans get masked.
     # 5. We then mask any NaN on output by modifying the input mask
     if hasattr(data, "mask"):
-        mask = data.mask
+        mask = data.mask.copy()  # Make a copy to avoid modifying the original mask.
     else:
         mask = np.full(data.shape, False)
 
