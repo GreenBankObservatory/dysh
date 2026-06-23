@@ -39,6 +39,10 @@ After being installed, the ``dysh`` command will be available through the comman
 This will launch an `iPython <https://ipython.readthedocs.io/en/stable/>`_ session with some modules and classes pre-loaded (e.g., `~dysh.fits.gbtfitsload.GBTFITSLoad`), and with logging.
 We refer to this interface as the dysh shell.
 
+.. note::
+
+   For large SDFITS files (> 1 GB or so), dysh may create temporary files during certain operations to hold flag arrays.  By default these files are created in ``/tmp``. To avoid filling up ``/tmp``, you can (and should) change that default by setting ``$DYSH_SCRATCH`` or ``$TMPDIR`` environment variables to point to a directory where temporary files can be written.  Note these must be set before you start dysh as the values are cached by Python at startup, so ``os.putenv()`` would not have any effect..
+
 Loading Data
 ============
 
