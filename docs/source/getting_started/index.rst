@@ -70,7 +70,7 @@ Linux and MacOS
 
         If you use ``conda``, then you can use the following commands
 
-        #. Create a dedicated virtual environment for ``dysh``, with Python 3.12 (you could use a Python version between |pymin| and |pymax|)
+        #. Create a dedicated virtual environment for dysh, with Python 3.12 (you could use a Python version between |pymin| and |pymax|)
 
            .. code-block:: bash
 
@@ -82,13 +82,13 @@ Linux and MacOS
 
                 conda activate dysh-venv
 
-        #. Install ``dysh`` into the environment
+        #. Install dysh into the environment
 
            .. code-block:: bash
 
                 pip install "dysh[nb] @ git+https://github.com/GreenBankObservatory/dysh"
 
-        #. ``dysh`` should now be available through the ``dysh`` command. You can make sure you installed the latest version by running
+        #. dysh should now be available through the ``dysh`` command. You can make sure you installed the latest version by running
 
            .. code-block:: bash
 
@@ -100,7 +100,7 @@ Linux and MacOS
 
         If you already have Python |pymin|, up to |pymax|, installed you can create a new virtual environment using ``venv``.
 
-        #. Create a dedicated virtual environment for ``dysh``, with Python |pymax|:
+        #. Create a dedicated virtual environment for dysh, with Python 3.12:
 
            .. code-block:: bash
 
@@ -113,9 +113,15 @@ Linux and MacOS
 
            .. code-block:: bash
 
+                source dysh-venv/bin/activate
+
+        #. Install dysh into the the virtual environment
+
+           .. code-block:: bash
+
                 pip install "dysh[nb] @ git+https://github.com/GreenBankObservatory/dysh"
 
-        #. ``dysh`` should now be available through the ``dysh`` command.
+        #. dysh should now be available through the ``dysh`` command.
            You can check what version you installed by running:
 
            .. code-block:: bash
@@ -126,13 +132,13 @@ Linux and MacOS
 
     .. tab:: Using ``uv``
 
-        If you use `uv <https://docs.astral.sh/uv/>`_ then the following command will install ``dysh``:
+        If you use `uv <https://docs.astral.sh/uv/>`_ then the following command will install dysh:
 
         .. code-block:: bash
 
             uv tool install "dysh[nb] @ git+https://github.com/GreenBankObservatory/dysh"
 
-        ``dysh`` should now be available through the ``dysh`` command. You can check what version you installed by running:
+        dysh should now be available through the ``dysh`` command. You can check what version you installed by running:
 
         .. code-block:: bash
 
@@ -142,7 +148,7 @@ Linux and MacOS
 
         .. warning::
 
-            Installing ``dysh`` using this method will install it as a tool, not a package, so it won't be possible to ``import dysh`` from a Python session.
+            Installing dysh using this method will install it as a tool, not a package, so it won't be possible to ``import dysh`` from a Python session.
 
 
 
@@ -150,7 +156,7 @@ Linux and MacOS
 
     At GBO, on a linux machine from the terminal (assumes you’re using bash).
 
-    #. First, create a new Python virtual environment. For this example we will use Python 3.11 (you can change the Python version, but the latest ``dysh`` will only work on Python between |pymin| and |pymax|):
+    #. First, create a new Python virtual environment. For this example we will use Python 3.11 (you can change the Python version, but the latest dysh will only work on Python between |pymin| and |pymax|):
 
        .. code-block:: bash
 
@@ -162,7 +168,7 @@ Linux and MacOS
 
             source /home/scratch/$USER/dysh-env/bin/activate
 
-    #. Install ``dysh``, and the additional dependencies to run Jupyter lab:
+    #. Install dysh, and the additional dependencies to run Jupyter lab:
 
        .. code-block:: bash
 
@@ -170,7 +176,7 @@ Linux and MacOS
 
        If you do not want the additional dependencies, remove the [nb] part.
 
-    #. Check what ``dysh`` version was installed:
+    #. Check what dysh version was installed:
 
        .. code-block:: bash
 
@@ -194,9 +200,9 @@ Linux and MacOS
 Windows
 -------
 
-We provide instructions on how to install the latest version of ``dysh`` on Windows using `anaconda <https://www.anaconda.com/>`_ and `git <https://git-scm.com/>`_.
-Anaconda provides a way of installing ``Python`` and managing virtual environments, and ``git`` is used to download, and install, the source code for the latest version of ``dysh``.
-If you want to install the latest stable version of ``dysh``, then it is not necessary to use ``git``.
+We provide instructions on how to install the latest version of dysh on Windows using `anaconda <https://www.anaconda.com/>`_ and `git <https://git-scm.com/>`_.
+Anaconda provides a way of installing ``Python`` and managing virtual environments, and ``git`` is used to download, and install, the source code for the latest version of dysh.
+If you want to install the latest stable version of dysh, then it is not necessary to use ``git``.
 
 #. The first step is to download and install Anaconda and ``git``.
    Anaconda comes in two flavors, as Anaconda distribution or as Miniconda.
@@ -230,7 +236,7 @@ If you want to install the latest stable version of ``dysh``, then it is not nec
         conda create -n dysh-venv python==3.10
 
    This will create a new virtual environment with ``Python3.10``.
-   You can use other versions of ``Python``, but not lower than |pymin| nor above |pymax| (``dysh`` has not been tested on ``Python`` versions newer than |pymax|).
+   You can use other versions of ``Python``, but not lower than |pymin| nor above |pymax| (dysh has not been tested on ``Python`` versions newer than |pymax|).
    You can check the ``Python`` version using the command ``python --version`` in the terminal.
 
 #. After creating the environment, activate it. Enter the following command
@@ -241,17 +247,17 @@ If you want to install the latest stable version of ``dysh``, then it is not nec
 
    If everything went well you should see that the command line prompt now says ``(dysh-env)`` at the start of the current line.
 
-#. Install ``dysh``, with all the dependencies required to run a Jupyter lab server (not required). Enter the following command
+#. Install dysh, with all the dependencies required to run a Jupyter lab server (not required). Enter the following command
 
    .. code-block:: powershell
 
         pip install "dysh[nb] @ git+https://github.com/GreenBankObservatory/dysh"
 
-   This will download and install ``dysh`` with all its dependencies to the ``dysh-env`` virtual environment.
+   This will download and install dysh with all its dependencies to the ``dysh-env`` virtual environment.
    Depending on your internet connection, this may take a while.
    If you do not want the extra dependencies, remove the ``[nb]`` part in the command.
 
-#. If everything went well, the following commnad should print the ``dysh`` version
+#. If everything went well, the following command should print the dysh version
 
    .. code-block:: powershell
 
@@ -284,10 +290,10 @@ If you want to install the latest stable version of ``dysh``, then it is not nec
 Quick Test
 ==========
 
-After installing ``dysh`` you can run the following commands to make sure everyhting is working fine.
+After installing dysh you can run the following commands to verify that dysh is working fine.
 This quick example will download a 31 MB file to the current directory.
 
-#. Launch ``dysh``
+#. Launch dysh
 
    .. code-block:: bash
 

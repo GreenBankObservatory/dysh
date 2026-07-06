@@ -217,7 +217,7 @@ We will use `astropy.units` (imported automatically as ``u``) to define the freq
 
 .. code:: Python
 
-    oh_bright_spec = spectrum[1665.3*u.GHz:1665.9*u.MHz]
+    oh_bright_spec = spectrum[1665.3*u.MHz:1665.9*u.MHz]
 
 Change the rest frequency to that of the 1665.4018 MHz line:
 
@@ -233,7 +233,7 @@ Plot in velocity units (``xaxis_unit``) using the local standard of rest as velo
 
 .. image:: files/oh_bright_kms_lsrk_radio.png
 
-Note that the setting the units, velocity frame or Doppler convention during plotting does not modify the spectrum.
+Note that setting the units, velocity frame or Doppler convention during plotting does not modify the spectrum.
 
 Saving a Spectrum
 =================
