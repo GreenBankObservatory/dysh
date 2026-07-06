@@ -1097,8 +1097,78 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self.meta["RESTFREQ"] = value.to("Hz").value
         self.meta["RESTFRQ"] = value.to("Hz").value
 
+    def with_spectral_axis_unit(self, *args, **kwargs):
+        """
+        Returns a new spectrum with a different spectral axis unit. Note that this creates a new
+        object using the converted spectral axis and thus drops the original WCS, if it existed,
+        replacing it with a lookup-table :class:`~gwcs.wcs.WCS` based on the new spectral axis. The
+        original WCS will be stored in the ``original_wcs`` entry of the new object's ``meta``
+        dictionary.
+
+        Parameters
+        ----------
+        unit : :class:`~astropy.units.Unit`
+            Any valid spectral unit: velocity, (wave)length, or frequency.
+            Only vacuum units are supported.
+        doppler_convention : {None, 'relativistic', 'radio', 'optical'}
+            The Doppler convention to use for the output velocity axis.
+            Required if the output type is velocity. This can be either one
+            of the above strings, or an `astropy.units` equivalency.
+        rest_value : :class:`~astropy.units.Quantity`
+            A rest wavelength or frequency with appropriate units.  Required if
+            output type is velocity.  The spectrum's WCS should include this
+            already if the *input* type is velocity, but the WCS's rest
+            wavelength/frequency can be overridden with this parameter.
+
+            .. note: This must be the rest frequency/wavelength *in vacuum*,
+                     even if your spectrum has air wavelength units
+
+        """
+        # The docstring should be kept up to date.
+        # Keep docstring empty to re-use the one from specutils.
+        # Keeping the specutils doc introduces yet another name
+        # for what we call `doppler_convention`, `velocity_convention`.
+        # This is a source of frustration...
+        # Rename kwargs to match specutils signature.
+        # Shame on specutils for not using the astropy convention.
+        rename_dict = {"doppler_convention": "velocity_convention"}
+        new_kwargs = {rename_dict[key]: value for key, value in kwargs.items() if key in rename_dict}
+        spec = super().with_spectral_axis_unit(*args, **new_kwargs)
+        # Copy observer and target to support further frame conversions.
+        # See issue #1119.
+        spec._observer = self.observer.copy()
+        spec._spectral_axis.observer = self.spectral_axis.observer.copy()
+        spec._target = self.target.copy()
+        spec._spectral_axis.target = self.spectral_axis.target.copy()
+        return spec
+
+    def set_spectral_axis(self, unit=None, toframe=None, doppler_convention=None) -> None:
+        """
+        Modifies the spectral axis to have units of `unit` in reference frame `toframe`
+        using Doppler convention `doppler_convention`. This changes the `Spectrum`.
+
+        Parameters
+        ----------
+        unit : `~astropy.units.quantity.Quantity` or str that can be converted to Quantity
+            The unit to which the axis is to be converted.
+        toframe : str
+            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
+        doppler_convention : {None, 'relativistic', 'radio', 'optical'}
+            The Doppler convention to use when converting to velocity.
+            One of 'optical', 'radio', or 'relativistic'.
+        """
+        if unit is None and toframe is not None:
+            self.set_frame(toframe)
+        if unit is None and doppler_convention is not None:
+            self.set_convention(doppler_convention)
+        if unit is not None:
+            sa = self.velocity_axis_to(unit=unit, toframe=toframe, doppler_convention=doppler_convention)
+            self._spectral_axis = sa
+
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
+
+        .. note: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
         *Note*: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
 
         Parameters
@@ -1116,6 +1186,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         Convert the spectral axis to `unit` in `toframe` using `doppler_convention`
         if converting from frequency/wavelength to velocity.
+        This returns a new `
 
         Parameters
         ----------
@@ -1123,23 +1194,26 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The unit to which the spectral axis is to be converted.
         toframe : str
             The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
-        doppler_convention : None or {'optical', 'radio', 'relativistic'}
+        doppler_convention : {None, 'relativistic', 'radio', 'optical'}
             The Doppler convention to use when converting to velocity.
             One of 'optical', 'radio', or 'relativistic'.
 
         Returns
         -------
-        velocity : `~astropy.units.quantity.Quantity`
+        spectral_axis : `~astropy.units.quantity.Quantity`
             The converted spectral axis in units of `unit`.
         """
         if toframe is not None and toframe != self.velocity_frame:
             s = self.with_frame(toframe)
         else:
             s = self
+
+        # Handle channels as a unit.
         if isinstance(unit, str) and "ch" in unit.lower():
             return self.spectral_axis.replicate(np.arange(len(self.data)), unit=u.pix)
         elif isinstance(unit, u.UnitBase) and unit.physical_type in ["dimensionless", "unknown"]:
             return self.spectral_axis.replicate(np.arange(len(self.data)), unit=u.pix)
+
         if doppler_convention is not None:
             return s._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
         else:
