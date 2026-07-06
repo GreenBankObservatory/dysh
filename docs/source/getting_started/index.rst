@@ -1,5 +1,5 @@
-.. |minver| replace:: ``0.11.0``
-.. |minpatch| replace:: ``0.11.1``
+.. |minver| replace:: ``1.1.0``
+.. |minpatch| replace:: ``1.1.1``
 .. |pymin| replace:: 3.10
 .. |pymax| replace:: 3.14
 
@@ -7,11 +7,11 @@
 Installation Guide
 ******************
 
-Using ``dysh`` at GBO
-=====================
+Using dysh at GBO
+=================
 
-You do not need to install `dysh` if you have access to a `GBO data reduction host <https://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier, thales, etc.).
-At GBO, you can launch the latest version of ``dysh`` from a terminal by typing
+You do not need to install dysh if you have access to a `GBO data reduction host <https://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier, thales, etc.).
+At GBO, you can launch the latest version of dysh from a terminal by typing
 
 .. code:: bash
 
@@ -32,14 +32,14 @@ Should print: ``/opt/local/bin/dysh``. And
 
 Should print |minver| or higher (e.g., |minpatch|).
 
-If you want to install your own version of ``dysh`` instead, read the following section.
+If you want to install your own version of dysh instead, read the following section.
 
 .. _installing-dysh:
 
-Installing ``dysh``
-===================
+Installing dysh
+===============
 
-``dysh`` requires a Python version between |pymin| and |pymax| (``dysh`` has not been tested in Python versions newer than |pymax|) and recent versions of
+dysh requires a Python version between |pymin| and |pymax| (dysh has not been tested in Python versions newer than |pymax|) and recent versions of
 `astropy <https://www.astropy.org>`_,
 `numpy <https://numpy.org>`_,
 `scipy <https://scipy.org>`_,
@@ -49,11 +49,10 @@ Installing ``dysh``
 and
 `astroquery <https://astroquery.readthedocs.io/en/latest/>`_.
 
-``dysh`` has been tested on Ubuntu, MacOS and Windows.
-Using ``dysh`` requires at least twice the amount of memory than the size of the data to be reduced.
-For example, if you are going to reduce observations that generated 8 GB of data, you require 16 GB of RAM.
+dysh has been tested on Ubuntu, MacOS and Windows.
+dysh has been tested on a machine with 8 GB of RAM, but we recommend a machine with at least 16 GB.
 
-We strongly recommend the use of a virtual environment for installing ``dysh``.
+We strongly recommend the use of a virtual environment for installing dysh.
 
 
 Linux and MacOS
@@ -61,9 +60,9 @@ Linux and MacOS
 
 .. tab:: Outside of GBO
 
-    The details of how to install ``dysh`` on your own depend on what package manager you use (e.g., ``uv``, ``conda``, ``pip``).
-    We strongly recommend that you install ``dysh`` in a separate Python environment, so you do not change your system Python (if you use your own anaconda3, you can of course do anything you like, though we still recommend a virtual environment).
-    It is important to note that the latest version of ``dysh`` will only work on Python versions between |pymin| and |pymax|.
+    The details of how to install dysh on your own depend on what package manager you use (e.g., ``uv``, ``conda``, ``pip``).
+    We strongly recommend that you install dysh in a separate Python environment, so you do not change your system Python (if you use your own anaconda3, you can of course do anything you like, though we still recommend a virtual environment).
+    It is important to note that the latest version of dysh will only work on Python versions between |pymin| and |pymax|.
     Here we provide a few examples, which require the ability to install Python packages in your system.
 
     .. tab:: Using ``conda``
