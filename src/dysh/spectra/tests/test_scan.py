@@ -826,6 +826,7 @@ class TestFSScan:
         ta = fsscan.timeaverage(weights="tsys")
         assert ta.flux.shape[0] == channel[1] - channel[0]
         assert np.all(np.isfinite(ta.flux.value))
+        assert ta.meta["BANDWID"] == abs(ta.meta["CDELT1"]) * abs(np.diff(channel))
 
     def test_getfs_nocal(self):
         """

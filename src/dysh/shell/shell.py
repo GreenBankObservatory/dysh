@@ -7,7 +7,7 @@ import IPython
 from traitlets.config import Config
 
 import dysh.fits
-from dysh import __version__
+from dysh import __version__, system_info
 from dysh.config import create_config_file
 from dysh.fits.sdfitsload import SDFITSLoad
 from dysh.log import init_logging, instance_logger
@@ -63,6 +63,7 @@ def parse_args():
     parser.add_argument("--version", help="Print version and exit", action="store_true")
     parser.add_argument("--skip-config", help="Skip creating a configuration file", action="store_true")
     parser.add_argument("--hide-tb", help="Hide traceback", action="store_true")
+    parser.add_argument("-s", "--system-info", help="Provide system information for bug reports", action="store_true")
     return parser.parse_known_args()
 
 
@@ -130,6 +131,9 @@ def main():
     args, remaining_args = parse_args()
     if args.version:
         print(f"dysh: v{__version__}")
+        sys.exit(0)
+    if args.system_info:
+        system_info()
         sys.exit(0)
     init_logging(verbosity=args.verbosity, path=args.log, quiet=args.quiet)
 

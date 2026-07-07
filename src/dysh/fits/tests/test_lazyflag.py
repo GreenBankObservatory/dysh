@@ -1,5 +1,10 @@
 """Tests for LazyFlagArray and LazyFlagContainer."""
 
+import gc
+import os
+import sys
+import tempfile
+
 import numpy as np
 import pytest
 
@@ -304,3 +309,112 @@ class TestLazyFlagContainer:
         """LazyFlagContainer should be truthy (not None)."""
         c = LazyFlagContainer(1)
         assert c is not None
+
+
+class TestLazyFlagCleanup:
+    """Tests for temporary file cleanup (issue #1089)."""
+
+    def test_to_dense_memmap_cleanup(self):
+        """Temp files created by to_dense() are removed by cleanup()."""
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        arr.or_rows([0], np.ones(100, dtype=bool))
+        dense = arr.to_dense()
+        assert isinstance(dense, np.memmap)
+        assert len(arr._tempfiles) == 1
+        path = arr._tempfiles[0]
+        assert os.path.exists(path)
+        # Release the memmap reference (required on Windows before unlink)
+        del dense
+        arr.cleanup()
+        assert not os.path.exists(path)
+        assert len(arr._tempfiles) == 0
+
+    def test_del_cleans_up_tempfiles(self):
+        """Temp files are removed when the object is deleted."""
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        dense = arr.to_dense()
+        path = arr._tempfiles[0]
+        assert os.path.exists(path)
+        del dense
+        del arr
+        assert not os.path.exists(path)
+
+    def test_cleanup_idempotent(self):
+        """Calling cleanup() multiple times is safe."""
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        dense = arr.to_dense()
+        del dense
+        arr.cleanup()
+        arr.cleanup()  # should not raise
+
+    def test_low_disk_warning(self, caplog, monkeypatch):
+        """A warning is logged when tempdir free space < estimated_bytes."""
+        import shutil as _shutil
+        from collections import namedtuple
+
+        Usage = namedtuple("Usage", ["total", "used", "free"])
+        monkeypatch.setattr(_shutil, "disk_usage", lambda _p: Usage(100, 100, 0))
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        with caplog.at_level("WARNING", logger="dysh"):
+            dense = arr.to_dense()
+        del dense
+        arr.cleanup()
+        assert any("free in" in rec.message and "memmap" in rec.message for rec in caplog.records)
+
+    def test_to_dense_uses_dysh_scratch(self, tmp_path, monkeypatch):
+        """to_dense() places its temp file under $DYSH_SCRATCH when set."""
+        monkeypatch.setenv("DYSH_SCRATCH", str(tmp_path))
+        monkeypatch.setattr(tempfile, "tempdir", None)
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        dense = arr.to_dense()
+        try:
+            assert os.path.dirname(arr._tempfiles[0]) == str(tmp_path)
+        finally:
+            del dense
+            arr.cleanup()
+
+    def test_to_dense_uses_tmpdir_env(self, tmp_path, monkeypatch):
+        """to_dense() places its temp file under $TMPDIR when DYSH_SCRATCH is unset."""
+        monkeypatch.delenv("DYSH_SCRATCH", raising=False)
+        monkeypatch.setenv("TMPDIR", str(tmp_path))
+        monkeypatch.setattr(tempfile, "tempdir", None)
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        dense = arr.to_dense()
+        try:
+            assert os.path.dirname(arr._tempfiles[0]) == str(tmp_path)
+        finally:
+            del dense
+            arr.cleanup()
+
+    def test_dysh_scratch_takes_precedence_over_tmpdir(self, tmp_path, monkeypatch):
+        """DYSH_SCRATCH wins over TMPDIR when both are set."""
+        scratch_dir = tmp_path / "scratch"
+        scratch_dir.mkdir()
+        other_dir = tmp_path / "other"
+        other_dir.mkdir()
+        monkeypatch.setenv("DYSH_SCRATCH", str(scratch_dir))
+        monkeypatch.setenv("TMPDIR", str(other_dir))
+        monkeypatch.setattr(tempfile, "tempdir", None)
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        dense = arr.to_dense()
+        try:
+            assert os.path.dirname(arr._tempfiles[0]) == str(scratch_dir)
+        finally:
+            del dense
+            arr.cleanup()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Windows does not release the memmap's file handle synchronously on refcount drop",
+    )
+    def test_to_dense_finalize_cleans_up_without_explicit_cleanup(self):
+        """The weakref.finalize tied to the dense array removes the temp file on its own,
+        without calling arr.cleanup() or deleting arr."""
+        arr = LazyFlagArray(10, 100, memmap_threshold=0)
+        dense = arr.to_dense()
+        path = arr._tempfiles[0]
+        assert os.path.exists(path)
+        del dense
+        gc.collect()
+        assert not os.path.exists(path)
+        assert arr is not None  # keep arr alive past the assertion above

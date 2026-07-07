@@ -6,7 +6,12 @@ For a 77GB file (~1.2M rows x 16384 channels), this reduces flag memory
 from ~40GB to a few MB (proportional to flagged rows only).
 """
 
+import atexit
+import gc
+import os
+import shutil
 import tempfile
+import weakref
 
 import numpy as np
 from astropy.io import fits
@@ -71,6 +76,44 @@ class LazyFlagArray:
         # Deduplicated mask pool: bytes(mask) -> mask array.
         # Multiple rows can reference the same mask object when patterns repeat.
         self._mask_pool = {}
+        # Track temp files created by to_dense() for cleanup
+        self._tempfiles = []
+        # Register atexit cleanup via weak reference so we don't prevent GC
+        weak_self = weakref.ref(self)
+        atexit.register(LazyFlagArray._atexit_cleanup, weak_self)
+
+    def cleanup(self):
+        """Remove all temporary memmap files created by to_dense().
+
+        On Windows, a file backing an open memmap cannot be deleted, so we
+        force a GC pass to release any memmaps that are only held by
+        finalizer-tracked references before attempting removal.
+        """
+        if not self._tempfiles:
+            return
+        gc.collect()
+        remaining = []
+        for path in self._tempfiles:
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                remaining.append(path)
+        self._tempfiles = remaining
+
+    def __del__(self):
+        try:
+            self.cleanup()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _atexit_cleanup(weak_self):
+        """Atexit handler that cleans up temp files if the object still exists."""
+        self = weak_self()
+        if self is not None:
+            self.cleanup()
 
     @property
     def shape(self):
@@ -327,9 +370,31 @@ class LazyFlagArray:
         use_memmap = estimated_bytes > self._memmap_threshold
 
         if use_memmap:
-            logger.info(f"LazyFlagArray.to_dense: using memmap for {estimated_bytes / 1024**3:.1f} GB array")
+            logger.debug(f"LazyFlagArray.to_dense: using memmap for {estimated_bytes / 1024**3:.1f} GB array")
+            # Look for a scratch dir so as not to fill up small /tmp filesystems.
+            # We put this inside to_dense instead of in the constructor to allow user to
+            # change environment variable during a dysh session.
+            # Note: With astropy >= 8.0, astropy.config.temporary_cache_dir() may be useful here
+            if (_tmpdir := os.getenv("DYSH_SCRATCH")) is not None:
+                # XDG_CACHE_HOME will be ignored because astropy steals it. So don't even try.
+                #    _tmpdir = os.getenv("XDG_CACHE_HOME")
+                # if _tmpdir is not None:
+                tempfile.tempdir = _tmpdir
+            tmpdir = tempfile.gettempdir()
+            logger.debug(f"LazyFlagArray.to_dense: Using temporary file directory {tmpdir}")
+            try:
+                free_bytes = shutil.disk_usage(tmpdir).free
+            except OSError:
+                free_bytes = None
+            if free_bytes is not None and free_bytes < estimated_bytes:
+                logger.warning(
+                    f"LazyFlagArray.to_dense: only {free_bytes / 1024**3:.1f} GB free in {tmpdir}, "
+                    f"but need {estimated_bytes / 1024**3:.1f} GB for memmap; "
+                    f"creation may fail or exhaust disk"
+                )
             tmpfile = tempfile.NamedTemporaryFile(suffix=".flags", delete=False)
             tmpfile.close()
+            self._tempfiles.append(tmpfile.name)
             result = np.memmap(tmpfile.name, dtype=bool, mode="w+", shape=(self._nrows, self._nchan))
         else:
             result = np.zeros((self._nrows, self._nchan), dtype=bool)
@@ -349,7 +414,9 @@ class LazyFlagArray:
         # Apply sparse overlay
         for row_idx, row_mask in self._modified.items():
             result[row_idx] |= row_mask
-
+        # make weakref finalizer so that temporary dense arrays are removed from the filesystem when
+        # there are no longer any strong references.
+        self._mmap_ref = weakref.finalize(result, self.cleanup)
         return result
 
     def rows_as_uint8(self, rows):

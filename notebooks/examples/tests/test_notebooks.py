@@ -9,9 +9,14 @@ from nbclient import NotebookClient
 NOTEBOOK_DIR = Path("notebooks/examples/")
 NOTEBOOK_FILES = list(NOTEBOOK_DIR.glob("*.ipynb"))
 ALLOWED_ERROR_NAMES = [
-    "requests.exceptions.ReadTimeout",
-    "requests.exceptions.HTTPError",
-    "requests.exceptions.ConnectTimeout",
+    "ConnectionError",
+    "ConnectTimeout",
+    "HTTPError",
+    "ReadTimeout",
+    # NameError cascades from network failures: when a cell that makes a
+    # network call is allowed to fail, subsequent cells that reference its
+    # output variable will raise NameError.
+    "NameError",
 ]
 
 

@@ -5,6 +5,7 @@ import astropy.units as u
 import numpy as np
 import pytest
 from astropy.io import fits
+from astropy.time import Time
 
 from dysh.coordinates import Observatory
 from dysh.fits.gbtfitsload import GBTFITSLoad
@@ -263,14 +264,12 @@ class TestSpectrum:
     def test_history_and_comments(self):
         s = self.ps1
         s.baseline(2, remove=True)
-        print(s.comments)
         s.add_comment("I removed a baseline")
         # This tests that the baseline command self-logged to history
         # AND that order is preserved because
         # the baseline history should be the last entry
         # print(s.history)
         assert "baseline(2,remove=True,)" in s.history[-1]
-        print(s.comments)
         assert "I removed a baseline" in s.comments
 
     def test_slice(self, tmp_path):
@@ -543,10 +542,13 @@ class TestSpectrum:
         assert f1.mask.sum() == 100
         f2 = f1.smooth("box", 11)
         assert f2.mask.sum() == 10
+        assert f1.mask.sum() == 100
         f3 = f1.smooth("gaussian", 11)
-        assert f3.mask.sum() == 14
+        assert f3.mask.sum() == 12
+        assert f1.mask.sum() == 100
         f4 = f1.smooth("hanning", 11)
-        assert f4.mask.sum() == 14
+        assert f4.mask.sum() == 10
+        assert f1.mask.sum() == 100
 
     def test_smooth_nodecimate(self):
         """Test for smooth without decimation."""
@@ -558,6 +560,11 @@ class TestSpectrum:
         assert ss.meta["NAXIS1"] == len(ss.data)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(width / abs(decimate))
+
+        f1 = Spectrum.fake_spectrum()
+        f1.mask[100:200] = True
+        _ = f1.smooth("box", width, decimate)
+        assert f1.mask.sum() == 100
 
     def test_smooth_multi(self):
         """Test for multiple passes of smooth."""
@@ -951,6 +958,43 @@ class TestSpectrum:
         )
         assert s.meta["RADESYS"] == meta["RADECSYS"]
 
+    def test_mjd_obs_from_date_obs(self):
+        """Test that MJD-OBS is computed from DATE-OBS when not already present."""
+        meta = {
+            "CTYPE4": "Stokes",
+            "CTYPE3": "DEC",
+            "CTYPE2": "RA",
+            "CTYPE1": "FREQ-OBS",
+            "EQUINOX": 2000.0,
+            "VELOCITY": 0.0,
+            "CUNIT1": "Hz",
+            "CUNIT2": "deg",
+            "CUNIT3": "deg",
+            "CRVAL1": 1e9,
+            "CDELT1": 0.1e9,
+            "CRPIX1": 1,
+            "CRVAL2": 121.0,
+            "CRVAL3": 15.0,
+            "CRVAL4": -1,
+            "RADECSYS": "FK5",
+            "VELDEF": "OPTI-HEL",
+            "DATE-OBS": "2021-02-10T07:38:37.50",
+            "RESTFRQ": 1e9,
+        }
+        s = Spectrum.make_spectrum(
+            data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+        )
+        assert "MJD-OBS" in s.meta
+        expected_mjd = Time("2021-02-10T07:38:37.50").mjd
+        assert s.meta["MJD-OBS"] == expected_mjd
+
+        # When MJD-OBS is already present, it should not be overwritten.
+        meta["MJD-OBS"] = 59999.0
+        s2 = Spectrum.make_spectrum(
+            data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+        )
+        assert s2.meta["MJD-OBS"] == 59999.0
+
     def test_get_selected_regions(self):
         """
         * Test that get selected regions raises TypeError if no plotter is found.
@@ -1194,8 +1238,9 @@ class TestSpectrum:
         assert len(tr) == 15
         freq = np.array(
             [
-                1418.1976,
-                1419.1013,
+                1416.8873,
+                1424.617,
+                1424.617,
                 1414.898,
                 1415.462,
                 1416.725,
@@ -1205,17 +1250,17 @@ class TestSpectrum:
                 1423.215,
                 1423.215,
                 1425.106,
-                1416.8873,
-                1424.617,
-                1424.617,
+                1418.1976,
+                1419.1013,
                 1430.3802,
             ]
         )
         assert np.all(np.isclose(tr["rest_frequency"].data - freq, 0, atol=1e-7))
         freq = np.array(
             [
-                1400.33723724,
-                1401.2295563,
+                1399.04343877,
+                1406.6757932,
+                1406.6757932,
                 1397.07919143,
                 1397.63608858,
                 1398.88318273,
@@ -1225,9 +1270,8 @@ class TestSpectrum:
                 1405.29144958,
                 1405.29144958,
                 1407.15863488,
-                1399.04343877,
-                1406.6757932,
-                1406.6757932,
+                1400.33723724,
+                1401.2295563,
                 1412.36641316,
             ]
         )
@@ -1257,3 +1301,38 @@ class TestSpectrum:
             s.append(q)
         x = average_spectra(s, weights="spectral")
         assert np.all(x.weights == np.sum(np.arange(nspec + 1)))
+
+    def test_header(self, capsys):
+        expected = """--------------------------------------------------------------------------------\nProj: TGBT21A_501_11  Src : NGC2415                          Obs : A. Dysh User\n\nScan :        152   RADec :  07 36 57.31 +35 14 35.3     Fsky  :   1.402545 GHz\nInt  :        N/A   Eqnx  :  2000.0                      Frest :   1.420406 GHz\nPol  :         YY   V     :  3784.0  OPTI-HEL            BW    :     23.438 MHz\nIF   :          0   AzEl  : 285.951   42.101             delF  :      0.715 kHz\nFeed :          0   Gal   : 184.136  23.987              Exp   :       44.9   s\nProc :      OnOff   UT    :  07:38:37  2021-02-10        Tcal  :       1.46   K\nSeqn :          1   LST/HA:  11 41 41.9      4.08        Tsys  :      17.93   K\n--------------------------------------------------------------------------------\n"""
+        s = Spectrum.fake_spectrum()
+        s.header()
+        captured = capsys.readouterr()
+        assert captured.out == expected
+
+    def test_set_spectral_axis(self):
+        """
+        Test that the spectral_axis is updated.
+        """
+
+        sp = Spectrum.fake_spectrum()
+        sp.set_spectral_axis(toframe="galactocentric")
+        assert sp.observer.name == "galactocentric"
+        # Try all three options in case the defaults change.
+        if sp.doppler_convention != "radio":
+            expected = "radio"
+        elif sp.doppler_convention != "optical":
+            expected = "optical"
+        else:
+            expected = "relativistic"
+        sp.set_spectral_axis(doppler_convention=expected)
+        assert sp.doppler_convention == expected
+        sp.set_spectral_axis(unit="km/s")
+        assert sp.spectral_axis.unit.to_string() == "km / s"
+
+    def test_with_spectral_axis_unit(self):
+        # Test that the argument names have not changed in the parent method
+        # used by Spectrum.with_spectral_axis_unit.
+        s1 = Spectrum.fake_spectrum()
+        _ = s1.with_spectral_axis_unit("km/s", doppler_convention="optical", toframe="galactocentric")
+        _ = s1.with_spectral_axis_unit("km/s", doppler_convention="optical")
+        _ = s1.with_spectral_axis_unit("km/s", toframe="galactocentric")

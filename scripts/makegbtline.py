@@ -50,7 +50,7 @@ redshift_lines = [
 redshift_recomb_lines = ["Recombination"]
 
 args = parser.parse_args()
-lowfreq = 289 * u.MHz
+lowfreq = 200 * u.MHz  # Accomodate the 310 Rx that goes down to 230 MHz
 maxfreq = 120 * u.GHz
 
 if args.line is None and args.recomb is None:

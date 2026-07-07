@@ -35,9 +35,11 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     astropy_convenience_frame_names,
     astropy_frame_dict,
     change_veldef,
+    crval4_to_pol,
     frame_to_label,
     get_velocity_in_frame,
     make_target,
+    ra2ha,
     replace_convention,
     sanitize_skycoord,
     veldef_to_convention,
@@ -50,6 +52,7 @@ from ..util import (
     docstring_parameter,
     minimum_string_match,
 )
+from ..util.core import coord_formatter, time_formatter, utc_formatter
 from ..util.docstring_manip import copy_docstring
 from . import (
     FWHM_TO_STDDEV,
@@ -124,6 +127,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._obstime = Time(self.meta["MJD-OBS"])
         else:
             self._obstime = None
+        if self._obstime is not None and "MJD-OBS" not in self.meta:
+            self.meta["MJD-OBS"] = self._obstime.mjd
         self._spectral_axis._observer = self.observer
         if self._spectral_axis._observer is not None:
             self._velocity_frame = self._spectral_axis._observer.name
@@ -138,6 +143,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self._exclude_regions = None
         self._include_regions = None  # do we really need this?
         self._plotter = None
+        self.regions = None
         # `self._resolution` is the spectral resolution in channels.
         # This will be 1 for VEGAS, and >1 for the ACS.
         if "FREQRES" in self.meta and "CDELT1" in self.meta:
@@ -161,6 +167,92 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         return self.meta.get(prop, None)
+
+    def header(self):
+        """
+        Prints header information about the spectrum, including sky coordinates, frequency information, and states.
+        RA/Dec coordinates are given in HH:MM:SS, DD:MM:SS; V is given in km/s;
+        Az/El and Galactic coordinates are in decimal degrees; UT is given in YYYY_MM_DD HH:MM:SS;
+        LST is in HH:MM:SS, and HA is in decimal hours.
+        """
+        m = self.meta
+        out = "-" * 80 + "\n"
+
+        proj = m.get("PROJID", "N/A")
+        obs = m.get("OBSERVER", "N/A")
+        src_pad = 45 - len(obs)  # amt of chars of src we can afford to print
+        src = m.get("OBJECT", "N/A")[:src_pad]
+
+        col1 = f"Proj: {proj:<16}"
+        col2 = f"Src : {src:<{src_pad}}"
+        col3 = f"Obs : {obs}"
+        out += f"{col1:<22}{col2}{col3:>{len(obs) + 5}}\n\n"
+
+        RA, DEC = coord_formatter(self)
+
+        c1_pad = 20
+        c1_subpad = 10
+        c2_pad = 37
+        c3_pad = 9
+
+        # row 2
+        fsky = f"{m.get('OBSFREQ') / 1e9:10.6f}"
+        col1 = f"Scan : {m.get('SCAN'):>{c1_subpad}}"
+        col2 = f"RADec :  {RA} {DEC}"
+        col3 = f"Fsky  : {fsky:>{c3_pad}} GHz"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
+
+        # row 3
+        frest = f"{m.get('RESTFRQ') / 1e9:10.6f}"
+        col1 = "Int  :        N/A   "
+        col2 = f"Eqnx  :  {m.get('EQUINOX')}"
+        col3 = f"Frest : {frest:>{c3_pad}} GHz"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
+
+        # row 4
+        velo = f"{m.get('VELOCITY') / 1e3:<8.1f}"
+        bw = f"{m.get('BANDWID') / 1e6:10.3f}"
+        col1 = f"Pol  : {crval4_to_pol[m.get('CRVAL4')]:>{c1_subpad}}"
+        col2 = f"V     :  {velo}{m.get('VELDEF'):>8}"
+        col3 = f"BW    : {bw:>{c3_pad}} MHz"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
+
+        # row 5
+        az = f"{m.get('AZIMUTH'):7.3f}"
+        el = f"{m.get('ELEVATIO'):7.3f}"
+        delf = f"{np.abs(m.get('CDELT1')) / 1e3:10.3f}"
+        col1 = f"IF   : {m.get('IFNUM'):>{c1_subpad}}"
+        col2 = f"AzEl  : {az}  {el}"
+        col3 = f"delF  : {delf:>{c3_pad}} kHz"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
+
+        # row 6
+        glon, glat = coord_formatter(self, "galactic", fmt="decimal")
+        exp = f"{m.get('EXPOSURE'):10.1f}"
+        col1 = f"Feed : {m.get('FDNUM'):>{c1_subpad}}"
+        col2 = f"Gal   : {glon}  {glat}"
+        col3 = f"Exp   : {exp:>{c3_pad}}   s"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
+
+        # row 7
+        tcal = f"{m.get('TCAL'):10.2f}"
+        utc = utc_formatter(m.get("TIMESTAMP"))
+        col1 = f"Proc : {m.get('PROC')[:9]:>{c1_subpad}}"
+        col2 = f"UT    :  {utc}"
+        col3 = f"Tcal  : {tcal:>{c3_pad}}   K"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
+
+        # row 8
+        lst = time_formatter(m.get("LST"))
+        ha = ra2ha(m.get("LST"), m.get("CRVAL2"))
+        tsys = f"{m.get('TSYS'):10.2f}"
+        col1 = f"Seqn : {m.get('PROCSEQN'):>{c1_subpad}}"
+        col2 = f"LST/HA:  {lst}      {ha}"
+        col3 = f"Tsys  : {tsys:>{c3_pad}}   K"
+        out += f"{col1:<{c1_pad}}{col2:<{c2_pad}}{col3}\n"
+
+        out += "-" * 80
+        print(out)
 
     @property
     def nchan(self) -> int:
@@ -195,7 +287,19 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return Masked(self.data * self.unit, mask=self.mask).filled(np.nan)
 
     @log_call_to_history
-    def baseline(self, degree, exclude=None, include=None, color="k", **kwargs):
+    def baseline(
+        self,
+        degree,
+        exclude=None,
+        include=None,
+        remove=False,
+        model="chebyshev",
+        fitter=None,
+        exclude_region_upper_bounds=True,
+        clip_exclude=True,
+        exclude_action="replace",
+        color="k",
+    ):
         # fmt: off
         """
         Compute and optionally remove a baseline.
@@ -227,40 +331,55 @@ class Spectrum(Spectrum1D, HistoricalBase):
         include : list of 2-tuples of int or `~astropy.units.quantity.Quantity`, or `~specutils.SpectralRegion`
             List of region(s) to include in the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
             See `exclude` for examples.
-        color : str
-            The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
-        model : {'chebyshev', 'polynomial', 'legendre', 'hermite'}
-            Model to describe the baseline.
-            Default: 'chebyshev'
+        model : str
+            Model to describe the baseline. One of 'chebyshev', 'hermite', 'legendre', 'polynomial'.  Default: 'chebyshev'
         fitter : `~astropy.modeling.fitting.Fitter`
             The fitter to use. Default: `~astropy.modeling.fitting.LinearLSQFitter` (with `calc_uncertaintes=True`).
             Be careful when choosing a different fitter to be sure it is optimized for this problem.
         remove : bool
             If True, the baseline is removed from the spectrum.
             If False, the baseline will be computed and overlaid on the spectrum. Default: False
+        exclude_region_upper_bounds : bool
+            Makes the upper bound of any excision region(s) inclusive.
+            Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
+        clip_exclude : bool
+            Whether to clip the exclude or include regions when they extend outside the `spectrum.spectral_axis`.
+        exclude_action : str
+            How to combine the input exclude region with any existing exclude regions in the input `Spectrum`. Options are
+
+                - "replace" : replace the `Spectrum.exclude_regions` list with the input region
+                - "append"  : append the input region to the `Spectrum.exclude_regions` list.
+                - None      : Use the the input region, but do not change the existing `Spectrum.exclude_regions`
+
+            Default: "replace"
+        color : str
+            The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
+
         """
         # fmt: on
-        # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
-        kwargs_opts = {
-            "remove": False,
-            "model": "chebyshev",
-            "fitter": LinearLSQFitter(calc_uncertainties=True),
-        }
-        kwargs_opts.update(kwargs)
-
+        if fitter is None:
+            fitter = LinearLSQFitter(calc_uncertainties=True)
         # `include` and `exclude` are mutually exclusive, but we allow `include`
         # if `include` is used, transform it to `exclude`.
         if include is not None:
             if exclude is not None:
                 logger.warning(f"Warning: ignoring exclude={exclude}")
             exclude = core.include_to_exclude_spectral_region(include, self)
-        self._baseline_model = baseline(self, degree, exclude, **kwargs)
-        if kwargs_opts["remove"]:
+        self._baseline_model = baseline(
+            self,
+            order=degree,
+            exclude=exclude,
+            fitter=fitter,
+            model=model,
+            exclude_action=exclude_action,
+            clip_exclude=clip_exclude,
+        )
+        if remove:
             s = self.subtract(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._subtracted = True
         if self._plotter is not None:
-            if kwargs_opts["remove"]:
+            if remove:
                 self._plotter.set_ydata(self.flux, keep_unit=False)
                 self._plotter.clear_overlays(blines=True, oshows=False, catalog=False)
             else:
@@ -310,7 +429,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self._plotter.plot(**kwargs)
         return self._plotter
 
-    def get_selected_regions(self, unit=None):
+    def get_selected_regions(self, unit=None, ignore_incomplete=True):
         """Get selected regions from plot."""
         if self._plotter is None:
             raise TypeError("No plotter attached to spectrum. Use Spectrum.plot() first.")
@@ -330,6 +449,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             regions = exclude_to_spectral_region(regions, self)
             regions = spectral_region_to_unit(regions, self, unit=unit, append_doppler=True)
             regions = spectral_region_to_list_of_tuples(regions)
+
+        self.regions = regions
 
         return regions
 
@@ -976,8 +1097,78 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self.meta["RESTFREQ"] = value.to("Hz").value
         self.meta["RESTFRQ"] = value.to("Hz").value
 
+    def with_spectral_axis_unit(self, *args, **kwargs):
+        """
+        Returns a new spectrum with a different spectral axis unit. Note that this creates a new
+        object using the converted spectral axis and thus drops the original WCS, if it existed,
+        replacing it with a lookup-table :class:`~gwcs.wcs.WCS` based on the new spectral axis. The
+        original WCS will be stored in the ``original_wcs`` entry of the new object's ``meta``
+        dictionary.
+
+        Parameters
+        ----------
+        unit : :class:`~astropy.units.Unit`
+            Any valid spectral unit: velocity, (wave)length, or frequency.
+            Only vacuum units are supported.
+        doppler_convention : {None, 'relativistic', 'radio', 'optical'}
+            The Doppler convention to use for the output velocity axis.
+            Required if the output type is velocity. This can be either one
+            of the above strings, or an `astropy.units` equivalency.
+        rest_value : :class:`~astropy.units.Quantity`
+            A rest wavelength or frequency with appropriate units.  Required if
+            output type is velocity.  The spectrum's WCS should include this
+            already if the *input* type is velocity, but the WCS's rest
+            wavelength/frequency can be overridden with this parameter.
+
+            .. note: This must be the rest frequency/wavelength *in vacuum*,
+                     even if your spectrum has air wavelength units
+
+        """
+        # The docstring should be kept up to date.
+        # Keep docstring empty to re-use the one from specutils.
+        # Keeping the specutils doc introduces yet another name
+        # for what we call `doppler_convention`, `velocity_convention`.
+        # This is a source of frustration...
+        # Rename kwargs to match specutils signature.
+        # Shame on specutils for not using the astropy convention.
+        rename_dict = {"doppler_convention": "velocity_convention"}
+        new_kwargs = {rename_dict[key]: value for key, value in kwargs.items() if key in rename_dict}
+        spec = super().with_spectral_axis_unit(*args, **new_kwargs)
+        # Copy observer and target to support further frame conversions.
+        # See issue #1119.
+        spec._observer = self.observer.copy()
+        spec._spectral_axis.observer = self.spectral_axis.observer.copy()
+        spec._target = self.target.copy()
+        spec._spectral_axis.target = self.spectral_axis.target.copy()
+        return spec
+
+    def set_spectral_axis(self, unit=None, toframe=None, doppler_convention=None) -> None:
+        """
+        Modifies the spectral axis to have units of `unit` in reference frame `toframe`
+        using Doppler convention `doppler_convention`. This changes the `Spectrum`.
+
+        Parameters
+        ----------
+        unit : `~astropy.units.quantity.Quantity` or str that can be converted to Quantity
+            The unit to which the axis is to be converted.
+        toframe : str
+            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
+        doppler_convention : {None, 'relativistic', 'radio', 'optical'}
+            The Doppler convention to use when converting to velocity.
+            One of 'optical', 'radio', or 'relativistic'.
+        """
+        if unit is None and toframe is not None:
+            self.set_frame(toframe)
+        if unit is None and doppler_convention is not None:
+            self.set_convention(doppler_convention)
+        if unit is not None:
+            sa = self.velocity_axis_to(unit=unit, toframe=toframe, doppler_convention=doppler_convention)
+            self._spectral_axis = sa
+
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
+
+        .. note: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
         *Note*: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
 
         Parameters
@@ -995,6 +1186,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         Convert the spectral axis to `unit` in `toframe` using `doppler_convention`
         if converting from frequency/wavelength to velocity.
+        This returns a new `
 
         Parameters
         ----------
@@ -1002,23 +1194,26 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The unit to which the spectral axis is to be converted.
         toframe : str
             The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
-        doppler_convention : None or {'optical', 'radio', 'relativistic'}
+        doppler_convention : {None, 'relativistic', 'radio', 'optical'}
             The Doppler convention to use when converting to velocity.
             One of 'optical', 'radio', or 'relativistic'.
 
         Returns
         -------
-        velocity : `~astropy.units.quantity.Quantity`
+        spectral_axis : `~astropy.units.quantity.Quantity`
             The converted spectral axis in units of `unit`.
         """
         if toframe is not None and toframe != self.velocity_frame:
             s = self.with_frame(toframe)
         else:
             s = self
+
+        # Handle channels as a unit.
         if isinstance(unit, str) and "ch" in unit.lower():
             return self.spectral_axis.replicate(np.arange(len(self.data)), unit=u.pix)
         elif isinstance(unit, u.UnitBase) and unit.physical_type in ["dimensionless", "unknown"]:
             return self.spectral_axis.replicate(np.arange(len(self.data)), unit=u.pix)
+
         if doppler_convention is not None:
             return s._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
         else:

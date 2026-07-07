@@ -7,6 +7,8 @@ import os
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
+from dysh.log import logger
+
 from ..util.core import in_notebook
 from .basegui import BaseGUI
 
@@ -91,7 +93,30 @@ class ShellGUI(BaseGUI):
     def is_window_alive(self):
         return bool(self.root.winfo_exists())
 
-    def show(self):
+    def show(self, block=False):
+        """
+        Mock show method.
+        This won't do anything unless `block=True` and there is an active plot window.
+
+        Parameters
+        ----------
+        block : bool
+            Block execution while the window remains open.
+
+        Examples
+        --------
+        A script that lets the user interact with a plot.
+
+        >>> from dysh.spectra import Spectrum
+        >>> s = Spectrum.fake_spectrum()
+        >>> p = s.plot()
+        >>> p.show(block=True) # The script will halt until the window is closed.
+        """
+        if block:
+            if self.is_window_alive():
+                self.root.mainloop()
+            else:
+                logger.info("No plotter window. Start a window with .plot()")
         return
 
     def _dropdown_xunit(self, event=None, plotbase=None):

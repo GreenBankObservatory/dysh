@@ -194,7 +194,7 @@ def sort_spectral_region_subregions(spectral_region):
 
 def invert_spectral_region(sr, refspec):
     """
-    Invert an spectral region. The spectral region is sorted and the ranges has been merged previously.
+    Invert an spectral region. The spectral region, `sr`, must have been sorted and its ranges merged.
 
     Parameters
     ----------
@@ -208,8 +208,10 @@ def invert_spectral_region(sr, refspec):
     `~specutils.SpectralRegion`
         Inverted spectral region.
     """
-    bl = refspec.spectral_axis.to(sr.bounds[0].unit, equivalencies=refspec.equivalencies).quantity.min()
-    bu = refspec.spectral_axis.to(sr.bounds[0].unit, equivalencies=refspec.equivalencies).quantity.max()
+    u_tgt = sr.bounds[0].unit
+    sa_in_tgt_u = refspec.spectral_axis.to(u_tgt, equivalencies=refspec.equivalencies).quantity
+    bl = sa_in_tgt_u.min()
+    bu = sa_in_tgt_u.max()
     sr._reorder()
     ll = [bl, *list(sum(sr._subregions, ())), bu]
     return exclude_to_spectral_region(list(grouper(ll, 2)), refspec)
@@ -314,11 +316,23 @@ def exclude_to_spectral_region(exclude, refspec):
             sr = SpectralRegion(exclude)
             # The above will error if the elements are not quantities.
             # In that case use the spectral axis to define the exclusion regions.
-        except ValueError:
+        except ValueError as exc:
             # Make sure all the channels are within bounds.
             exclude = np.array(exclude, dtype=int)
             exclude[exclude >= len(sa)] = len(sa) - 1
+            # Remove empty regions (lower bound == upper bound).
+            exclude = exclude[~(np.diff(exclude, axis=1) == 0)[:, 0]]
+            if len(exclude) == 0:
+                raise ValueError(f"Region selection is empty (nchan={len(sa)}).") from exc
             sr = SpectralRegion(sa.quantity[exclude])
+
+    # Take care of units.
+    # Spectral region does not support mixed units in SpectralRegion,
+    # and astropy does not return the correct value if, e.g., one converts
+    # 1 Hz to GHz -- the last digit gets rounded which means one channel can be
+    # included/excluded when it shouldn't. See issue #1017.
+    tgt_u = sa.unit
+    sr = spectral_region_to_unit(sr, refspec, unit=tgt_u, append_doppler=True)
 
     return sr
 
@@ -491,7 +505,6 @@ def exclude_to_region_list(exclude, spectrum, clip_exclude=True):
     """
 
     spectral_region = exclude_to_spectral_region(exclude, spectrum)
-    spectral_region = spectral_region_to_unit(spectral_region, spectrum)
     sort_spectral_region_subregions(spectral_region)
     if clip_exclude:
         clip_spectral_region_subregions(spectral_region, spectrum)
@@ -516,7 +529,16 @@ def clip_spectral_region_subregions(spectral_region, spectrum):
             spectral_region._subregions[i] = (s[0], sa_max)
 
 
-def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
+def baseline(
+    spectrum,
+    order,
+    exclude=None,
+    model="chebyshev",
+    fitter=None,
+    exclude_region_upper_bounds=True,
+    clip_exclude=True,
+    exclude_action="replace",
+):
     """Fit a baseline to `spectrum`.
     The code uses `~astropy.modeling.fitting.Fitter` and `~astropy.modeling.polynomial` to compute the baseline.
     See the documentation for those modules for details.
@@ -550,7 +572,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         Default: no exclude region
 
     model : str
-        One of 'polynomial' or 'chebyshev', Default: 'polynomial'
+        One of 'chebyshev', 'hermite', 'legendre', 'polynomial'.  Default: 'chebyshev'
     fitter : `~astropy.modeling.fitting.Fitter`
         The fitter to use. Default: `~astropy.modeling.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
         Be careful when choosing a different fitter to be sure it is optimized for this problem.
@@ -559,6 +581,14 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
     clip_exclude : bool
         Whether to clip the exclude or include regions when they extend outside the `spectrum.spectral_axis`.
+    exclude_action : str
+        How to combine the input exclude region with any existing exclude regions in the input `Spectrum`. Options are
+
+            - "replace" : replace the `Spectrum` exclude regions with the input region
+            - "append"  : append the input region to the `Spectrum` exclude region list.
+            - None      : Use the the input region, but do not change the existing `Spectrum.exclude_regions`
+
+        Default: "replace"
 
     Returns
     -------
@@ -566,13 +596,6 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         Best fit model.
         See `~specutils.fitting.fit_continuum`.
     """
-    kwargs_opts = {
-        "model": "chebyshev",
-        "fitter": LinearLSQFitter(calc_uncertainties=True),
-        "clip_exclude": True,
-        "exclude_action": "replace",
-    }
-    kwargs_opts.update(kwargs)
 
     available_models = {
         "chebyshev": Chebyshev1D,
@@ -580,36 +603,38 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         "legendre": Legendre1D,
         "polynomial": Polynomial1D,
     }
-    model = minimum_string_match(kwargs_opts["model"], list(available_models.keys()))
+    model = minimum_string_match(model, list(available_models.keys()))
     if model is None:
-        raise ValueError(f"Unrecognized input model {kwargs['model']}. Must be one of {list(available_models.keys())}")
+        raise ValueError(f"Unrecognized input model {model}. Must be one of {list(available_models.keys())}")
+    if fitter is None:
+        fitter = LinearLSQFitter(calc_uncertainties=True)
     sa_min = spectrum.spectral_axis.min().value
     sa_max = spectrum.spectral_axis.max().value
     selected_model = available_models[model](degree=order, domain=(sa_max, sa_min))
 
     _valid_exclude_actions = ["replace", "append", None]
-    if kwargs_opts["exclude_action"] not in _valid_exclude_actions:
+    if exclude_action not in _valid_exclude_actions:
         raise ValueError(
-            f"Unrecognized exclude region action {kwargs['exclude_region']}. Must be one of {_valid_exclude_actions}"
+            f"Unrecognized exclude region action {exclude_action}. Must be one of {_valid_exclude_actions}"
         )
-    fitter = kwargs_opts["fitter"]
     p = spectrum
     if np.isnan(p.data).all():
         # @todo handle masks
         return None  # or raise exception
     if exclude is not None:
-        regionlist = exclude_to_region_list(exclude, spectrum, clip_exclude=kwargs_opts["clip_exclude"])
-        if kwargs_opts["exclude_action"] == "replace":
+        regionlist = exclude_to_region_list(exclude, spectrum, clip_exclude=clip_exclude)
+        if exclude_action == "replace":
             p._exclude_regions = regionlist
-        elif kwargs_opts["exclude_action"] == "append":
+        elif exclude_action == "append":
             p._exclude_regions.extend(regionlist)
             regionlist = p._exclude_regions
+        # if exclude is None, we do not touch the existing Spectrum.exclude_regions`
     else:
         # use the spectrum's preset exclude regions if they
         # exist (they will be a list of SpectralRegions or None)
         regionlist = p._exclude_regions
 
-    logger.info(f"EXCLUDING {regionlist}")
+    logger.debug(f"EXCLUDING {regionlist}")
 
     fitted_model = fit_continuum(
         spectrum=p,
@@ -1095,7 +1120,7 @@ def smooth(
     # 4. We create an input mask if the data do not have one and we ensure input NaNs that are smoothed to output Nans get masked.
     # 5. We then mask any NaN on output by modifying the input mask
     if hasattr(data, "mask"):
-        mask = data.mask
+        mask = data.mask.copy()  # Make a copy to avoid modifying the original mask.
     else:
         mask = np.full(data.shape, False)
 

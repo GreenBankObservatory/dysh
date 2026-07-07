@@ -77,7 +77,7 @@ Reference Guides
         :shadow: md
         :margin: 2 2 0 0
 
-        :octicon:`file;3em;green` **SDMATH**
+        **SDMATH**
 
         Single Dish math
 

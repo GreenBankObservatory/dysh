@@ -16,6 +16,8 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
 sys.path.insert(0, os.path.abspath("."))
+# Detect a real Read the Docs build before we overwrite the variable below.
+ON_RTD = os.environ.get("READTHEDOCS") == "True"
 os.environ["READTHEDOCS"] = "True"  # Fool dysh to use StaticLabGUI.
 print(f"Are we fooling anyone? {os.environ['READTHEDOCS']}")
 
@@ -108,7 +110,7 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = ["examples/output"]
+exclude_patterns = ["examples/output", "_build", "**.ipynb_checkpoints"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -266,12 +268,12 @@ html_js_files = [
 
 # Settings for myst_nb notebook rendering
 
-# Cache notebooks to only re-run when cells change.
-nb_execution_mode = "cache"
+# On Read the Docs, skip execution and render the outputs saved in the
+# notebooks (executing all of them exceeds the RTD build timeout).
+# Locally, cache notebooks to only re-run when cells change.
+nb_execution_mode = "off" if ON_RTD else "cache"
 # Use this mode if working on the documentation with sphinx-autobuild.
 # nb_execution_mode = "auto"
-# Use this to skip executing the notebooks.
-# nb_execution_mode = "off"
 
 # Execution timeout.
 # -1 should set this to no limit.

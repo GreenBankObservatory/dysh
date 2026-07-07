@@ -39,6 +39,10 @@ After being installed, the ``dysh`` command will be available through the comman
 This will launch an `iPython <https://ipython.readthedocs.io/en/stable/>`_ session with some modules and classes pre-loaded (e.g., `~dysh.fits.gbtfitsload.GBTFITSLoad`), and with logging.
 We refer to this interface as the dysh shell.
 
+.. note::
+
+   For large SDFITS files (> 1 GB or so), dysh may create temporary files during certain operations to hold flag arrays.  By default these files are created in ``/tmp``. To avoid filling up ``/tmp``, you can (and should) change that default by setting ``$DYSH_SCRATCH`` or ``$TMPDIR`` environment variables to point to a directory where temporary files can be written.  Note these must be set before you start dysh as the values are cached by Python at startup, so ``os.putenv()`` would not have any effect..
+
 Loading Data
 ============
 
@@ -153,6 +157,41 @@ Plot again, but focus on the line-free regions:
 
 .. image:: files/spectrum_plot_bsub.png
 
+
+Using Exclude Regions
+--------------------------------
+
+When you give an ``exclude`` value to ``baseline``, the default behavior is to store it in the `exclude_regions <dysh.spectra.spectrum.Spectrum.exclude_regions>` property, which is a list of `SpectralRegions <astropy.coordinate.SpectralRegion>`.   Subsequent baseline operations on the spectrum can reuse these exclude regions, append to them, or ignore them, depending on the value of the ``exclude_action`` keyword. Options are:
+
+        - "replace" : replace the `Spectrum.exclude_regions` list with the input region.
+        - "append" : append the input region to the `Spectrum.exclude_regions` list.
+        - None      : Use the the input region, but do not change the existing `Spectrum.exclude_regions`
+
+
+The default is "replace."   Below is example usage.
+
+.. code:: Python
+
+    s = Spectrum.fake_spectrum(1024)
+    exclude1 = [(1,100)]
+    exclude2 = [(924,1024)]
+
+    # The input exclude regions are used in the baseline and are stored in the Spectrum.
+    s.baseline(degree=1,exclude=exclude1)
+
+    # The input exclude regions are used and replace the previously stored regions.
+    s.baseline(degree=1,exclude=exclude2)
+
+    # The input exclude regions are appended to the stored regions.
+    s.baseline(degree=1,exclude=exclude1, exclude_action="append")
+
+    # The input exclude regions are used but the stored regions are unaffected.
+    s.baseline(degree=1,exclude=exclude2, exclude_action=None)
+
+    # The input exclude regions are used and replace the previously stored regions.
+    s.baseline(degree=1,exclude=exclude1, exclude_action="replace")
+
+
 Polarization Average
 ====================
 
@@ -182,7 +221,7 @@ We will use `astropy.units` (imported automatically as ``u``) to define the freq
 
 .. code:: Python
 
-    oh_bright_spec = spectrum[1665.3*u.GHz:1665.9*u.MHz]
+    oh_bright_spec = spectrum[1665.3*u.MHz:1665.9*u.MHz]
 
 Change the rest frequency to that of the 1665.4018 MHz line:
 
@@ -198,7 +237,7 @@ Plot in velocity units (``xaxis_unit``) using the local standard of rest as velo
 
 .. image:: files/oh_bright_kms_lsrk_radio.png
 
-Note that the setting the units, velocity frame or Doppler convention during plotting does not modify the spectrum.
+Note that setting the units, velocity frame or Doppler convention during plotting does not modify the spectrum.
 
 Saving a Spectrum
 =================

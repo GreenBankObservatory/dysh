@@ -104,7 +104,7 @@ class SpectrumPlot(PlotBase):
     def _init_selector(self):
         if self._select:
             if not hasattr(self, "_selector") or self._selector is None:
-                self._selector = MultiSpanSelector(self.axes, minspan=1)
+                self._selector = MultiSpanSelector(self.axes, self._spectrum.get_selected_regions, minspan=1)
             elif hasattr(self, "_selector"):
                 self._selector.clear()
         # If select is False, and there is a selector, close it.
@@ -261,6 +261,9 @@ class SpectrumPlot(PlotBase):
             if oshow_kwargs is None:
                 oshow_kwargs = {}
             self.oshow(oshow, **oshow_kwargs)
+
+        # Ensure we know the data limits.
+        self._set_data_limits()
 
         self.show()
         self.figure.canvas.draw_idle()
@@ -549,14 +552,25 @@ class SpectrumPlot(PlotBase):
         )
         self.figure.canvas.draw_idle()
 
-    def update_limits(self):
+    def update_limits(self, visible_only: bool = True):
         """
         Recompute the data limits based on the current artists (`~matplotlib.axes.Axes.relim`),
         and then autoscale the view limits using the data limits (`~matplotlib.axes.Axes.autoscale_view`).
         """
-        self.axes.relim(visible_only=True)
+        self.axes.relim(visible_only=visible_only)
         self.axes.autoscale_view()
         self.figure.canvas.draw_idle()
+
+    def _set_data_limits(self):
+        """
+        Update the `_data_limits` dictionary to the current data ranges with margins.
+        `_data_limits` are used to set the axes limits when changing units and the
+        axes ranges of the "home" button.
+        """
+        xmargin = abs(self._sa.value[0] - self._sa.value[-1]) * self.axes.get_xmargin()
+        self._data_limits["xlim"] = (self._sa.value[0] - xmargin, self._sa.value[-1] + xmargin)
+        ymargin = abs(self._fa.value.max() - self._fa.value.min()) * self.axes.get_ymargin()
+        self._data_limits["ylim"] = (self._fa.value.min() - ymargin, self._fa.value.max() + ymargin)
 
     def set_yaxis_unit(self, yunit: str | Quantity) -> None:
         """
@@ -598,11 +612,14 @@ class SpectrumPlot(PlotBase):
         self._fa = yvals
 
         self.set_ydata(yvals, keep_unit=True)
+        self._set_data_limits()
+        self.axes.set_ylim(*self._data_limits["ylim"])
 
         self._plot_kwargs["yaxis_unit"] = yunit
         self._set_labels(**self._plot_kwargs)
 
         self.update_limits()
+        self._update_home(self._data_limits["xlim"], self._data_limits["ylim"])
 
     def set_xaxis_unit(self, xunit: str | Quantity) -> None:
         """
@@ -635,6 +652,8 @@ class SpectrumPlot(PlotBase):
             doppler_convention=self._sa.doppler_convention,
         )
         self._line.set_xdata(self._sa.value)
+        self._set_data_limits()
+        self.axes.set_xlim(*self._data_limits["xlim"])
 
         # Remove any oshows.
         # We cannot update them since we do not keep a reference to their spectra.
@@ -655,6 +674,7 @@ class SpectrumPlot(PlotBase):
         self._set_labels(**self._plot_kwargs)
 
         self.update_limits()
+        self._update_home(self._data_limits["xlim"], self._data_limits["ylim"])
 
         # Now it should be safe to add a blank span.
         if self._selector is not None:
@@ -688,6 +708,7 @@ class SpectrumPlot(PlotBase):
         self._clear_overlay_objects("lines", "oshow")
 
         self.update_limits()
+        self._update_home(self._data_limits["xlim"], self._data_limits["ylim"])
 
     def show_baseline(self, y, *args, **kwargs) -> None:
         """
@@ -734,7 +755,7 @@ class SpectrumPlot(PlotBase):
 
 
 class MultiSpanSelector:
-    def __init__(self, ax, minspan=1, xy0=(0, 0)):
+    def __init__(self, ax, on_selection=None, minspan=1, xy0=(0, 0)):
         self.ax = ax
         self.canvas = ax.figure.canvas
         self.spans = []
@@ -750,6 +771,7 @@ class MultiSpanSelector:
 
         self.active_span = None
         self.selected_span = None
+        self.on_selection = on_selection
 
     def init_first_span(self):
         """
@@ -776,7 +798,14 @@ class MultiSpanSelector:
         return [span]
 
     def on_select(self, vmin, vmax):
+        """
+        Add a new span after a selection is made when needed,
+        and handle which span is active.
+        This is also where self.on_selection is called.
+        """
         span = vmax - vmin
+        # Here we need to check for all the existing spans,
+        # to make sure we do not create a new one if there's already an incomplete one.
         if span > self.minspan and np.all(np.diff(self.get_selected_regions(False)) > self.minspan):
             if self.active_span is not None:
                 self.active_span.set_active(False)
@@ -786,6 +815,8 @@ class MultiSpanSelector:
         elif self.active_span is not None:
             self.active_span.set_active(False)
             self.active_span = None
+        if self.on_selection is not None:
+            self.on_selection()
         return
 
     def on_press(self, event):

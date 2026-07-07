@@ -47,6 +47,7 @@ dysh classes, and astropy, numpy, and pandas modules already imported.
      --version             Print version and exit
      --skip-config         Skip creating a configuration file
      --hide-tb             Hide traceback
+     -s, --system-info     Provide system information for bug reports
 
 IPython Tips
 ------------
