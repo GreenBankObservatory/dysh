@@ -1,4 +1,4 @@
-# Performance Enhancement Plan (performance-redux)
+# Performance Enhancement Plan 
 
 ## Context
 
