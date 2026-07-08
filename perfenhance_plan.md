@@ -1,4 +1,4 @@
-# Performance Enhancement Plan 
+# Performance Enhancement Plan
 
 ## Context
 
