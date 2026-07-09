@@ -1,0 +1,40 @@
+Not running on IPython and trying to use the ShellGUI may result in unexpected behavior.
+Found ostype= linux
+DYSH_BENCH_STAGE_MS[GBTFITSLoad]=193.844
+DYSH_BENCH_STAGE_MS[gettp(299,pl=0)+timeaverage]=2068.770
+DYSH_BENCH_STAGE_MS[gettp(299,pl=1)+timeaverage]=1393.909
+DYSH_BENCH_STAGE_MS[getsigref(296/295,pl=0)+timeaverage]=2870.984
+DYSH_BENCH_STAGE_MS[getsigref(298/297,pl=0)+timeaverage]=2853.176
+DYSH_BENCH_STAGE_MS[average(sigref0a,sigref0b)]=148.980
+DYSH_BENCH_STAGE_MS[getsigref(296/295,pl=1)+timeaverage]=2753.124
+DYSH_BENCH_STAGE_MS[getsigref(298/297,pl=1)+timeaverage]=2817.606
+DYSH_BENCH_STAGE_MS[average(sigref1a,sigref1b)]=160.740
+DYSH_BENCH_STAGE_MS[average(sigref0,sigref1)]=162.521
+DYSH_BENCH_STAGE_MS[smooth(gauss,width=100,decimate=0)]=99.547
+DYSH_BENCH_STAGE_MS[baseline(poly,deg=1)]=92.275
+DYSH_BENCH_STAGE_MS[stats_b]=683.102
+DYSH_BENCH_STAGE_MS[stats_r]=529.210
+RMS_BLUE=5.190253e-03 K
+RMS_RED=4.806130e-03 K
+DYSH_BENCH_STAGE_MS[cog]=9.193
+# Dysh Benchmark: hi_survey
+                name                 time  VmSize VmRSS
+                                      ms   Mbyte  Mbyte
+----------------------------------- ------ ------ -----
+                        GBTFITSLoad  192.9 1700.4 291.1
+        gettp(299,pl=0)+timeaverage 2068.8 2167.6 364.6
+        gettp(299,pl=1)+timeaverage 1393.9 2167.6 365.4
+getsigref(296/295,pl=0)+timeaverage 2871.0 2177.7 388.7
+getsigref(298/297,pl=0)+timeaverage 2853.2 2181.4 403.2
+         average(sigref0a,sigref0b)  149.0 2166.4 388.2
+getsigref(296/295,pl=1)+timeaverage 2753.1 2194.7 420.7
+getsigref(298/297,pl=1)+timeaverage 2817.6 2181.4 410.5
+         average(sigref1a,sigref1b)  160.7 2166.4 395.5
+           average(sigref0,sigref1)  162.5 2166.4 395.5
+ smooth(gauss,width=100,decimate=0)   99.5 2166.4 395.5
+               baseline(poly,deg=1)   92.3 2166.4 396.6
+                            stats_b  683.1 2144.4 374.6
+                            stats_r  529.2 2144.4 374.6
+                                cog    9.2 2144.4 374.6
+DYSH_BENCH_SCRIPT_MS=16841.715
+{'flux': <Quantity 18.89828738 K km / s>, 'flux_std': <Quantity 0.15273536 K km / s>, 'flux_r': <Quantity 10.32429356 K km / s>, 'flux_r_std': <Quantity 0.53692067 K km / s>, 'flux_b': <Quantity 8.78449958 K km / s>, 'flux_b_std': <Quantity 0.6093058 K km / s>, 'width': {0.25: <Quantity 57.47537036 km / s>, 0.65: <Quantity 172.42612352 km / s>, 0.75: <Quantity 188.84766215 km / s>, 0.85: <Quantity 221.69074198 km / s>, 0.95: <Quantity 254.53382573 km / s>}, 'width_std': {0.25: <Quantity 32.84809869 km / s>, 0.65: <Quantity 16.51181419 km / s>, 0.75: <Quantity 32.89732872 km / s>, 0.85: <Quantity 32.91781541 km / s>, 0.95: <Quantity 32.94156792 km / s>}, 'A_F': np.float64(1.1752853387074405), 'A_C': np.float64(1.0068980776334686), 'C_V': np.float64(3.857143339451159), 'rms': <Quantity 0.20272459 K>, 'bchan': np.int64(100), 'echan': np.int64(200), 'vel': <Quantity 2959.23005568 km / s>, 'vel_std': <Quantity 3569.81934481 km / s>, 'vframe': 'itrs', 'doppler_convention': 'optical'}

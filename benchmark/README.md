@@ -1,7 +1,41 @@
 # Notes for benchmarking Dysh
- 
+
 The purpose of this benchmarking is to find and address the various
 CPU and I/O bottlenecks in dysh. We have done this in stages:
+
+## Before/after protocol for performance PRs
+
+Every performance PR must include a before/after table in its description,
+produced as follows. "Before" is the PR's base branch, "after" is the PR head,
+both benchmarked the same way on the same machine.
+
+1. **Pin the environment.** `uv sync --frozen`; record the Python version and
+   hostname alongside the numbers. Set `OMP_NUM_THREADS=1` (see below). Data
+   comes from the `dysh_data` aliases with `DYSH_DATA` set.
+2. **Warm runs** (default, for CPU-bound changes): run the relevant benchmark
+   5 times, discard the first (import and lazy-load warm-up), report the
+   median and min/max of the timing tags.
+3. **Cold runs** (only for I/O-bound changes, e.g. FITS reading): drop the
+   page cache before each of 3 runs (`sync; echo 1 | sudo tee
+   /proc/sys/vm/drop_caches`, or use `workflows/run_bench.py --mode cold`
+   which evicts with `posix_fadvise`); report all 3. If NFS-mounted data is
+   available, include one NFS run — I/O optimizations are disproportionately
+   an NFS win.
+4. **Confirm the hotspot moved.** One `python -m cProfile` run before and
+   after, checking that the targeted function left the top of the cumulative
+   list. Never mix profiled and unprofiled timings (profiling overhead is
+   1.5–2.5x).
+5. **Standard datasets:** `example="getps"` (45 MB, warm CPU benchmarks),
+   `example="getpslarge"` (7.5 GB, cold I/O and lazy-load benchmarks), plus
+   the workflow datasets (see `workflows/README.md`).
+6. **Regression gate:** `uv run pytest -m "not gbo_only and not
+   requires_internet"` passes, and `workflows/run_bench.py --verify` passes,
+   before any numbers are reported.
+
+The relevant drivers: `workflows/run_bench.py` (end-to-end user workflows,
+GBTIDL comparison), `bench_calibration.py` (per-spectrum overhead: getspec
+with/without WCS, timeaverage, Spectrum ops), `bench_getps.py`,
+`bench_gbtfitsload.py`, and the others below.
 
 ## Q8
 - Identify bottlenecks in memory, I/O, or CPU, especially as compared to GBTIDL performance.  

@@ -120,3 +120,6 @@ ENV/
 
 # PDM
 .pdm.toml
+
+# Claude Code personal settings
+.claude/settings.local.json
