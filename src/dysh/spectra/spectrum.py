@@ -1588,7 +1588,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
-    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, observer=None):
+    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, observer=None, wcs=None, target=None):
         # , shift_topo=False):
         """Factory method to create a `Spectrum` object from a data and header.  The the data are masked,
         the `Spectrum` mask will be set to the data mask.
@@ -1685,17 +1685,22 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     wcs_meta = {k: _meta[k] for k in wcs_meta_keys}
                 except KeyError as exc:
                     raise KeyError(f"Missing item for {exc} in meta.") from exc
-                wcs = WCS(header=wcs_meta)
-                # It would probably be safer to add NAXISi to meta.
-                if wcs.naxis > 3:
-                    wcs.array_shape = (0, 0, 0, len(data))
-                # For some reason these aren't identified while creating the WCS object.
-                if "SITELONG" in _meta.keys():
-                    wcs.wcs.obsgeo[:3] = _meta["SITELONG"], _meta["SITELAT"], _meta["SITEELEV"]
+                
+                if wcs is None:
+                    wcs = WCS(header=wcs_meta)
+                    # It would probably be safer to add NAXISi to meta.
+                    if wcs.naxis > 3:
+                        wcs.array_shape = (0, 0, 0, len(data))
+                    # For some reason these aren't identified while creating the WCS object.
+                    if "SITELONG" in _meta.keys():
+                        wcs.wcs.obsgeo[:3] = _meta["SITELONG"], _meta["SITELAT"], _meta["SITEELEV"]
                 # Reset warnings.
         else:
             wcs = None
-        target = make_target(_meta)
+            
+        if target is None:
+            target = make_target(_meta)
+            
         vc = veldef_to_convention(_meta["VELDEF"])
 
         # Define an observer as needed.
