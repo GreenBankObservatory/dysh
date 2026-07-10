@@ -71,6 +71,7 @@ except ImportError:
 
 try:
     import duckdb
+
     _DUCKDB_AVAILABLE = True
 except ImportError:
     _DUCKDB_AVAILABLE = False
@@ -1949,9 +1950,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         for _name, _val in (("ifnum", ifnum), ("plnum", plnum), ("fdnum", fdnum)):
             if _val is not None and not isinstance(_val, (int, float, np.integer, np.floating)):
-                logger.debug(
-                    f"_common_selection_duckdb: {_name}={_val!r} is not a scalar, falling back to pandas path"
-                )
+                logger.debug(f"_common_selection_duckdb: {_name}={_val!r} is not a scalar, falling back to pandas path")
                 return None
 
         where_parts = []
@@ -2008,13 +2007,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         has_flags = len(flags_df) > 0 and "ROW" in flags_df.columns and "CHAN" in flags_df.columns
         if has_flags:
             where_parts.append(
-                "NOT EXISTS ("
-                "  SELECT 1 FROM flags_df f"
-                "  WHERE f.ROW = i.ROW"
-                "    AND f.CHAN = 'all channels'"
-                ")"
+                "NOT EXISTS (  SELECT 1 FROM flags_df f  WHERE f.ROW = i.ROW    AND f.CHAN = 'all channels')"
             )
-
 
         sql = "SELECT i.* FROM idx_df i WHERE " + "\n  AND ".join(where_parts)
         logger.debug(f"_common_selection_duckdb SQL:\n{sql}\nparams={params}")
@@ -2102,9 +2096,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 _scans_arg = [_scans_arg]
             else:
                 _scans_arg = list(_scans_arg)
-            _sf = self._common_selection_duckdb(
-                idx_df, flags_df, ifnum, plnum, fdnum, _scans_arg, _extra
-            )
+            _sf = self._common_selection_duckdb(idx_df, flags_df, ifnum, plnum, fdnum, _scans_arg, _extra)
         if _sf is None:
             # Pandas fallback: deepcopy selection, apply mixed kwargs, then eliminate flagged rows.
             ps_selection = copy.deepcopy(self._selection)

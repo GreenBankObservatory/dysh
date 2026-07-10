@@ -417,7 +417,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if not hasattr(self, "_cached_wcs"):
             self._cached_wcs = None
             self._cached_target = None
-            
+
         kwargs = {
             "meta": self.meta[i],
             "observer_location": self._observer_location,
@@ -433,9 +433,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 self._calibrated[i] * self._tscale_to_unit[self.tscale.lower()],
                 self._calibrated[i].mask,
             ),
-            **kwargs
+            **kwargs,
         )
-        
+
         if self._cached_target is None:
             self._cached_target = s.target
         if use_wcs and self._cached_wcs is None:

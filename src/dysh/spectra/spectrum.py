@@ -1685,7 +1685,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     wcs_meta = {k: _meta[k] for k in wcs_meta_keys}
                 except KeyError as exc:
                     raise KeyError(f"Missing item for {exc} in meta.") from exc
-                
+
                 if wcs is None:
                     wcs = WCS(header=wcs_meta)
                     # It would probably be safer to add NAXISi to meta.
@@ -1697,10 +1697,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # Reset warnings.
         else:
             wcs = None
-            
+
         if target is None:
             target = make_target(_meta)
-            
+
         vc = veldef_to_convention(_meta["VELDEF"])
 
         # Define an observer as needed.
