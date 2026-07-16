@@ -10,6 +10,7 @@ docs/jupyter_cache/
 jupyter_cache/
 notebooks/examples/data/*.fits
 notebooks/examples/output/*
+benchmark/perfenhance_plan.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
