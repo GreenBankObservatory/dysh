@@ -787,7 +787,9 @@ class TestGBTFITSLoad:
         with pytest.warns(UserWarning):
             sdf["DATE-OBS"] = np.datetime_as_string(td)
         odir = tmp_path_factory.mktemp("dummy-data")
-        sdf.write(odir / "file0.fits")
+        # Do not write an index, otherwise only one file will have one.
+        # The second file is "copied" outside dysh.
+        sdf.write(odir / "file0.fits", write_index=False)
         # Copy the other file to the new location.
         dest = odir / "file1.fits"
         dest.write_bytes(fn1.read_bytes())
@@ -883,10 +885,7 @@ class TestGBTFITSLoad:
         """Test that we can write a loaded SDFITS file without any changes"""
         p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
         data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
-        # in this test we need to ignore the index file because
-        # GBTFITSLoad.write does not write an index file and it won't
-        # be an apples to apples comparison.
-        org_sdf = gbtfitsload.GBTFITSLoad(data_file, index_file_threshold=1000000000)
+        org_sdf = gbtfitsload.GBTFITSLoad(data_file)
         d = tmp_path / "sub"
         d.mkdir()
         output = d / "test_write_all.fits"
@@ -894,22 +893,23 @@ class TestGBTFITSLoad:
         org_sdf.write(output, overwrite=True, flags=False)
         new_sdf = gbtfitsload.GBTFITSLoad(output)
         # Compare the index for both SDFITS.
-        assert_frame_equal(org_sdf._index, new_sdf._index)
+        assert_frame_equal(org_sdf._index.drop("FILE", axis=1), new_sdf._index.drop("FILE", axis=1))
 
     def test_write_repeated_scans(self, tmp_path):
         """Test that we can write files with repeated scan numbers"""
         p = util.get_project_testdata() / "TRFI_090125_S1/TRFI_090125_S1.raw.vegas/"
         sdf = gbtfitsload.GBTFITSLoad(p, skipflags=True, flag_vegas=False)
+        # Do not write index files since the starting SDFITS does not have one.
         # Multifile case.
-        sdf.write(tmp_path / "test_m.fits", multifile=True)
+        sdf.write(tmp_path / "test_m.fits", multifile=True, write_index=False)
         sdf_m = gbtfitsload.GBTFITSLoad(tmp_path / "test_m.fits")
         pd.testing.assert_frame_equal(sdf._index, sdf_m._index[sdf._index.columns])
         # Non-multifile case.
-        sdf.write(tmp_path / "test.fits", multifile=False)
+        sdf.write(tmp_path / "test.fits", multifile=False, write_index=False)
         sdf_s = gbtfitsload.GBTFITSLoad(tmp_path / "test.fits")
         pd.testing.assert_frame_equal(sdf._index, sdf_s._index[sdf._index.columns])
         # Single integration.
-        sdf.write(tmp_path / "test_int.fits", intnum=1)
+        sdf.write(tmp_path / "test_int.fits", intnum=1, write_index=False)
         sdf_i = gbtfitsload.GBTFITSLoad(tmp_path / "test_int.fits")
         # Drop row column, since it is not unique.
         pd.testing.assert_frame_equal(
@@ -1095,10 +1095,14 @@ class TestGBTFITSLoad:
 
         # Now the actual test.
         sdf = gbtfitsload.GBTFITSLoad(new_path)
-        # Not this part of the test, but just to make sure.
-        assert np.all(sdf["RADESYS"] == "AltAz")
         # Test that we can create a `Spectrum` object.
-        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)  # noqa: F841
+        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
+        assert tp.target.name == "altaz"
+        mask = (sdf_org["SCAN"] == 6) & (sdf_org["IFNUM"] == 0) & (sdf_org["PLNUM"] == 0) & (sdf_org["FDNUM"] == 0)
+        crval2_org = sdf_org["CRVAL2"][mask].iloc[0]
+        assert crval2_org == tp.meta["CRVAL2"]
+        crval3_org = sdf_org["CRVAL3"][mask].iloc[0]
+        assert crval3_org == tp.meta["CRVAL3"]
 
     @pytest.mark.filterwarnings("ignore:Changing an existing SDFITS column")
     def test_hadec_coords(self, tmp_path):
@@ -1122,10 +1126,15 @@ class TestGBTFITSLoad:
 
         # Now the actual test.
         sdf = gbtfitsload.GBTFITSLoad(new_path)
-        # Not this part of the test, but just to make sure.
-        assert np.all(sdf["RADESYS"] == "hadec")
         # Test that we can create a `Spectrum` object.
-        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)  # noqa: F841
+        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
+        # Now check that its coordinates match expectations.
+        assert tp.target.name == "hadec"
+        mask = (sdf_org["SCAN"] == 6) & (sdf_org["IFNUM"] == 0) & (sdf_org["PLNUM"] == 0) & (sdf_org["FDNUM"] == 0)
+        crval2_org = sdf_org["CRVAL2"][mask].iloc[0]
+        assert crval2_org == tp.meta["CRVAL2"]
+        crval3_org = sdf_org["CRVAL3"][mask].iloc[0]
+        assert crval3_org == tp.meta["CRVAL3"]
 
     @pytest.mark.filterwarnings("ignore:Changing an existing SDFITS column")
     def test_galactic_coords(self, tmp_path):
@@ -1150,10 +1159,15 @@ class TestGBTFITSLoad:
 
         # Now the actual test.
         sdf = gbtfitsload.GBTFITSLoad(new_path)
-        # Not this part of the test, but just to make sure.
-        assert np.all(sdf["RADESYS"] == "galactic")
         # Test that we can create a `Spectrum` object.
-        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)  # noqa: F841
+        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
+        # Now check that its coordinates match expectations.
+        assert tp.target.name == "galactic"
+        mask = (sdf_org["SCAN"] == 6) & (sdf_org["IFNUM"] == 0) & (sdf_org["PLNUM"] == 0) & (sdf_org["FDNUM"] == 0)
+        crval2_org = sdf_org["CRVAL2"][mask].iloc[0]
+        assert crval2_org == tp.meta["CRVAL2"]
+        crval3_org = sdf_org["CRVAL3"][mask].iloc[0]
+        assert crval3_org == tp.meta["CRVAL3"]
 
     def test_add_history_comments(self):
         fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
@@ -2174,14 +2188,14 @@ class TestWriteIndex:
                 f"Expected testmulti.{expected_letter}.fits, got {f.name}"
             )
 
-    def test_write_index_default_false(self, tmp_path):
-        """write_index=False (default) should not create any .index files."""
+    def test_write_index_false(self, tmp_path):
+        """write_index=False should not create any .index files."""
         f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
         g = gbtfitsload.GBTFITSLoad(f)
         o = tmp_path / "sub"
         o.mkdir()
         output = o / "testmulti.fits"
-        g.write(output, multifile=True, scan=6, overwrite=True)
+        g.write(output, multifile=True, scan=6, overwrite=True, write_index=False)
         index_files = list(o.glob("*.index"))
         assert len(index_files) == 0
 

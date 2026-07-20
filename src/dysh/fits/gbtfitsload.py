@@ -3968,7 +3968,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fileobj,
         multifile=True,
         flags=True,
-        write_index=False,
+        write_index=True,
         verbose=False,
         output_verify="exception",
         overwrite=False,
