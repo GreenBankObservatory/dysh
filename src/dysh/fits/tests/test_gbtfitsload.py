@@ -893,7 +893,11 @@ class TestGBTFITSLoad:
         org_sdf.write(output, overwrite=True, flags=False)
         new_sdf = gbtfitsload.GBTFITSLoad(output)
         # Compare the index for both SDFITS.
-        assert_frame_equal(org_sdf._index.drop("FILE", axis=1), new_sdf._index.drop("FILE", axis=1))
+        # In Windows there's no FILE column (?!)
+        try:
+            assert_frame_equal(org_sdf._index.drop("FILE", axis=1), new_sdf._index.drop("FILE", axis=1))
+        except KeyError:
+            assert_frame_equal(org_sdf._index, new_sdf._index)
 
     def test_write_repeated_scans(self, tmp_path):
         """Test that we can write files with repeated scan numbers"""
