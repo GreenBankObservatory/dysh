@@ -2,6 +2,16 @@
 What's New?
 ***********
 
+Version 1.2.0
+=============
+
+.. _v1-2-0-functionality:
+
+Functionality & Enhancements
+----------------------------
+
+- Writing SDFITS files writes an index file
+
 Verson 1.1.0
 ============
 
