@@ -70,6 +70,13 @@ try:
 except ImportError:
     HAS_FITSIO = False
 
+try:
+    import duckdb
+
+    _DUCKDB_AVAILABLE = True
+except ImportError:
+    _DUCKDB_AVAILABLE = False
+
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 # _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
@@ -1905,6 +1912,116 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             return get_valid_channel_range(channel)
 
+    def _common_selection_duckdb(self, idx_df, flags_df, ifnum, plnum, fdnum, scans, extra_kwargs):
+        """Filter the index DataFrame using DuckDB for zero-copy, single-pass C++ performance.
+
+        This is an accelerated replacement for the ``copy.deepcopy(selection) →
+        _select_from_mixed_kwargs → eliminate_flagged_rows`` hot path used by all
+        calibration methods.  It operates directly on the Pandas DataFrames already
+        in memory (via Arrow) without copying.
+
+        Only **simple** extra kwargs (scalar or list equality filters) are handled here.
+        Anything that requires range, within, or channel selection causes the method to
+        return ``None`` so the caller falls back to the standard pandas path.
+
+        Parameters
+        ----------
+        idx_df : ~pandas.DataFrame
+            The pre-computed final selection DataFrame (``self._selection.final``).
+        flags_df : ~pandas.DataFrame
+            The pre-computed final flags DataFrame (``self.flags.final``).
+        ifnum : int
+            The intermediate frequency number.
+        plnum : int
+            The polarization number.
+        fdnum : int
+            The feed number.
+        scans : list of int
+            The scan numbers to include.
+        extra_kwargs : dict
+            Additional upper-cased kwargs from the caller.  Keys must be column
+            names in ``idx_df``; values may be scalars or lists.  Any unsupported
+            type causes this method to return ``None``.
+
+        Returns
+        -------
+        ~pandas.DataFrame or None
+            Filtered DataFrame on success, or ``None`` if the caller should fall
+            back to the pandas path.
+        """
+        for _name, _val in (("ifnum", ifnum), ("plnum", plnum), ("fdnum", fdnum)):
+            if _val is not None and not isinstance(_val, (int, float, np.integer, np.floating)):
+                logger.debug(f"_common_selection_duckdb: {_name}={_val!r} is not a scalar, falling back to pandas path")
+                return None
+
+        where_parts = []
+        params = []
+
+        if ifnum is not None:
+            where_parts.append("i.IFNUM = ?")
+            params.append(int(ifnum))
+        if plnum is not None:
+            where_parts.append("i.PLNUM = ?")
+            params.append(int(plnum))
+        if fdnum is not None:
+            where_parts.append("i.FDNUM = ?")
+            params.append(int(fdnum))
+        # scans is always a non-empty list at this point (normalised by the caller).
+        _scans_list = scans if not isinstance(scans, (int, np.integer)) else [scans]
+        where_parts.append("i.SCAN IN (SELECT unnest(?::INTEGER[]))")
+        params.append([int(s) for s in _scans_list])
+
+        # Extra kwargs — only simple scalar/list equality is handled.
+        # Anything else signals fallback by returning None.
+        _SKIP_KEYS = {"SCAN", "IFNUM", "PLNUM", "FDNUM"}  # already in base clauses
+        for col, val in extra_kwargs.items():
+            col_upper = col.upper()
+            if col_upper in _SKIP_KEYS:
+                continue
+            if col_upper == "CHANNEL":
+                # Channel range selection is complex; defer to pandas path.
+                logger.debug("_common_selection_duckdb: CHANNEL kwarg detected, falling back to pandas path")
+                return None
+            if isinstance(val, (int, float, str, np.integer, np.floating)):
+                where_parts.append(f"i.{col_upper} = ?")
+                params.append(val)
+            elif isinstance(val, (list, tuple, set, np.ndarray)):
+                val_list = list(val)
+                if not val_list:
+                    continue
+                # Pick the right unnest type based on the first element.
+                first = val_list[0]
+                if isinstance(first, (int, np.integer)):
+                    where_parts.append(f"i.{col_upper} IN (SELECT unnest(?::INTEGER[]))")
+                elif isinstance(first, (float, np.floating)):
+                    where_parts.append(f"i.{col_upper} IN (SELECT unnest(?::DOUBLE[]))")
+                else:
+                    where_parts.append(f"i.{col_upper} IN (SELECT unnest(?::VARCHAR[]))")
+                params.append([v.item() if isinstance(v, np.generic) else v for v in val_list])
+            else:
+                # Unknown type (e.g. a range dict): fall back.
+                logger.debug(
+                    f"_common_selection_duckdb: unsupported kwarg type {type(val)} for {col_upper}, "
+                    "falling back to pandas path"
+                )
+                return None
+        has_flags = len(flags_df) > 0 and "ROW" in flags_df.columns and "CHAN" in flags_df.columns
+        if has_flags:
+            where_parts.append(
+                "NOT EXISTS (  SELECT 1 FROM flags_df f  WHERE f.ROW = i.ROW    AND f.CHAN = 'all channels')"
+            )
+
+        sql = "SELECT i.* FROM idx_df i WHERE " + "\n  AND ".join(where_parts)
+        logger.debug(f"_common_selection_duckdb SQL:\n{sql}\nparams={params}")
+
+        try:
+            result_df = duckdb.execute(sql, params).df()
+        except Exception as exc:  # pragma: no cover — safety net
+            logger.warning(f"_common_selection_duckdb query failed ({exc}), falling back to pandas path")
+            return None
+
+        return result_df
+
     def _common_selection(self, ifnum, plnum, fdnum, **kwargs):
         """Do selection and flag application common to all calibration methods.
         Flags are not applied unless selection results in non-zero length data selection.
@@ -1967,13 +2084,28 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             kwargs["SCAN"] = list(scans_to_add)
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
-        ps_selection = copy.deepcopy(self._selection)
-        # now downselect with any additional kwargs
-        ps_selection._select_from_mixed_kwargs(**kwargs)
-        _sf = ps_selection.final
-        # now remove rows that have been entirely flagged
-        if apply_flags:
-            _sf = eliminate_flagged_rows(_sf, self.flags.final)
+        # --- DataFrame downselect + flag elimination ---
+        # Pandas grows ~O(N) DuckDB is sub-linear, so only use DuckDB when there are selection rules
+        _has_rules = len(self._selection._selection_rules) > 0
+        _sf = None
+        if _DUCKDB_AVAILABLE and apply_flags and _has_rules:
+            _extra = {k: v for k, v in kwargs.items() if k not in ("SCAN", "IFNUM", "PLNUM", "FDNUM")}
+            idx_df = _final
+            flags_df = self.flags.final
+            _scans_arg = kwargs.get("SCAN", scans)
+            if isinstance(_scans_arg, (int, np.integer)):
+                _scans_arg = [_scans_arg]
+            else:
+                _scans_arg = list(_scans_arg)
+            _sf = self._common_selection_duckdb(idx_df, flags_df, ifnum, plnum, fdnum, _scans_arg, _extra)
+        if _sf is None:
+            # Pandas fallback: deepcopy selection, apply mixed kwargs, then eliminate flagged rows.
+            ps_selection = copy.deepcopy(self._selection)
+            ps_selection._select_from_mixed_kwargs(**kwargs)
+            _sf = ps_selection.final
+            # now remove rows that have been entirely flagged
+            if apply_flags:
+                _sf = eliminate_flagged_rows(_sf, self.flags.final)
         # Check which requested scans have data after selection and flag elimination
         found_scans = set(_sf["SCAN"].unique()) if len(_sf) > 0 else set()
         missing_scans = sorted(set(scans) - found_scans)

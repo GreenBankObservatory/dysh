@@ -49,10 +49,10 @@ nb = [
   "jupyter-app-launcher>=0.3.1",
   "jupyterlab-lsp>=5.2.0",
 ]
-#fast = [
-#  "rsdfits>=0.1.0",
-#]
-all = ["dysh[nb]"]
+fast = [
+  "duckdb>=0.10",
+]
+all = ["dysh[nb,fast]"]
 
 #[tool.uv.sources]
 #rsdfits = { path = "../rsdfits", editable = true }

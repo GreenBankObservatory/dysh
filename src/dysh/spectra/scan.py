@@ -414,15 +414,33 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         -------
         spectrum : `~dysh.spectra.spectrum.Spectrum`
         """
+        if not hasattr(self, "_cached_wcs"):
+            self._cached_wcs = None
+            self._cached_target = None
+
+        kwargs = {
+            "meta": self.meta[i],
+            "observer_location": self._observer_location,
+            "use_wcs": use_wcs,
+        }
+        if self._cached_target is not None:
+            kwargs["target"] = self._cached_target
+        if use_wcs and self._cached_wcs is not None:
+            kwargs["wcs"] = self._cached_wcs
+
         s = Spectrum.make_spectrum(
             Masked(
                 self._calibrated[i] * self._tscale_to_unit[self.tscale.lower()],
                 self._calibrated[i].mask,
             ),
-            meta=self.meta[i],
-            observer_location=self._observer_location,
-            use_wcs=use_wcs,
+            **kwargs,
         )
+
+        if self._cached_target is None:
+            self._cached_target = s.target
+        if use_wcs and self._cached_wcs is None:
+            self._cached_wcs = s.wcs
+
         s.merge_commentary(self)
         s._baseline_model = self._baseline_model
         s._subtracted = self._subtracted
