@@ -13,9 +13,12 @@ from astropy.convolution import (
     Trapezoid1DKernel,
     convolve,
 )
+from astropy.convolution.convolve import _copy_input_if_needed
+from astropy.convolution.core import MAX_NORMALIZATION, Kernel
 from astropy.modeling.fitting import LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
 from scipy import ndimage
+from scipy.fft import next_fast_len
 from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
 from specutils.fitting.fitmodels import _strip_units_from_model
@@ -1574,3 +1577,249 @@ def make_channel_slice(channel: list | None):
         return slice(channel[0], channel[1])
     else:
         return slice(0, None)
+
+
+def fft_smooth(
+    array,
+    kernel,
+    boundary="fill",
+    fill_value=0.0,
+    nan_treatment="interpolate",
+    normalize_kernel=True,
+    normalization_zero_tol=1e-8,
+    preserve_nan=False,
+    mask=None,
+    crop=True,
+    return_fft=False,
+    fft_pad=None,
+    psf_pad=None,
+    min_wt=0.0,
+    allow_huge=False,
+    fftn=np.fft.fft,
+    ifftn=np.fft.ifft,
+    complex_dtype=complex,
+    dealias=False,
+):
+    """
+    Smooth a time series along the spectral axis using a FFT.
+    """
+
+    from astropy.utils.console import human_file_size
+
+    if np.ma.is_masked(kernel):
+        raise ValueError(
+            "The kernel is a masked array with masked values. "
+            "Use kernel.filled(fill_value) to fill masked values "
+            "before passing to convolve."
+        )
+
+    # Check kernel is kernel instance
+    if isinstance(kernel, Kernel):
+        kernel = kernel.array
+        if isinstance(array, Kernel):
+            raise TypeError("Can't convolve two kernels with convolve_fft.  Use convolve instead.")
+
+    if nan_treatment not in ("interpolate", "fill"):
+        raise ValueError("nan_treatment must be one of 'interpolate','fill'")
+
+    # Get array quantity if it exists
+    array_unit = getattr(array, "unit", None)
+
+    # Convert array dtype to complex
+    # and ensure that list inputs become arrays
+    array = _copy_input_if_needed(
+        array,
+        dtype=complex,
+        order="C",
+        nan_treatment=nan_treatment,
+        mask=mask,
+        fill_value=np.nan,
+    )
+    kernel = _copy_input_if_needed(kernel, dtype=complex, order="C", nan_treatment=None, mask=None, fill_value=0)
+
+    arrayshape = array.shape
+    kernelshape = kernel.shape
+
+    if len(kernelshape) > 1:
+        raise ValueError("Only 1D kernels supported.")
+
+    array_size_B = (np.prod(arrayshape, dtype=np.int64) * np.dtype(complex_dtype).itemsize) * u.byte
+    if array_size_B > 1 * u.GB and not allow_huge:
+        raise ValueError(
+            f"Size Error: Arrays will be {human_file_size(array_size_B)}.  "
+            "Use allow_huge=True to override this exception."
+        )
+
+    # NaN and inf catching
+    nanmaskarray = np.isnan(array) | np.isinf(array)
+    if nan_treatment == "fill":
+        array[nanmaskarray] = fill_value
+    else:
+        array[nanmaskarray] = 0
+    nanmaskkernel = np.isnan(kernel) | np.isinf(kernel)
+    kernel[nanmaskkernel] = 0
+
+    if normalize_kernel is True:
+        if kernel.sum() < 1.0 / MAX_NORMALIZATION:
+            raise Exception(
+                "The kernel can't be normalized, because its sum is close "
+                "to zero. The sum of the given kernel is < "
+                f"{1.0 / MAX_NORMALIZATION:.2f}. For a zero-sum kernel, set "
+                "normalize_kernel=False or pass a custom normalization "
+                "function to normalize_kernel."
+            )
+        kernel_scale = kernel.sum()
+        normalized_kernel = kernel / kernel_scale
+        kernel_scale = 1  # if we want to normalize it, leave it normed!
+    elif normalize_kernel:
+        # try this.  If a function is not passed, the code will just crash... I
+        # think type checking would be better but PEPs say otherwise...
+        kernel_scale = normalize_kernel(kernel)
+        normalized_kernel = kernel / kernel_scale
+    else:
+        kernel_scale = kernel.sum()
+        if np.abs(kernel_scale) < normalization_zero_tol:
+            if nan_treatment == "interpolate":
+                raise ValueError("Cannot interpolate NaNs with an unnormalizable kernel")
+            else:
+                # the kernel's sum is near-zero, so it can't be scaled
+                kernel_scale = 1
+                normalized_kernel = kernel
+        else:
+            # the kernel is normalizable; we'll temporarily normalize it
+            # now and undo the normalization later.
+            normalized_kernel = kernel / kernel_scale
+
+    if boundary is None:
+        logger.warning(
+            "The convolve_fft version of boundary=None is "
+            "equivalent to the convolve boundary='fill'.  There is "
+            "no FFT equivalent to convolve's "
+            "zero-if-kernel-leaves-boundary",
+        )
+        if psf_pad is None:
+            psf_pad = True
+        if fft_pad is None:
+            fft_pad = True
+    elif boundary == "fill":
+        # create a boundary region at least as large as the kernel
+        if psf_pad is False:
+            logger.warning(
+                f"psf_pad was set to {psf_pad}, which overrides the boundary='fill' setting.",
+            )
+        else:
+            psf_pad = True
+        if fft_pad is None:
+            # default is 'True' according to the docstring
+            fft_pad = True
+    elif boundary == "wrap":
+        if psf_pad:
+            raise ValueError("With boundary='wrap', psf_pad cannot be enabled.")
+        psf_pad = False
+        if fft_pad:
+            raise ValueError("With boundary='wrap', fft_pad cannot be enabled.")
+        fft_pad = False
+        if dealias:
+            raise ValueError("With boundary='wrap', dealias cannot be enabled.")
+        fill_value = 0  # force zero; it should not be used
+    elif boundary == "extend":
+        raise NotImplementedError("The 'extend' option is not implemented for fft-based convolution")
+
+    if psf_pad:
+        # Add the sizes along the spectral dimension.
+        newshape = np.array([arrayshape[0], arrayshape[1] + kernelshape[0]])
+    else:
+        # Take the larger shape in the spectral dimension.
+        newshape = np.array([arrayshape[0], np.maximum(arrayshape[1], kernelshape[0])])
+
+    if dealias:
+        # Extend shape by 1/2 for dealiasing.
+        newshape[1] += np.ceil(newshape[1] / 2).astype(int)
+
+    if fft_pad:
+        newshape[1] = next_fast_len(newshape[1])
+
+    newshape = tuple(newshape)
+
+    # Perform a second check after padding.
+    array_size_C = (np.prod(newshape, dtype=np.int64) * np.dtype(complex_dtype).itemsize) * u.byte
+    if array_size_C > 1 * u.GB and not allow_huge:
+        raise ValueError(
+            f"Size Error: Arrays will be {human_file_size(array_size_C)}.  "
+            "Use allow_huge=True to override this exception."
+        )
+
+    center = newshape[1] - (newshape[1] + 1) // 2
+    arrayslices = slice(center - arrayshape[1] // 2, center + (arrayshape[1] + 1) // 2)
+    kernelslices = slice(center - kernelshape[0] // 2, center + (kernelshape[0] + 1) // 2)
+
+    if not np.all(newshape == arrayshape):
+        if np.isfinite(fill_value):
+            bigarray = np.ones(newshape, dtype=complex_dtype) * fill_value
+        else:
+            bigarray = np.zeros(newshape, dtype=complex_dtype)
+        bigarray[:, arrayslices] = array
+    else:
+        bigarray = array
+
+    if not np.all(newshape == kernelshape):
+        bigkernel = np.zeros(newshape, dtype=complex_dtype)
+        bigkernel[:, kernelslices] = normalized_kernel
+    else:
+        bigkernel = normalized_kernel
+
+    arrayfft = fftn(bigarray)
+    # need to shift the kernel so that, e.g., [0,0,1,0] -> [1,0,0,0] = unity
+    kernfft = fftn(np.fft.ifftshift(bigkernel))
+    fftmult = arrayfft * kernfft
+
+    interpolate_nan = nan_treatment == "interpolate"
+    if interpolate_nan:
+        if not np.isfinite(fill_value):
+            bigimwt = np.zeros(newshape, dtype=complex_dtype)
+        else:
+            bigimwt = np.ones(newshape, dtype=complex_dtype)
+
+        bigimwt[:, arrayslices] = 1.0 - nanmaskarray * interpolate_nan
+        wtfft = fftn(bigimwt)
+
+        # You can only get to this point if kernel_is_normalized
+        wtfftmult = wtfft * kernfft
+        wtsm = ifftn(wtfftmult)
+        # need to re-zero weights outside of the image (if it is padded, we
+        # still don't weight those regions)
+        bigimwt[:, arrayslices] = wtsm.real[:, arrayslices]
+    else:
+        bigimwt = 1
+
+    if np.isnan(fftmult).any():
+        # this check should be unnecessary; call it an insanity check
+        raise ValueError("Encountered NaNs in convolve.  This is disallowed.")
+
+    fftmult *= kernel_scale
+
+    if array_unit is not None:
+        fftmult <<= array_unit
+
+    if return_fft:
+        return fftmult
+
+    if interpolate_nan:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            # divide by zeros are expected here; if the weight is zero, we want
+            # the output to be nan or inf
+            rifft = (ifftn(fftmult)) / bigimwt
+        if not np.isscalar(bigimwt):
+            if min_wt > 0.0:
+                rifft[bigimwt < min_wt] = np.nan
+            else:
+                # Set anything with no weight to zero (taking into account
+                # slight offsets due to floating-point errors).
+                rifft[bigimwt < 10 * np.finfo(bigimwt.dtype).eps] = 0.0
+    else:
+        rifft = ifftn(fftmult)
+
+    if preserve_nan:
+        rifft[:, arrayslices][nanmaskarray] = np.nan
+
+    return rifft[:, arrayslices].real if crop else rifft.real

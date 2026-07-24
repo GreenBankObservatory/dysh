@@ -246,3 +246,11 @@ def test_mask_fshift():
     assert np.all(r == [False, True, True, False, False])
     with pytest.raises(ValueError):
         r = core.mask_fshift(a, 1)
+
+
+def test_fft_smooth():
+    from astropy.convolution import convolve_fft as cfft
+
+    e = cfft([1, 0, 3, 4, 5], [1, 1, 1])
+    r = core.fft_smooth([[1, 0, 3, 4, 5], [1, 0, 3, 4, 5]], [1, 1, 1])
+    assert np.all(r == e)
