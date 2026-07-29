@@ -34,6 +34,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     Observatory,
     astropy_convenience_frame_names,
     astropy_frame_dict,
+    celestial_ctype_to_frame,
     change_veldef,
     crval4_to_pol,
     frame_to_label,
@@ -1908,18 +1909,19 @@ class Spectrum(Spectrum1D, HistoricalBase):
             # Use the WCS to convert from world to pixel values.
             wcs = self.wcs
             # We need a sky location to convert incorporating velocity shifts.
+            frame = celestial_ctype_to_frame(self.meta["CTYPE2"], self.meta["CTYPE3"], self.meta["RADESYS"].lower())
             try:
                 coo = SkyCoord(
                     wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
                     wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
-                    frame=self.meta["RADESYS"].lower(),
+                    frame=frame,
                 )
             except UnitTypeError:
                 # Assume spatial coordinates are in axes 1 and 2.
                 coo = SkyCoord(
                     wcs.wcs.crval[1] * wcs.wcs.cunit[1],
                     wcs.wcs.crval[2] * wcs.wcs.cunit[2],
-                    frame=self.meta["RADESYS"].lower(),
+                    frame=frame,
                 )
 
             # Same for the Stokes axis.
