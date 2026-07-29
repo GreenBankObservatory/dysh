@@ -554,6 +554,36 @@ class TestScanBase:
         # Channel selection in dysh is inclusive of the upper edge.
         assert np.all(tp.weights[channel[1] + 1 :] == pytest.approx(tp_sb[0].tsys_weight.sum()))
 
+    def test_getspec_spectral_axis(self):
+        """
+        Test to make sure the spectral axis calculation retains its scientific accuracy.
+        """
+
+        sdf_file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        tp = sdf.gettp(scan=6, ifnum=0, plnum=0, fdnum=0)
+        s0 = tp[0].getspec(0)
+        sl = tp[0].getspec(2)
+
+        assert s0.spectral_axis[int(s0.meta["CRPIX1"]) - 1].value == s0.meta["CRVAL1"]
+        assert sl.spectral_axis[int(sl.meta["CRPIX1"]) - 1].value == sl.meta["CRVAL1"]
+
+        assert np.all(np.diff(s0.spectral_axis.value) == s0.meta["CDELT1"])
+        assert np.all(np.diff(sl.spectral_axis.value) == sl.meta["CDELT1"])
+
+    def test_timeaverage_spectral_axis(self):
+        """ """
+
+        sdf_file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        tp = sdf.gettp(scan=6, ifnum=0, plnum=0, fdnum=0)
+        ta = tp.timeaverage()
+
+        assert ta.spectral_axis[int(ta.meta["CRPIX1"]) - 1].value == ta.meta["CRVAL1"]
+        assert np.all(np.diff(ta.spectral_axis.value) == ta.meta["CDELT1"])
+
 
 class TestTPScan:
     def test_len_and_units(self, data_dir):
