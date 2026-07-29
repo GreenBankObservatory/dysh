@@ -57,6 +57,39 @@ interleaved fixes and reverts.
 
 ---
 
+## PR 0.5 — Verify-script tolerance: absolute 1 mK, compare Tsys, spectral average properties, deslopify benchmark code as needed.
+
+**Scope:**
+- `benchmark/workflows/scripts/hi_survey/verify.py` and
+  `benchmark/workflows/scripts/argus_vanecal/verify.py` currently pass/fail on `rtol=0.02`
+  (2% relative difference) against the GBTIDL/golden reference. Marc: this should be an
+  absolute tolerance of 1 mK instead — relative tolerance is too loose near zero (RMS/Tsys
+  values near a null can differ by "2%" while being scientifically indistinguishable, and
+  conversely a genuine regression on a large Tsys value can hide under 2%) and too strict far
+  from zero for a quantity whose meaningful noise floor is fixed in temperature units, not
+  proportional to the value.
+- Change both verifiers' comparison from `abs(d - g) / g < rtol` to `abs(d - g) < atol` with
+  `atol = 0.001` (1 mK, matching the RMS/Tsys units already printed by both scripts).
+- Update the printed diagnostic line to report absolute difference (`abs_diff`) instead of
+  `rel_diff`, so pass/fail output is self-consistent with the new gate.
+- Update `benchmark/workflows/README.md`'s "Golden captures" section and the benchmark table's
+  "Verifier" column to describe the 1 mK absolute gate instead of "rtol 2%".
+- Compare HI $T_{sys}$ 
+- Compare spectral axes of averages versus integrations
+- Compare metadata of averages versus integrations
+- No golden values need to be recaptured — `golden.txt` stores the raw dysh markers, not the
+  tolerance; only the comparison logic in `verify.py` changes.
+- **Blocks PR 1 onward:** later PRs' correctness gate is "verifiers pass against golden," so the
+  gate itself must be right before it's relied on for every subsequent PR.
+
+**Risk:** low — touches only two small comparison scripts, no calibration code.
+
+**Verification:** re-run `run_bench.py --verify` for `hi_survey` and `argus_vanecal` against the
+existing golden captures on this branch; both must still PASS under the new absolute gate (the
+underlying values haven't changed, only how they're judged).
+
+---
+
 ## PR sequence (ordered by value/risk)
 
 ### PR 1 — `Selection._lightweight_copy()` for calibration selection

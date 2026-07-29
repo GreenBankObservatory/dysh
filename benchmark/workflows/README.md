@@ -10,10 +10,15 @@ users will feel an improvement.
 
 | Name            | Workflow                                                | GBTIDL | Verifier |
 | --------------- | ------------------------------------------------------- | ------ | -------- |
-| `hi_survey`     | gettp/getsigref survey reduction + smooth/baseline/stats | yes    | RMS of two line-free regions, rtol 2% |
-| `argus_vanecal` | Argus VANE/SKY Tsys calibration across 16 feeds          | yes    | mean Tsys per feed, rtol 2% |
+| `hi_survey`     | gettp/getsigref survey reduction + smooth/baseline/stats | yes    | RMS of two line-free regions, atol 1 mK |
+| `argus_vanecal` | Argus VANE/SKY Tsys calibration across 16 feeds          | yes    | mean Tsys per feed, atol 1 mK |
 | `nod_kfpa`      | KFPA nodding data load                                   | no     | none |
 | `exit`          | process-startup baseline (subtract from the others)      | yes    | none |
+
+> **Note:** `verify.py` for `hi_survey`/`argus_vanecal` currently compares with `rtol=0.02` (2%
+> relative). PR 0.5 in `perfenhance_plan.md` switches this to an absolute 1 mK tolerance before
+> PR 1 begins — relative tolerance is unreliable near zero and too loose far from zero for a
+> quantity whose meaningful noise floor is fixed in temperature units.
 
 ## Running
 
@@ -40,7 +45,8 @@ inflates the `GBTFITSLoad` stage but leaves the vanecal stages comparable.
 ## Golden captures
 
 Where GBTIDL is unavailable, `--verify` compares dysh's verification values
-(`RMS_*`, `TSYS_FDNUM_*` stdout markers) against `scripts/<name>/golden.txt`.
+(`RMS_*`, `TSYS_FDNUM_*` stdout markers) against `scripts/<name>/golden.txt`,
+using an absolute tolerance of 1 mK (see PR 0.5 in `perfenhance_plan.md`).
 Regenerate goldens with:
 
 ```bash
