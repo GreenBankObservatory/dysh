@@ -1342,3 +1342,36 @@ class TestSpectrum:
         _ = s1.with_spectral_axis_unit("km/s", doppler_convention="optical", toframe="galactocentric")
         _ = s1.with_spectral_axis_unit("km/s", doppler_convention="optical")
         _ = s1.with_spectral_axis_unit("km/s", toframe="galactocentric")
+
+    def test_target_conversion(self):
+        """
+        Test that target can be converted between different frames.
+
+        Modify RADESYS since version 1.2.0 and below used this column
+        to set the frame of the Spectrum.
+        """
+
+        s = Spectrum.fake_spectrum(**{"CTYPE2": "HA", "CTYPE3": "DEC", "RADESYS": "hadec"})
+        _ = s.target.icrs
+        _ = s.target.altaz
+        _ = s.target.galactic
+
+        s = Spectrum.fake_spectrum(**{"CTYPE2": "GLON", "CTYPE3": "GLAT", "RADESYS": "galactic"})
+        _ = s.target.hadec
+        _ = s.target.icrs
+        _ = s.target.altaz
+
+        s = Spectrum.fake_spectrum(**{"CTYPE2": "AZ", "CTYPE3": "EL", "RADESYS": "altaz"})
+        _ = s.target.galactic
+        _ = s.target.icrs
+        _ = s.target.hadec
+
+        s = Spectrum.fake_spectrum(**{"CTYPE2": "RA", "CTYPE3": "DEC", "RADESYS": "FK5"})
+        _ = s.target.galactic
+        _ = s.target.hadec
+        _ = s.target.altaz
+
+        s = Spectrum.fake_spectrum(**{"CTYPE2": "RA", "CTYPE3": "DEC", "RADESYS": "FK4"})
+        _ = s.target.galactic
+        _ = s.target.hadec
+        _ = s.target.altaz
