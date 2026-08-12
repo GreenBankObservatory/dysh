@@ -182,8 +182,8 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     """
     # fmt:off
     _url                = "http://www.gb.nrao.edu/dysh/"            # base of all things dysh
-    _example_data       = "/home/dysh/public_html/example_data"     # GBO direct access
-    _test_data          = "/home/dysh/public_html/test_data"        # not used ??
+    _example_data       = "/home/dysh/example_data"                 # GBO direct access
+    _test_data          = "/home/dysh/test_data"                    # not used ??
     _accept_data        = "/home/dysh/acceptance_testing/data"      # not in public_html ??
     # fmt:on
 
