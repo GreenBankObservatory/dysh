@@ -25,7 +25,7 @@ from numpy.typing import ArrayLike
 
 from dysh.log import logger
 
-from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
+from ..coordinates import Observatory, celestial_ctype_to_frame, decode_veldef, eq2hor, hor2eq
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..spectra.core import make_channel_slice, mean_data
 from ..spectra.scan import (
@@ -344,7 +344,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.add_comment(h.header.get("COMMENT", []))
         self._remove_duplicates()
         self._create_index_if_needed(skipflags, flag_vegas)
-        self._update_radesys()
+        self._elevation_warning()
         # This only works if the index was created.
         if kwargs_opts["fix_ka"]:
             self._fix_ka_rx_if_needed()
@@ -1786,7 +1786,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # Update self._selection with the newly loaded columns so that other code
         # paths that access self._index (which returns self._selection) will see them
         self._rebuild_merged_index()
-        self._update_radesys()
 
         return result
 
@@ -4302,33 +4301,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if write_index_file:
                 self._build_and_write_index(fileobj, _final, metadata, overwrite)
 
-    def _update_radesys(self):
+    def _elevation_warning(self):
         """
-        Updates the 'RADESYS' column of the index for cases when it is empty.
+        Issue a warning for scans with invalid elevations.
         """
 
-        radesys = {"AzEl": "AltAz", "HADec": "hadec", "Galactic": "galactic"}
-
-        warning_msg = (  # noqa: E731
-            lambda scans, a, coord, limit: (
-                f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
-            )
-        )
+        def warning_msg(scans, a, coord, limit):
+            return f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
 
         # Elevation below the GBT elevation limit (5 degrees) warning.
         low_el_mask = self["ELEVATIO"] < 5
         if low_el_mask.sum() > 0:
             low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
             logger.warning(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
-
-        # Azimuth and elevation case.
-        self._fix_column("RADESYS", radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
-
-        # Hour angle and declination case.
-        self._fix_column("RADESYS", radesys["HADec"], {"CTYPE2": "HA"})
-
-        # Galactic coordinates.
-        self._fix_column("RADESYS", radesys["Galactic"], {"CTYPE2": "GLON"})
 
     def _fix_column(self, column, new_val, mask_dict):
         """
@@ -4493,9 +4478,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return
 
         # Check that there is only one frame type.
-        # This assumes that self._update_radesys has already been called
-        # so that "RADESYS" is populated.
-        frame = self["RADESYS"].apply(str.lower).to_numpy().astype(str)
+        frame = np.array(
+            [
+                celestial_ctype_to_frame(ctype2, ctype3, radesys)
+                for ctype2, ctype3, radesys in zip(self["CTYPE2"], self["CTYPE3"], self["RADESYS"], strict=True)
+            ]
+        )
         if len(set(frame)) > 1:
             raise TypeError("Only a single coordinate system per observation is supported for now.")
         frame = frame[0]

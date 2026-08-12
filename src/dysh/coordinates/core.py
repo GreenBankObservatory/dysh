@@ -516,6 +516,23 @@ def change_veldef(ctype, toframe):
     return newctype
 
 
+def celestial_ctype_to_frame(ctype2, ctype3, radesys):
+    """ """
+
+    if ctype2 == "AZ" and ctype3 == "EL":
+        frame = "altaz"
+    elif ctype2 == "HA":
+        frame = "hadec"
+    elif ctype2 == "GLON" and ctype3 == "GLAT":
+        frame = "galactic"
+    elif ctype2 == "RA" and ctype3 == "DEC":
+        frame = radesys.lower()
+    else:
+        raise ValueError(f"Celestial frame not understood ({ctype2=} {ctype3=})")
+
+    return frame
+
+
 def make_target(header):
     """
     Create a `~astropy.coordinates.SkyCoord` object from a SDFITS header dictionary CRVAL2,
@@ -535,16 +552,20 @@ def make_target(header):
     """
 
     # should we also require DATE-OBS or MJD-OBS?
-    _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS", "DATE-OBS"])
+    _required = set(
+        ["CRVAL2", "CRVAL3", "CTYPE2", "CTYPE3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS", "DATE-OBS"]
+    )
 
     if not _required <= header.keys():
         raise ValueError(f"Header is missing one or more required keywords: {_required}")
+
+    frame = celestial_ctype_to_frame(header["CTYPE2"], header["CTYPE3"], header["RADESYS"].lower())
 
     t1 = coord.SkyCoord(
         header["CRVAL2"],
         header["CRVAL3"],
         unit=(header["CUNIT2"], header["CUNIT3"]),
-        frame=header["RADESYS"].lower(),
+        frame=frame,
         radial_velocity=header["VELOCITY"] * _MPS,
         distance=_DEFAULT_DISTANCE,  # need this or PMs get units m rad /s !
         obstime=Time(header["DATE-OBS"]),
