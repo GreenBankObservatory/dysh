@@ -2152,6 +2152,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return SpectralLineSearch.query_lines(
             min_frequency=minf,
             max_frequency=maxf,
+            chemical_name=chemical_name,
             intensity_lower_limit=intensity_lower_limit,
             cat=cat,
             columns=columns,
