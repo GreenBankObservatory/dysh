@@ -18,7 +18,7 @@ from ..coordinates import (
     frame_to_label,
 )
 from ..util.docstring_manip import docstring_parameter
-from .core import check_kwargs, catalog_html_to_latex
+from .core import catalog_html_to_latex, check_kwargs
 from .plotbase import PlotBase
 
 _KMS = u.km / u.s

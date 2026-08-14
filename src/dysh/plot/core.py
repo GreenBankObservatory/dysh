@@ -27,7 +27,7 @@ def catalog_html_to_latex(s):
     s = s.replace("ge; ", "geq$")
 
     # other formatting
-    s = s.replace("<i>", "").replace("</i>", "") # remove italics
+    s = s.replace("<i>", "").replace("</i>", "")  # remove italics
     s = s.replace("&", "$\\").replace(";", "$")  # greek letters
 
     # strip everything else, maybe
@@ -38,15 +38,15 @@ def catalog_html_to_latex(s):
 
     s = s.replace("<b>", "").replace("</b>", "")
     s = s.replace(" (TopModel)", "")
-    # if there are multiple $ symbols, replace them with a single pair at 
+    # if there are multiple $ symbols, replace them with a single pair at
     # the beginning and end of the string
     # If there is space, which may be important, replace it with stretchable glue
     # (for instance " <sup>2</sup>" should be "~^2" because " ^2" fails latex)
-    # 
+    #
     count = sum(c == "$" for c in s)
     if count > 2:
-        s=s.replace(" ","~")
-        s=s.replace("$","")
+        s = s.replace(" ", "~")
+        s = s.replace("$", "")
         # ensure text is Roman font
-        s= '$ {\\rm '+ s + ' }$'
+        s = "$ {\\rm " + s + " }$"
     return s
