@@ -793,15 +793,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "CTYPE1",
             "CTYPE2",
             "CTYPE3",
-            "CUNIT1",
-            "CUNIT2",
-            "CUNIT3",
             "VELOCITY",
             "EQUINOX",
             "RADESYS",
             "DATE-OBS",
             "VELDEF",
-            "RESTFRQ",
+            "RESTFREQ",
         ]
         _df = self._load_full_rows_if_needed(self.selection.final, required_columns=_required)
         self.clear_selection()

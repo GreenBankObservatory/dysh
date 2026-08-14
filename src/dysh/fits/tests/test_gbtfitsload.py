@@ -2826,6 +2826,40 @@ class TestIndexFileLazyLoading:
         except KeyError as e:
             pytest.fail(f"getsigref failed with KeyError (lazy loading issue): {e}")
 
+    def test_getspec_does_not_reload_missing_rows_every_call(self, monkeypatch):
+        """
+        Test for issue #1142.
+
+        GBTFITSLoad.getspec() previously required columns ("RESTFRQ" instead of the
+        actual SDFITS column "RESTFREQ", and "CUNIT1"/"CUNIT2"/"CUNIT3" which are never
+        real SDFITS columns) that could never be satisfied by a lazy row load. This made
+        the "already loaded?" check in _load_full_rows_if_needed() always fail, so every
+        call to getspec() re-read the row from disk, even for a row already loaded.
+        """
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        calls = []
+        orig_load_full_rows = sdfitsload.SDFITSLoad.load_full_rows
+
+        def spy_load_full_rows(self, rows, bintable=0, exclude_data=True):
+            calls.append(list(rows))
+            return orig_load_full_rows(self, rows, bintable, exclude_data)
+
+        monkeypatch.setattr(sdfitsload.SDFITSLoad, "load_full_rows", spy_load_full_rows)
+
+        sdf.getspec(0)
+        assert len(calls) == 1, f"First getspec(0) call should trigger exactly one lazy load, got {len(calls)}"
+
+        sdf.getspec(0)
+        assert len(calls) == 1, (
+            "Second getspec(0) call for the same row should not trigger another lazy load "
+            f"(load_full_rows was called {len(calls)} times total)."
+        )
+
     def test_history_not_added_to_index(self, tmp_path):
         """
         Test for issue #1093
