@@ -1277,6 +1277,12 @@ class TestSpectrum:
         )
         assert np.all(np.isclose(tr["obs_frequency"].data - freq, 0, atol=1e-7))
 
+        # regression for #1151
+        t = f.query_lines(cat="gbtlines")
+        t2 = f.query_lines(cat="gbtlines", chemical_name="Atomic Hydrogen")
+        assert not np.all(t == t2)
+        assert len(t2) == 1
+
     def test_set_rest_value(self):
         """Test that setting rest_value works."""
         s1 = Spectrum.fake_spectrum()
