@@ -18,7 +18,7 @@ from ..coordinates import (
     frame_to_label,
 )
 from ..util.docstring_manip import docstring_parameter
-from .core import check_kwargs, parse_html
+from .core import check_kwargs, catalog_html_to_latex
 from .plotbase import PlotBase
 
 _KMS = u.km / u.s
@@ -508,7 +508,7 @@ class SpectrumPlot(PlotBase):
         ystart = 0.86 - (num_vsteps * fracstep)
 
         for i, line in enumerate(self.sl_tbl):
-            line_name = parse_html(line["name"])
+            line_name = catalog_html_to_latex(line["name"])
             line_freq = (
                 (line["obs_frequency"] * u.MHz).to(self._sa.unit, equivalencies=self.spectrum.equivalencies).value
             )
