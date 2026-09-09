@@ -15,7 +15,6 @@ from dysh.log import logger
 
 from ..coordinates import (
     crval4_to_pol,
-    ra2ha,
 )
 from ..util.core import abbreviate_to, coord_formatter, in_notebook, time_formatter
 
@@ -201,7 +200,7 @@ class PlotBase:
 
         az = np.around(s.meta["AZIMUTH"], 1)
         el = np.around(s.meta["ELEVATIO"], 1)
-        ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
+        ha = np.around(s.target.hadec.ha.value, 1)
         self.axis.annotate(
             f"Az: {az}  El: {el}  HA: {ha}",
             (hcoord_bot, vcoord_bot),
