@@ -2,16 +2,14 @@
 What's New?
 ***********
 
-Version 1.2.1
+Version 1.2.0
 =============
 
-.. _v1-2-1-bugfixes:
+.. _v1-2-0-bugfixes:
 
 - Avoids updating the RADESYS column (`#1140 <https://github.com/GreenBankObservatory/dysh/issues/1140>`_)
 - Prints the correct hour angle in plots when the coordinates are not Equatorial (`#1126 <https://github.com/GreenBankObservatory/dysh/issues/1126>`_)
 
-Version 1.2.0
-=============
 
 .. _v1-2-0-functionality:
 
@@ -19,6 +17,8 @@ Functionality & Enhancements
 ----------------------------
 
 - Writing SDFITS files writes an index file
+- Requires astropy<8.0.0
+
 
 Verson 1.1.0
 ============
