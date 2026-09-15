@@ -1277,6 +1277,12 @@ class TestSpectrum:
         )
         assert np.all(np.isclose(tr["obs_frequency"].data - freq, 0, atol=1e-7))
 
+        # regression for #1151
+        t = f.query_lines(cat="gbtlines")
+        t2 = f.query_lines(cat="gbtlines", chemical_name="Atomic Hydrogen")
+        assert not np.all(t == t2)
+        assert len(t2) == 1
+
     def test_set_rest_value(self):
         """Test that setting rest_value works."""
         s1 = Spectrum.fake_spectrum()
@@ -1336,3 +1342,36 @@ class TestSpectrum:
         _ = s1.with_spectral_axis_unit("km/s", doppler_convention="optical", toframe="galactocentric")
         _ = s1.with_spectral_axis_unit("km/s", doppler_convention="optical")
         _ = s1.with_spectral_axis_unit("km/s", toframe="galactocentric")
+
+    def test_target_conversion(self):
+        """
+        Test that target can be converted between different frames.
+
+        Modify RADESYS since version 1.2.0 and below used this column
+        to set the frame of the Spectrum.
+        """
+
+        s = Spectrum.fake_spectrum(**{"CTYPE2": "HA", "CTYPE3": "DEC", "RADESYS": "hadec"})
+        _ = s.target.icrs
+        _ = s.target.altaz
+        _ = s.target.galactic
+
+        s = Spectrum.fake_spectrum(**{"CTYPE2": "GLON", "CTYPE3": "GLAT", "RADESYS": "galactic"})
+        _ = s.target.hadec
+        _ = s.target.icrs
+        _ = s.target.altaz
+
+        s = Spectrum.fake_spectrum(**{"CTYPE2": "AZ", "CTYPE3": "EL", "RADESYS": "altaz"})
+        _ = s.target.galactic
+        _ = s.target.icrs
+        _ = s.target.hadec
+
+        s = Spectrum.fake_spectrum(**{"CTYPE2": "RA", "CTYPE3": "DEC", "RADESYS": "FK5"})
+        _ = s.target.galactic
+        _ = s.target.hadec
+        _ = s.target.altaz
+
+        s = Spectrum.fake_spectrum(**{"CTYPE2": "RA", "CTYPE3": "DEC", "RADESYS": "FK4"})
+        _ = s.target.galactic
+        _ = s.target.hadec
+        _ = s.target.altaz

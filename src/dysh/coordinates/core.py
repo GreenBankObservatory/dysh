@@ -295,22 +295,38 @@ def sanitize_skycoord(target):
     else:
         newdistance = target.distance
 
+    # Could probably be clever with kwargs
+    # and avoid doing this multiple times.
     if hasattr(target, "ra"):  # RADEC based
         lon = target.ra
         lat = target.dec
         pm_lon = target.pm_ra_cosdec
         pm_lat = target.pm_dec
-        # could probably be clever with kwargs
-        # and avoid doing this twice
-        _target = coord.SkyCoord(
-            lon,
-            lat,
-            frame=target.frame,
-            distance=newdistance,
-            pm_ra_cosdec=pm_lon,
-            pm_dec=pm_lat,
-            radial_velocity=_rv,
-        )
+        # FK4 accepts obstime, while FK5 and others do not.
+        # So, we have to treat them separately.
+        if target.frame.name == "fk4":
+            _target = coord.SkyCoord(
+                lon,
+                lat,
+                frame=target.frame,
+                distance=newdistance,
+                pm_ra_cosdec=pm_lon,
+                pm_dec=pm_lat,
+                radial_velocity=_rv,
+                location=target.location,
+            )
+        else:
+            _target = coord.SkyCoord(
+                lon,
+                lat,
+                frame=target.frame,
+                distance=newdistance,
+                pm_ra_cosdec=pm_lon,
+                pm_dec=pm_lat,
+                radial_velocity=_rv,
+                location=target.location,
+                obstime=target.obstime,
+            )
     # ====== GALACTIC COORDS HAVE NOT BEEN FULLY TESTED. USE WITH CAUTION ====
     elif hasattr(target, "l"):  # Galactic
         lon = target.l
@@ -343,6 +359,8 @@ def sanitize_skycoord(target):
             pm_l_cosb=pm_lon,
             pm_b=pm_lat,
             radial_velocity=_rv,
+            location=target.location,
+            obstime=target.obstime,
         )
     elif hasattr(target, "az"):  # AzEl or AltAz
         lon = target.az
@@ -516,6 +534,23 @@ def change_veldef(ctype, toframe):
     return newctype
 
 
+def celestial_ctype_to_frame(ctype2, ctype3, radesys):
+    """ """
+
+    if ctype2 == "AZ" and ctype3 == "EL":
+        frame = "altaz"
+    elif ctype2 == "HA":
+        frame = "hadec"
+    elif ctype2 == "GLON" and ctype3 == "GLAT":
+        frame = "galactic"
+    elif ctype2 == "RA" and ctype3 == "DEC":
+        frame = radesys.lower()
+    else:
+        raise ValueError(f"Celestial frame not understood ({ctype2=} {ctype3=})")
+
+    return frame
+
+
 def make_target(header):
     """
     Create a `~astropy.coordinates.SkyCoord` object from a SDFITS header dictionary CRVAL2,
@@ -535,16 +570,20 @@ def make_target(header):
     """
 
     # should we also require DATE-OBS or MJD-OBS?
-    _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS", "DATE-OBS"])
+    _required = set(
+        ["CRVAL2", "CRVAL3", "CTYPE2", "CTYPE3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS", "DATE-OBS"]
+    )
 
     if not _required <= header.keys():
         raise ValueError(f"Header is missing one or more required keywords: {_required}")
+
+    frame = celestial_ctype_to_frame(header["CTYPE2"], header["CTYPE3"], header["RADESYS"].lower())
 
     t1 = coord.SkyCoord(
         header["CRVAL2"],
         header["CRVAL3"],
         unit=(header["CUNIT2"], header["CUNIT3"]),
-        frame=header["RADESYS"].lower(),
+        frame=frame,
         radial_velocity=header["VELOCITY"] * _MPS,
         distance=_DEFAULT_DISTANCE,  # need this or PMs get units m rad /s !
         obstime=Time(header["DATE-OBS"]),
@@ -726,7 +765,7 @@ def eq2hor(lon, lat, frame, date_obs, unit="deg", location=GBT()):  # noqa: B008
     return lonlat.transform_to(coord.AltAz(location=location))
 
 
-def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):  # noqa: B008
+def hor2eq(az, alt, frame, date_obs, unit="deg", location=None):
     """
     Horizontal to Equatorial coordinate conversion.
 
@@ -742,8 +781,8 @@ def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):  # noqa: B008
         Date of observations. Must be a format compatible with `~astropy.time.Time`.
     unit : str
         Units of `lon` and `lat`.
-    location : `~astropy.coordinates.EarthLocation`
-        Observer location.
+    location : `~astropy.coordinates.EarthLocation` or None
+        Observer location. If None, use the GBT location.
 
     Returns
     -------
@@ -751,6 +790,8 @@ def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):  # noqa: B008
         Celestial coordinates in `frame`.
 
     """
+    if location is None:
+        location = GBT()
 
     altaz = coord.SkyCoord(az=az, alt=alt, unit=unit, frame="altaz", obstime=Time(date_obs), location=location)
     return altaz.transform_to(astropy_frame_dict[frame])
