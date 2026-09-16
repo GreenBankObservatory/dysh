@@ -84,6 +84,10 @@ Brightness Scales
 
 The definitions of the brightness scales used by dysh are in `GBT memo #302 <https://library.nrao.edu/public/memos/gbt/GBT_302.pdf>`_.
 
+Noise Diode Temperature
+=======================
+
+A description of the math behind the calculation of the noise diode temperature can be found in `this page <noise_diode.html>`_.
 
 Miscellaneous
 =============
@@ -132,3 +136,9 @@ square (:math:`\delta`) of the antenna's random surface errors.
 .. but the associated beam spreading is a different story.
 
 .. Something about Doppler and Velocity Frames?
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    noise_diode
