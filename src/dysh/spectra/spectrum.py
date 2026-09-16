@@ -426,8 +426,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def plot(self, **kwargs):
         """ """
 
-        self._plotter = sp.SpectrumPlot(self, **kwargs)
-        self._plotter.plot(**kwargs)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="invalid value encountered in do_format")
+            self._plotter = sp.SpectrumPlot(self, **kwargs)
+            self._plotter.plot(**kwargs)
         return self._plotter
 
     def get_selected_regions(self, unit=None, ignore_incomplete=True):

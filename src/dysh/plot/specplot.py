@@ -150,7 +150,7 @@ class SpectrumPlot(PlotBase):
         self._plot_kwargs = self.default_plot_kwargs()
 
     @docstring_parameter(kwargs_docstring)
-    def plot(self, show_header=True, select=True, oshow=None, oshow_kwargs=None, **kwargs):
+    def plot(self, show_header=True, select=True, oshow=None, oshow_kwargs=None, add_line=None, **kwargs):
         """
         Plot the spectrum.
 
@@ -165,6 +165,12 @@ class SpectrumPlot(PlotBase):
         oshow_kwargs : dict
             Dictionary with parameters for `SpectrumPlot.oshow`.
             These include color, linestyle, label, and alpha.
+        add_line : dict
+            Add a line to the plot.
+            The dictionary must contain the key `y` with the y axis values of the line.
+            Optional keys: `x` x axis values (in the same units as the spectral axis of the Spectrum being plotted),
+            `label` label for the line, `alpha` alpha value for the line, `zorder` z order for the line, `color`
+            color for the line, and other args and kwargs accepted by `~matplotlib.pyplot.plot`.
 
         Other Parameters
         ----------------
@@ -264,6 +270,9 @@ class SpectrumPlot(PlotBase):
 
         # Ensure we know the data limits.
         self._set_data_limits()
+
+        if add_line is not None:
+            self.add_line(**add_line)
 
         self.show()
         self.figure.canvas.draw_idle()
@@ -725,6 +734,33 @@ class SpectrumPlot(PlotBase):
         """
 
         self.axes.plot(self._sa, y.to(self._fa.unit), *args, **kwargs, gid="baseline")
+
+        if "label" in kwargs.keys():
+            self.axes.legend()
+
+        self.figure.canvas.draw_idle()
+
+    def add_line(self, y, x=None, *args, **kwargs):
+        """
+        Add a line to the plot.
+
+        Parameters
+        ----------
+        y : array
+            Ordinate axes values for the line.
+        x : array
+            Abscisa axes values for the line.
+            If not provided it will use the spectral axis of the `Spectrum` being plot.
+        args : tuple
+            Arguments passed to `~matplotlib.pyplot.plot`.
+        kwargs : `~matplotlib.lines.Line2D` properties
+            Keyword arguments passed to `~matplotlib.pyplot.plot`.
+        """
+
+        if x is None:
+            x = self._sa
+
+        self.axes.plot(x, y, *args, **kwargs, gid="add_line")
 
         if "label" in kwargs.keys():
             self.axes.legend()

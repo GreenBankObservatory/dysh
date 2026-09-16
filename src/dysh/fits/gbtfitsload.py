@@ -50,6 +50,7 @@ from ..util import (
     get_valid_channel_range,
     inner_channel_slice,
     keycase,
+    minimum_string_match,
     select_from,
     show_dataframe,
     uniq,
@@ -73,6 +74,34 @@ except ImportError:
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 # _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
+
+
+# Columns required for calibration, excluding DATA.
+_CALIBRATION_REQUIRED_COLUMNS = [
+    "TCAL",
+    "TSYS",
+    "CRPIX1",
+    "CRVAL1",
+    "CDELT1",
+    "CTYPE1",
+    "CUNIT1",
+    "CRVAL2",
+    "CTYPE2",
+    "CUNIT2",
+    "CRVAL3",
+    "CTYPE3",
+    "CUNIT3",
+    "CRVAL4",
+    "PROC",
+    "RESTFREQ",
+    "EXPOSURE",
+    "VELOCITY",
+    "EQUINOX",
+    "RADESYS",
+    "DATE-OBS",
+    "VELDEF",
+    "RESTFRQ",
+]
 
 # ---- fitsio write-path helpers ----
 
@@ -786,24 +815,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         self.select(row=i, bintable=bintable, fitsindex=fitsindex)
         # Spectrum requires certain columns, so ensure they are loaded before trying to create one.
-        _required = [
-            "CRVAL1",
-            "CRVAL2",
-            "CRVAL3",
-            "CTYPE1",
-            "CTYPE2",
-            "CTYPE3",
-            "CUNIT1",
-            "CUNIT2",
-            "CUNIT3",
-            "VELOCITY",
-            "EQUINOX",
-            "RADESYS",
-            "DATE-OBS",
-            "VELDEF",
-            "RESTFRQ",
-        ]
-        _df = self._load_full_rows_if_needed(self.selection.final, required_columns=_required)
+        _df = self._load_full_rows_if_needed(self.selection.final, required_columns=_CALIBRATION_REQUIRED_COLUMNS)
         self.clear_selection()
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
@@ -2141,7 +2153,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
         _log_mem(f"gettp: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2403,7 +2415,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         )
         _log_mem(f"getsigref: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2660,7 +2672,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2897,7 +2909,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -3173,7 +3185,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _channel = self._normalize_channel_range(channel)
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -3306,18 +3318,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def gettcal(
         self,
         scan: int,
+        ref: int,
         ifnum: int,
         plnum: int,
+        fdnum: int,
         zenith_opacity: float,
-        ref: None | int | Spectrum = None,
-        fdnum: None | int = None,
         apply_flags: bool = True,
-        method=None,
-        name=None,
-        fluxscale=None,
-        method_kwargs: None | dict = None,
-        ap_eff=None,
-        surface_error=None,
+        name: str | None = None,
+        fluxscale: str | None = None,
+        ap_eff: float | None = None,
+        surface_error: float | None = None,
+        method: str = "quadratic",
         **kwargs,
     ):
         """
@@ -3342,13 +3353,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             See :meth:`apply_flags`. Default: True
         zenith_opacity : float
             The zenith opacity to use in calculating the scale factors for the integrations. Default: None
-        method : callable
-            Method to use for calibrating the data.
-            It can be one of `GBTFITSLoad.getsigref`, `GBTFITSLoad.getps`, `GBTFITSLoad.getnod` or `GBTFITSLoad.subbeamnod`.
-            If None, the default, it will use `GBTFITSLoad.getsigref` for Track observations,
-            `GBTFITSLoad.getps` for OnOff or OffOn observations,
-            `GBTFITSLoad.getnod` for Nod observations, and
-            `GBTFITSLoad.subbeamnod` for SubBeamNod observations.
         name : str
             Alternative name for the calibrator source.
             This will override the value found in the "OBJECT" column of the SDFITS.
@@ -3356,17 +3360,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fluxscale : str
             Name of the flux scale to use to compute the flux of the calibrator.
             "Perley-Butler 2017" and "Ott 1994" are known to dysh, although the user can provide other scales.
-        method_kwargs : dict
-            Dictionary with additional keywords to pass to the calibration `method`.
         ap_eff : float or None
             Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
             efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
-        surface_error: Quantity or None
+        surface_error : Quantity or None
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
+        method : {"quadratic", "linear"}
+            Method used to derive the temperature of the noise diode.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -3381,28 +3385,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ------
         TypeError
             If more than one scan is provided.
-        TypeError
-            If `method` is not recognized.
+        ValueError
+            If method is not a valid value.
         """
-
-        valid_procs = {
-            "Track": self.getsigref,
-            "OnOff": self.getps,
-            "OffOn": self.getps,
-            "Nod": self.getnod,
-            "SubBeamNod": self.subbeamnod,
-        }
-
-        if method_kwargs is None:
-            method_kwargs = {}
 
         if not isinstance(scan, int):
             raise TypeError(f"Only a single integer value allowed for `scan`. Got {scan}")
 
-        if method is not None:
-            if method not in valid_procs.values():
-                valid_methods = [m.__qualname__ for m in valid_procs.values()]
-                raise TypeError(f"Unrecognized method ({method}). It should be one of {valid_methods}")
+        available_methods = ["quadratic", "linear"]
+        _method = minimum_string_match(method.lower(), available_methods)
+        if _method is None:
+            raise ValueError(f"Unrecognized method ({method}). Available methods: {','.join(available_methods)}")
 
         (scans, _sf) = self._common_selection(
             fdnum=fdnum,
@@ -3417,41 +3410,55 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             name = _sf["OBJECT"].unique()[0]
         target = Calibrator.from_name(name, scale=fluxscale)
 
-        proc = _sf["PROC"].unique()[0]
+        sig_on = self.gettp(scan=scans, fdnum=fdnum, ifnum=ifnum, plnum=plnum, cal=True, **kwargs).timeaverage(
+            use_wcs=True
+        )
+        sig_off = self.gettp(scan=scans, fdnum=fdnum, ifnum=ifnum, plnum=plnum, cal=False, **kwargs).timeaverage(
+            use_wcs=False
+        )
+        ref_on = self.gettp(scan=ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum, cal=True, **kwargs).timeaverage(
+            use_wcs=False
+        )
+        ref_off = self.gettp(scan=ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum, cal=False, **kwargs).timeaverage(
+            use_wcs=False
+        )
 
-        if method is None:
-            method = valid_procs[proc]
-        logger.info(f"Will use {method.__name__} to calibrate the data.")
-
-        method_args = {
-            "scan": scans,
-            "fdnum": fdnum,
-            "ifnum": ifnum,
-            "plnum": plnum,
-            "apply_flags": apply_flags,
-            "zenith_opacity": zenith_opacity,
-            "t_cal": 1.0,
-            "units": "flux",
-            "ap_eff": ap_eff,
-            "surface_error": surface_error,
-        }
-        if ref is not None:
-            method_args["ref"] = ref
-
-        # Merge kwargs.
-        # Merging in this order implies that kwargs will supersede method_kwargs.
-        method_kwargs.update(kwargs)
-
-        obs_ta = method(**method_args, **method_kwargs).timeaverage()
-
-        nu = obs_ta.spectral_axis
+        nu = sig_on.spectral_axis
         snu = target.compute_sed(nu.quantity)
+        gc = GBTGainCorrection()
+        ta_to_flux = gc.scale_ta_to(
+            tscale="Flux",
+            specval=nu,
+            angle=sig_on.meta["ELEVATIO"] * u.deg,
+            date=sig_on.obstime,
+            zenith_opacity=zenith_opacity,
+            ap_eff=ap_eff,
+            surface_error=surface_error,
+        )
 
-        tcal_values = (snu / obs_ta.flux).value * u.K
+        ta_src = snu.to("Jy").value / ta_to_flux * u.K
 
-        tcal = TCal.from_spectrum(obs_ta, data=tcal_values, snu=snu, name=name)
+        if _method.lower() == "quadratic":
+            q = -(sig_on.flux - ref_on.flux - sig_off.flux + ref_off.flux) / (
+                sig_on.flux**2.0 - ref_on.flux**2.0 - sig_off.flux**2.0 + ref_off.flux**2.0
+            )
+            h = (
+                ta_src
+                * (1.0 / (sig_on.flux - ref_on.flux) - 1.0 / (sig_off.flux - ref_off.flux))
+                / ((sig_on.flux + ref_on.flux) - (sig_off.flux + ref_off.flux))
+            )
+            g = h / q
+            tsys = g * ref_off.flux + h * ref_off.flux**2.0
+            tcal = g * ref_on.flux + h * ref_on.flux**2.0 - tsys
+        elif _method.lower() == "linear":
+            g = ta_src / (sig_off.flux - ref_off.flux)
+            tsys = g * ref_off.flux
+            tcal = ta_src * (ref_on.flux - ref_off.flux) / (sig_off.flux - ref_off.flux)
 
-        return tcal
+        tcal_obj = TCal.from_spectrum(sig_on, data=tcal, snu=snu, name=name)
+        tcal_obj.meta["TSYS"] = tsys
+
+        return tcal_obj
 
     @log_call_to_result
     def subbeamnod(
@@ -3578,7 +3585,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:

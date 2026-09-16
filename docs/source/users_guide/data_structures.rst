@@ -21,9 +21,9 @@ files were loaded.
    sdfits = GBTFITSLoad(path)
    sdfits.summary()   # A tabular summary of all the data
 
-where ``path`` is a `path.Path` to a directory containing SDFITS files or a single SDFITS file.
+where ``path`` is a `pathlib.Path` to a directory containing SDFITS files or a single SDFITS file.
 
-Once loaded, the columns of the binary table, except the DATA and FLAGS columns, are stored as a `~pandas.DataFrame`, and are accessible via the Python `[]` notation, e.g.:
+Once loaded, the columns of the binary table, except the DATA and FLAGS columns, are stored as a `~pandas.DataFrame`, and are accessible via the Python ``[]`` notation, e.g.:
 
 .. code:: Python
 
@@ -33,7 +33,7 @@ Once loaded, the columns of the binary table, except the DATA and FLAGS columns,
 
 This mechanism can be used to `select data <selection.html>`_ for calibration.
 
-Although not in the  `~pandas.DataFrame`, The DATA column of a `~dysh.fits.gbtfitsload.GBTFITSLoad` is directly accessible as a `~numpy.ndarray` with ``sdfits["DATA"]``.  More commonly, to look at the raw data you would access a single integration (row) as a numpy array or as a `~dysh.spectrum.Spectrum`, which would include the metadata.
+Although not in the  `~pandas.DataFrame`, The DATA column of a `~dysh.fits.gbtfitsload.GBTFITSLoad` is directly accessible as a `~numpy.ndarray` with ``sdfits["DATA"]``.  More commonly, to look at the raw data you would access a single integration (row) as a numpy array or as a `~dysh.spectra.spectrum.Spectrum`, which would include the metadata.
 
 .. code:: Python
 
@@ -77,7 +77,7 @@ be used to read in a SDFITS file that came from a different telescope.  It has b
 `~dysh.fits.sdfitsload.SDFITSLoad.info`,
 `~dysh.fits.sdfitsload.SDFITSLoad.getspec`,
 `~dysh.fits.sdfitsload.SDFITSLoad.rawspectrum`,
-`~dysh.fits.sdfitsload.SDFITSLoad.rawspectra`,  as well as the `[]` style accessor for column data.
+`~dysh.fits.sdfitsload.SDFITSLoad.rawspectra`,  as well as the ``[]`` style accessor for column data.
 
 .. code:: Python
 
@@ -142,7 +142,7 @@ Examples for this functionality are provided in the :doc:`spectral line search c
 A useful method for creating dummy spectra is `~dysh.spectra.spectrum.Spectrum.fake_spectrum`.
 
 Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal, `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like `~dysh.spectra.spectrum.Spectrum.stats`, `~dysh.spectra.spectrum.Spectrum.roll`, `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.Spectrum.normalness`, and `~dysh.spectra.spectrum.Spectrum.cog` (:ref:`Curve of Growth <cog>`).
-These functions can be used to determine the :ref:`data quality <quality>`.
+These functions can be used to determine the `data quality <quality.html>`_.
 Spectrum arithmetic is supported with common operators, e.g.:
 
 .. code:: Python

@@ -15,7 +15,10 @@ class TestTCal:
             util.get_project_testdata() / "AGBT04A_008_02/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.testrim.fits"
         )
         self.sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        self.tcal = self.sdf.gettcal(scan=226, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08)
+        self.tcal = self.sdf.gettcal(scan=227, ref=226, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08)
+        self.tcal_l = self.sdf.gettcal(
+            scan=227, ref=226, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, method="linear"
+        )
 
     def test_name(self):
         assert self.tcal.name == "3C286"
@@ -28,7 +31,8 @@ class TestTCal:
         self.tcal.plot()
 
     def test_get_tcal(self):
-        assert self.tcal.get_tcal() == pytest.approx(18.578175)
+        assert self.tcal.get_tcal() == pytest.approx(18.611146926879883)
+        assert self.tcal_l.get_tcal() == pytest.approx(18.622)
 
     def test_smooth(self):
         # By default, do not decimate.
@@ -39,6 +43,16 @@ class TestTCal:
     def test_nchan(self):
         assert self.tcal.nchan == 2**13
 
+    def test_oshow(self):
+        p = self.tcal.plot()
+        p.oshow(self.tcal)
+
+    def test_mathod_match(self):
+        tcal = self.sdf.gettcal(scan=227, ref=226, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, method="Quad")
+        assert tcal.get_tcal() == self.tcal.get_tcal()
+        tcal = self.sdf.gettcal(scan=227, ref=226, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, method="Lin")
+        assert tcal.get_tcal() == self.tcal_l.get_tcal()
+
     def test_invalid_method(self):
-        with pytest.raises(TypeError):
-            self.sdf.gettcal(scan=226, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, method="not real")
+        with pytest.raises(ValueError):
+            self.sdf.gettcal(scan=227, ref=226, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, method="Triple")
