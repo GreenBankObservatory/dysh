@@ -16,10 +16,10 @@ class TCal(Spectrum):
     the noise diode temperature and its flux density.
     """
 
-    def __init__(self, name, snu, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         Spectrum.__init__(self, *args, **kwargs)
-        self._name = name
-        self._snu = snu
+        self._name = kwargs.get("name")
+        self._snu = kwargs.get("snu")
 
     @property
     def name(self):
@@ -59,9 +59,7 @@ class TCal(Spectrum):
         if data is None:
             data = spectrum.flux
 
-        return cls(
-            name,
-            snu,
+        obj = cls(
             flux=data,
             wcs=spectrum.wcs,
             meta=spectrum.meta,
@@ -72,6 +70,9 @@ class TCal(Spectrum):
             target=spectrum.target,
             mask=spectrum.mask,
         )
+        obj._name = name
+        obj._snu = snu
+        return obj
 
     @insert_docstr_section(Spectrum.smooth.__doc__, section="Parameters")
     def smooth(self, *args, **kwargs):
