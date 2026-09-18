@@ -2,7 +2,7 @@
 Usage: python verify.py dysh_stdout.txt gbtidl_stdout.txt
 
 Parses RMS_BLUE / RMS_RED key=value lines from each script's captured stdout
-and checks that values agree within rtol=0.02 (2%).
+and checks that values agree within absolute tolerance of 1 mK.
 """
 
 import re
@@ -24,15 +24,21 @@ gbtidl = extract(sys.argv[2])
 # The benchmark now uses explicit channel baseline windows, which removes the
 # large mismatch from frequency-region handling. There is still a small
 # residual dysh/GBTIDL semantics difference around the final RMS calculation,
-# so keep the verify threshold at 2% until that underlying issue is fixed.
-rtol = 0.02
+# so keep the verify threshold at 1 mK until that underlying issue is fixed.
+#rtol = 0.02
+atol = 0.001 # 1 mK tolerance.
 ok = True
 for key in ("BLUE", "RED"):
     d, g = dysh[key], gbtidl[key]
-    rel = abs(d - g) / abs(g)
-    status = "PASS" if rel < rtol else "FAIL"
-    if rel >= rtol:
-        ok = False
-    print(f"{status} RMS_{key}: dysh={d:.4e}  gbtidl={g:.4e}  rel_diff={rel:.2%}")
+    #rel = abs(d - g) / abs(g)
+    #status = "PASS" if rel < rtol else "FAIL"
+    #if rel >= rtol:
+    #    ok = False
+    #print(f"{status} RMS_{key}: dysh={d:.4e}  gbtidl={g:.4e}  rel_diff={rel:.2%}")
 
+    diff = abs(d - g)
+    status = "PASS" if diff < atol else "FAIL"
+    if diff >= atol:
+        ok = False
+    print(f"{status} RMS_{key}: dysh={d:.4e}  gbtidl={g:.4e}  abs_diff={diff:.3%}")
 sys.exit(0 if ok else 1)

@@ -3,7 +3,7 @@ Usage: python verify.py dysh_stdout.txt gbtidl_stdout.txt
 
 Parses TSYS_FDNUM_N=value lines from dysh's captured stdout and
 TSYS_FDNUM_N=value lines from gbtidl's captured stdout, then checks
-that mean Tsys per feed agrees within rtol=0.02 (2%).
+that mean Tsys per feed agrees within absolute tolerance of 1 mK.
 """
 
 import re
@@ -22,7 +22,8 @@ def extract(path):
 dysh = extract(sys.argv[1])
 gbtidl = extract(sys.argv[2])
 
-rtol = 0.02
+#rtol = 0.02
+atol = 0.001 # 1 mK tolerance.
 ok = True
 feeds = sorted(set(dysh) | set(gbtidl))
 for fdnum in feeds:
@@ -35,10 +36,15 @@ for fdnum in feeds:
         ok = False
         continue
     d, g = dysh[fdnum], gbtidl[fdnum]
-    rel = abs(d - g) / abs(g)
-    status = "PASS" if rel < rtol else "FAIL"
-    if rel >= rtol:
+    #rel = abs(d - g) / abs(g)
+    #status = "PASS" if rel < rtol else "FAIL"
+    #if rel >= rtol:
+    #    ok = False
+    #print(f"{status} TSYS_FDNUM_{fdnum}: dysh={d:.4f}  gbtidl={g:.4f}  rel_diff={rel:.2%}")
+    diff = abs(d - g)
+    status = "PASS" if diff < atol else "FAIL"
+    if diff >= atol:
         ok = False
-    print(f"{status} TSYS_FDNUM_{fdnum}: dysh={d:.4f}  gbtidl={g:.4f}  rel_diff={rel:.2%}")
+    print(f"{status} TSYS_FDNUM_{fdnum}: dysh={d:.4f}  gbtidl={g:.4f}  abs_diff={diff:.3%}")
 
 sys.exit(0 if ok else 1)
