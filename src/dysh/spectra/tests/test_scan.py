@@ -896,6 +896,26 @@ class TestFSScan:
         assert fs.stats()["mean"].value == pytest.approx(-0.009017168542260336)
         assert fs.stats()["rms"].value == pytest.approx(0.01574591792350919)
 
+        # Test with channel range.
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, channel=[1024, 2048], flag_vegas=False)
+        assert fs_sb[0]._nocal
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSYS"] == 1.0
+        assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
+        assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
+        assert fs.stats()["mean"].value == pytest.approx(-0.015595903257583362)
+        assert fs.stats()["rms"].value == pytest.approx(0.017403306177962364)
+
+        # Test with channel range and reference smoothing.
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, channel=[1024, 2048], smoothref=256, flag_vegas=False)
+        assert fs_sb[0]._nocal
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSYS"] == 1.0
+        assert fs.meta["EXPOSURE"] == pytest.approx(2.115174908755242)
+        assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
+        assert fs.stats()["mean"].value == pytest.approx(-0.020484884957477068)
+        assert fs.stats()["rms"].value == pytest.approx(0.019248157467111435)
+
     def test_tcal(self):
         """
         Test for getfs with t_cal argument.
