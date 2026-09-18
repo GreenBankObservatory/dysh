@@ -2072,7 +2072,7 @@ class PSScan(ScanBase):
         if self._channel_slice == slice(0, None) or self._channel_slice == slice(0, nchan):
             self._nchan = nchan
         else:
-            self._nchan = len(self._sigcalon[0])
+            self._nchan = len(self._sigcaloff[0])
         self._finish_initialization(
             calibrate,
             None,
@@ -2777,7 +2777,7 @@ class FSScan(ScanBase):
         if self._channel_slice == slice(0, None) or self._channel_slice == slice(0, nchan):
             self._nchan = nchan
         else:
-            self._nchan = len(self._sigcalon[0])
+            self._nchan = len(self._sigcaloff[0])
 
         self._finish_initialization(
             calibrate,
