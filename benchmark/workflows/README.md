@@ -15,10 +15,6 @@ users will feel an improvement.
 | `nod_kfpa`      | KFPA nodding data load                                   | no     | none |
 | `exit`          | process-startup baseline (subtract from the others)      | yes    | none |
 
-> **Note:** `verify.py` for `hi_survey`/`argus_vanecal` currently compares with `rtol=0.02` (2%
-> relative). PR 0.5 in `perfenhance_plan.md` switches this to an absolute 1 mK tolerance before
-> PR 1 begins — relative tolerance is unreliable near zero and too loose far from zero for a
-> quantity whose meaningful noise floor is fixed in temperature units.
 
 ## Running
 
