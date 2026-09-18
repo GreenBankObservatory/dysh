@@ -74,6 +74,34 @@ except ImportError:
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 # _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
+
+# Columns required for calibration, excluding DATA.
+_CALIBRATION_REQUIRED_COLUMNS = [
+    "TCAL",
+    "TSYS",
+    "CRPIX1",
+    "CRVAL1",
+    "CDELT1",
+    "CTYPE1",
+    "CUNIT1",
+    "CRVAL2",
+    "CTYPE2",
+    "CUNIT2",
+    "CRVAL3",
+    "CTYPE3",
+    "CUNIT3",
+    "CRVAL4",
+    "PROC",
+    "RESTFREQ",
+    "EXPOSURE",
+    "VELOCITY",
+    "EQUINOX",
+    "RADESYS",
+    "DATE-OBS",
+    "VELDEF",
+    "RESTFRQ",
+]
+
 # ---- fitsio write-path helpers ----
 
 _FITSIO_STRUCTURAL_KEYWORDS = frozenset(
@@ -786,24 +814,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         self.select(row=i, bintable=bintable, fitsindex=fitsindex)
         # Spectrum requires certain columns, so ensure they are loaded before trying to create one.
-        _required = [
-            "CRVAL1",
-            "CRVAL2",
-            "CRVAL3",
-            "CTYPE1",
-            "CTYPE2",
-            "CTYPE3",
-            "CUNIT1",
-            "CUNIT2",
-            "CUNIT3",
-            "VELOCITY",
-            "EQUINOX",
-            "RADESYS",
-            "DATE-OBS",
-            "VELDEF",
-            "RESTFRQ",
-        ]
-        _df = self._load_full_rows_if_needed(self.selection.final, required_columns=_required)
+        _df = self._load_full_rows_if_needed(self.selection.final, required_columns=_CALIBRATION_REQUIRED_COLUMNS)
         self.clear_selection()
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
@@ -2141,7 +2152,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
         _log_mem(f"gettp: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2403,7 +2414,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         )
         _log_mem(f"getsigref: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2660,7 +2671,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -2897,7 +2908,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -3173,7 +3184,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _channel = self._normalize_channel_range(channel)
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
@@ -3578,7 +3589,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         # Lazy load full rows from FITS if needed (when loaded from .index file)
-        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+        _sf = self._load_full_rows_if_needed(_sf, _CALIBRATION_REQUIRED_COLUMNS)
         if flag_vegas:
             self.flag_vegas_spurs(selection=_sf)
             if apply_flags:
