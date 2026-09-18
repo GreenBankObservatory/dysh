@@ -92,7 +92,25 @@ BENCHMARKS = {
 
 
 def _resolve_data_path(name: str, cfg: dict) -> str | None:
-    """Resolve a benchmark's data path: env override, canonical GBO path, dysh_data alias."""
+    """Resolve a benchmark's data path.
+
+    Resolution order is the ``$DYSH_BENCH_DATA_PATH`` environment override, the canonical
+    GBO path if it exists on this host, then the `dysh.util.files.dysh_data` alias.
+
+    Parameters
+    ----------
+    name : str
+        Benchmark name, used only in messages.
+    cfg : dict
+        The benchmark's entry in `BENCHMARKS`. Uses the ``data_path`` (canonical path or `None`)
+        and ``data_alias`` (keyword arguments for `dysh_data`, optional) keys.
+
+    Returns
+    -------
+    str or None
+        The resolved path, or `None` if no data could be found. `None` is also returned for
+        benchmarks that use no data (``data_path`` is `None`) and have no environment override.
+    """
     env_path = os.environ.get("DYSH_BENCH_DATA_PATH")
     if env_path:
         return env_path
@@ -119,7 +137,19 @@ def _resolve_data_path(name: str, cfg: dict) -> str | None:
 
 
 def _evict_from_pagecache(path: Path, verbose: bool = False) -> None:
-    """Walk all files under *path* and call posix_fadvise(DONTNEED) on each."""
+    """Ask the OS to drop every file under `path` from the page cache.
+
+    Calls ``posix_fadvise(DONTNEED)`` on each file. This is a hint, not a guarantee; use
+    ``drop_caches`` as root for a guaranteed cold cache. Failures are reported as warnings,
+    not raised.
+
+    Parameters
+    ----------
+    path : `~pathlib.Path`
+        Directory to walk recursively.
+    verbose : bool, optional
+        Print each evicted file.
+    """
     if not hasattr(os, "posix_fadvise"):
         console.print("[yellow]warn:[/] posix_fadvise not available on this platform — skipping eviction")
         return
@@ -144,10 +174,31 @@ def _evict_from_pagecache(path: Path, verbose: bool = False) -> None:
 
 
 def _gbtidl_available() -> bool:
+    """Check whether GBTIDL can be run on this host.
+
+    Returns
+    -------
+    bool
+        `True` if ``gbtidl`` is on ``PATH``.
+    """
     return shutil.which("gbtidl") is not None
 
 
 def _make_cmd(tool: str, script: str) -> list[str]:
+    """Build the command line that runs a benchmark script.
+
+    Parameters
+    ----------
+    tool : {"dysh", "gbtidl"}
+        Which tool runs the script. Any value other than ``"dysh"`` is treated as GBTIDL.
+    script : str
+        Path to the script (``.py`` for dysh, ``.pro`` for GBTIDL).
+
+    Returns
+    -------
+    list of str
+        ``["uv", "run", "python", script]`` for dysh, ``["gbtidl", script]`` otherwise.
+    """
     if tool == "dysh":
         return ["uv", "run", "python", script]
     else:
@@ -160,6 +211,19 @@ def _make_cmd(tool: str, script: str) -> list[str]:
 
 
 def _parse_script_seconds(output: str) -> float | None:
+    """Extract the whole-script time from a script's output.
+
+    Parameters
+    ----------
+    output : str
+        Captured stdout containing a ``DYSH_BENCH_SCRIPT_MS=`` or ``GBTIDL_BENCH_SCRIPT_MS=``
+        marker. IDL's ``D`` exponent is accepted.
+
+    Returns
+    -------
+    float or None
+        Script time in seconds (first marker found), or `None` if there is no marker.
+    """
     match = SCRIPT_MS_RE.search(output)
     if match is None:
         return None
@@ -167,6 +231,18 @@ def _parse_script_seconds(output: str) -> float | None:
 
 
 def _parse_stage_seconds(output: str) -> dict[str, float]:
+    """Extract per-stage times from a script's output.
+
+    Parameters
+    ----------
+    output : str
+        Captured stdout containing ``*_BENCH_STAGE_MS[<stage>]=<ms>`` markers.
+
+    Returns
+    -------
+    dict
+        Stage name -> time in seconds. If a stage name repeats, the last value wins.
+    """
     stages: dict[str, float] = {}
     for match in STAGE_MS_RE.finditer(output):
         stages[match.group("stage")] = float(match.group("ms").replace("D", "E").replace("d", "e")) / 1000.0
@@ -174,7 +250,19 @@ def _parse_stage_seconds(output: str) -> dict[str, float]:
 
 
 def _read_peak_rss_kb(pid: int) -> int:
-    """Read the current high-water RSS for a process from procfs."""
+    """Read a process's peak resident set size from procfs.
+
+    Parameters
+    ----------
+    pid : int
+        Process id.
+
+    Returns
+    -------
+    int
+        The larger of ``VmHWM`` and ``VmRSS`` in kB, or 0 if the process is gone or
+        ``/proc/<pid>/status`` cannot be read (e.g. non-Linux).
+    """
     vm_hwm_kb = 0
     vm_rss_kb = 0
     try:
@@ -190,6 +278,19 @@ def _read_peak_rss_kb(pid: int) -> int:
 
 
 def _drain_stdout(stream, output_lines: list[str], verbose: bool) -> None:
+    """Copy lines from a stream into a list until the stream closes.
+
+    Intended as a thread target so a child process cannot block on a full pipe.
+
+    Parameters
+    ----------
+    stream : file-like
+        Text stream to read, e.g. ``Popen.stdout``.
+    output_lines : list of str
+        List that each line is appended to.
+    verbose : bool
+        Also echo each line to the console.
+    """
     for line in stream:
         output_lines.append(line)
         if verbose:
@@ -197,7 +298,32 @@ def _drain_stdout(stream, output_lines: list[str], verbose: bool) -> None:
 
 
 def _run_script(cmd: list[str], env: dict, verbose: bool = False, require_script_marker: bool = True) -> dict:
-    """Run *cmd* with *env*. Exits on failure."""
+    """Run one benchmark script, measuring wall time, peak memory, and its own timing markers.
+
+    Parameters
+    ----------
+    cmd : list of str
+        Command to run, from `_make_cmd`.
+    env : dict
+        Environment for the child process.
+    verbose : bool, optional
+        Stream the child's output live.
+    require_script_marker : bool, optional
+        Treat a missing ``BENCH_SCRIPT_MS`` marker as a failure.
+
+    Returns
+    -------
+    dict
+        ``elapsed_s`` (wall time of the whole process), ``stdout`` (stdout and stderr combined),
+        ``stderr`` (always empty; stderr is merged into stdout), ``script_body_s`` (from the
+        marker, or `None`), ``stage_s`` (stage name -> seconds), and ``peak_rss_mb``.
+
+    Raises
+    ------
+    SystemExit
+        If the process exits nonzero, or if `require_script_marker` is set and no script
+        marker was emitted.
+    """
     if verbose:
         console.print(f"[dim]$ {' '.join(cmd)}[/]")
     t0 = time.perf_counter()
@@ -252,8 +378,36 @@ def _run_one_cold(
     tmpdir: str | None,
     verbose: bool,
     require_script_marker: bool,
-) -> float:
-    """Copy data to a fresh temp dir, evict from page cache, time the run."""
+) -> dict:
+    """Run a script once against a fresh, page-cache-evicted copy of its data.
+
+    The data directory is copied to a unique temporary directory, evicted from the page cache,
+    and the script is pointed at the copy through ``$DYSH_BENCH_DATA_PATH``. The copy is
+    removed afterwards.
+
+    Parameters
+    ----------
+    tool : {"dysh", "gbtidl"}
+        Which tool runs the script.
+    script : str
+        Path to the script.
+    data_path : str or None
+        Data directory to copy. Must be a directory, not a single file. `None` for benchmarks
+        that use no data.
+    has_output : bool
+        Set ``$DYSH_BENCH_OUT_PATH`` to a file inside the temporary directory.
+    tmpdir : str or None
+        Parent directory for the temporary copy; `None` uses the system default.
+    verbose : bool
+        Print progress and stream the child's output.
+    require_script_marker : bool
+        Treat a missing ``BENCH_SCRIPT_MS`` marker as a failure.
+
+    Returns
+    -------
+    dict
+        The result of `_run_script`.
+    """
     tmp_root = Path(tempfile.mkdtemp(prefix=f"dysh_cold_{uuid.uuid4().hex[:8]}_", dir=tmpdir))
     try:
         env = dict(os.environ)
@@ -286,6 +440,44 @@ def _run_iterations(
     progress: Progress | None,
     require_script_marker: bool,
 ) -> list[dict]:
+    """Run a script repeatedly and collect the timing of each run.
+
+    In ``"warm"`` mode one untimed warm-up run precedes the timed runs, which then share the
+    same data path and page cache. In ``"cold"`` mode each timed run uses a fresh evicted copy
+    of the data (see `_run_one_cold`).
+
+    Parameters
+    ----------
+    tool : {"dysh", "gbtidl"}
+        Which tool runs the script.
+    label : str
+        Name shown in progress output.
+    script : str
+        Path to the script.
+    data_path : str or None
+        Data to run against; `None` for benchmarks that use no data.
+    has_output : bool
+        Set ``$DYSH_BENCH_OUT_PATH`` so the script can write an output file.
+    cache_mode : {"warm", "cold"}
+        Cache behavior.
+    n_iterations : int
+        Number of timed runs.
+    tmpdir : str or None
+        Parent directory for cold-mode copies.
+    verbose : bool
+        Stream script output instead of showing a progress bar.
+    overall_task : int or None
+        Task id in `progress` to advance, or `None` when there is no progress bar.
+    progress : `rich.progress.Progress` or None
+        Progress bar; `None` in verbose mode.
+    require_script_marker : bool
+        Treat a missing ``BENCH_SCRIPT_MS`` marker as a failure.
+
+    Returns
+    -------
+    list of dict
+        One `_run_script` result per timed run (the warm-up is not included).
+    """
     env = dict(os.environ)
     if data_path:
         env["DYSH_BENCH_DATA_PATH"] = data_path
@@ -295,6 +487,13 @@ def _run_iterations(
     cmd = _make_cmd(tool, script)
 
     def _run():
+        """Run the script once in the warm-cache environment.
+
+        Returns
+        -------
+        dict
+            The result of `_run_script`.
+        """
         return _run_script(cmd, env, verbose=verbose, require_script_marker=require_script_marker)
 
     if cache_mode == "warm":
@@ -329,11 +528,47 @@ def _run_iterations(
 
 
 def _golden_path(cfg: dict) -> Path:
+    """Locate the golden capture for a benchmark.
+
+    Parameters
+    ----------
+    cfg : dict
+        The benchmark's entry in `BENCHMARKS`; uses ``dysh_script``.
+
+    Returns
+    -------
+    `~pathlib.Path`
+        ``golden.txt`` next to the benchmark's dysh script. It may not exist.
+    """
     return Path(cfg["dysh_script"]).parent / "golden.txt"
 
 
 def _capture_stdout(tool: str, name: str, script: str, env: dict, verbose: bool) -> str:
-    """Run one script and return its stdout, exiting on failure."""
+    """Run one script and return its stdout.
+
+    Parameters
+    ----------
+    tool : {"dysh", "gbtidl"}
+        Which tool runs the script.
+    name : str
+        Benchmark name, used in messages.
+    script : str
+        Path to the script.
+    env : dict
+        Environment for the child process.
+    verbose : bool
+        Print a note that the capture is starting.
+
+    Returns
+    -------
+    str
+        The captured stdout.
+
+    Raises
+    ------
+    SystemExit
+        If the script exits nonzero; its output is printed first.
+    """
     if verbose:
         console.print(f"[dim]verify: capturing {tool} stdout for {name}[/]")
     result = subprocess.run(_make_cmd(tool, script), env=env, capture_output=True, text=True)
@@ -348,7 +583,27 @@ def _capture_stdout(tool: str, name: str, script: str, env: dict, verbose: bool)
 
 
 def _capture_golden(name: str, cfg: dict, data_path: str | None, verbose: bool) -> None:
-    """Capture dysh stdout on the current build as the golden reference for *name*."""
+    """Capture dysh's stdout on the current build as the golden reference.
+
+    Writes ``golden.txt`` next to the dysh script. Benchmarks without a stdout verifier are
+    skipped.
+
+    Parameters
+    ----------
+    name : str
+        Benchmark name.
+    cfg : dict
+        The benchmark's entry in `BENCHMARKS`.
+    data_path : str or None
+        Data path passed to the script through ``$DYSH_BENCH_DATA_PATH``.
+    verbose : bool
+        Print a note that the capture is starting.
+
+    Raises
+    ------
+    SystemExit
+        If the script exits nonzero.
+    """
     if not cfg.get("verify_needs_stdout", False):
         console.print(f"[yellow]golden:[/] [bold]{name}[/] has no stdout verifier, skipping")
         return
@@ -361,9 +616,29 @@ def _capture_golden(name: str, cfg: dict, data_path: str | None, verbose: bool) 
 
 
 def _run_verify(name: str, cfg: dict, data_path: str | None, has_gbtidl: bool, verbose: bool) -> None:
-    """Run the benchmark's verify.py once, capturing stdout as needed.
+    """Run a benchmark's ``verify.py`` once, capturing script stdout as needed.
 
-    The reference is GBTIDL when available, otherwise a committed golden capture.
+    The reference is GBTIDL when available, otherwise the committed golden capture. The check
+    is skipped, with a message, if there is no ``verify.py``, the verifier does not use stdout,
+    or neither GBTIDL nor a golden file is available.
+
+    Parameters
+    ----------
+    name : str
+        Benchmark name.
+    cfg : dict
+        The benchmark's entry in `BENCHMARKS`.
+    data_path : str or None
+        Data path passed to the scripts through ``$DYSH_BENCH_DATA_PATH``.
+    has_gbtidl : bool
+        Whether to run GBTIDL to produce the reference instead of using the golden file.
+    verbose : bool
+        Print progress notes.
+
+    Raises
+    ------
+    SystemExit
+        If a script fails or the verifier reports a mismatch.
     """
     verify_script = cfg.get("verify_script")
     if not verify_script or not Path(verify_script).exists():
@@ -415,6 +690,19 @@ def _run_verify(name: str, cfg: dict, data_path: str | None, has_gbtidl: bool, v
 
 
 def _stats(times: list[float]) -> dict:
+    """Summarize a list of timings.
+
+    Parameters
+    ----------
+    times : list of float
+        Timings in seconds (or any single unit).
+
+    Returns
+    -------
+    dict
+        ``n``, ``mean``, ``std`` (sample standard deviation, 0 for a single value), ``min``,
+        ``max``, and the raw ``times``.
+    """
     n = len(times)
     m = mean(times)
     s = stdev(times) if n > 1 else 0.0
@@ -422,6 +710,21 @@ def _stats(times: list[float]) -> dict:
 
 
 def _stats_from_runs(runs: list[dict]) -> dict:
+    """Summarize the runs of one benchmark.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Results from `_run_iterations`.
+
+    Returns
+    -------
+    dict
+        The `_stats` summary of the total wall time, plus these keys when available:
+        ``peak_rss_mb`` (memory), ``script_body`` and ``startup_overhead`` (only if every run
+        reported a script time), and ``stages`` (per-stage summaries, only for stages present
+        in every run).
+    """
     stats = _stats([run["elapsed_s"] for run in runs])
     peak_rss_values = [run["peak_rss_mb"] for run in runs if run.get("peak_rss_mb") is not None]
     if peak_rss_values:
@@ -443,6 +746,21 @@ def _stats_from_runs(runs: list[dict]) -> dict:
 
 
 def _apply_zero_script_body(stats: dict) -> dict:
+    """Fill in timing for scripts that only measure process startup.
+
+    For the ``exit`` benchmark the whole run is startup overhead, so the script body time is
+    zero and the total time is the startup overhead.
+
+    Parameters
+    ----------
+    stats : dict
+        Result of `_stats_from_runs`. Modified in place.
+
+    Returns
+    -------
+    dict
+        The same `stats`, with ``script_body`` and ``startup_overhead`` set.
+    """
     zeroes = [0.0] * stats["n"]
     stats["script_body"] = _stats(zeroes)
     stats["startup_overhead"] = _stats(list(stats["times"]))
@@ -450,6 +768,17 @@ def _apply_zero_script_body(stats: dict) -> dict:
 
 
 def _print_results(results: dict, modes: list[str], all_columns: bool = False) -> None:
+    """Print the summary table and per-stage breakdown tables.
+
+    Parameters
+    ----------
+    results : dict
+        Nested ``results[benchmark][mode][tool]`` dictionaries of `_stats_from_runs` output.
+    modes : list of str
+        Cache modes to print, in order.
+    all_columns : bool, optional
+        Also show startup time, peak RSS, standard deviation, and startup speedup.
+    """
     table = Table(show_header=True, header_style="bold")
     table.add_column("Benchmark")
     table.add_column("Mode")
@@ -534,6 +863,22 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
             def _print_single_tool_stage_table(
                 tool: str, stages: dict, script_mean: float | None, _name: str = name, _mode: str = mode
             ) -> None:
+                """Print the stage breakdown of one tool, when there is no other tool to compare against.
+
+                Parameters
+                ----------
+                tool : str
+                    Tool name, used in the table title and column headers.
+                stages : dict
+                    Stage name -> `_stats` summary. Nothing is printed if empty.
+                script_mean : float or None
+                    Mean script time, used for the percentage column; the column is blank if `None` or 0.
+                _name : str, optional
+                    Benchmark name for the title. The default binds the loop variable of the enclosing
+                    function; do not pass it.
+                _mode : str, optional
+                    Cache mode for the title. Bound like `_name`.
+                """
                 nonlocal stage_tables_printed
                 if not stages:
                     return
@@ -589,6 +934,17 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
 
 
 def main() -> None:
+    """Command-line entry point.
+
+    Reads its options from ``sys.argv`` (see ``--help``): times the selected benchmarks with
+    dysh and, if available, GBTIDL; optionally verifies results or captures golden files;
+    prints the summary tables; and optionally writes JSON.
+
+    Raises
+    ------
+    SystemExit
+        If a benchmark script fails or verification fails.
+    """
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--benchmarks",
@@ -688,6 +1044,18 @@ def main() -> None:
     )
 
     def _run_all(overall, progress):
+        """Time every selected benchmark in every requested mode and store the results.
+
+        Fills the enclosing function's ``results`` dictionary, and verifies each benchmark
+        afterwards if ``--verify`` was given.
+
+        Parameters
+        ----------
+        overall : int or None
+            Task id of the overall progress bar, or `None` in verbose mode.
+        progress : `rich.progress.Progress` or None
+            Progress bar, or `None` in verbose mode.
+        """
         for name in selected:
             cfg = BENCHMARKS[name]
             data_path = resolved_data[name]

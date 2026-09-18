@@ -34,9 +34,24 @@ class MarkerDTime(DTime):
     """
 
     def span(self, name, since):
-        """Record an aggregate stage from the tag ``since`` (exclusive) to the latest tag.
+        """Record an aggregate stage that overlaps several tags, e.g. a loop total.
 
-        The marker is printed by `report` after the per-tag markers.
+        The stage runs from the most recent tag named `since` (exclusive) to the most recent tag
+        made so far, so call it after the last tag that belongs to the span. The marker is printed by
+        `report`, after the per-tag markers, as ``DYSH_BENCH_STAGE_MS[<name>]=<ms>``. Does nothing if
+        the timer is inactive.
+
+        Parameters
+        ----------
+        name : str
+            Stage name for the marker.
+        since : str
+            Name of the tag that marks the start of the span. The span begins when that tag was made.
+
+        Raises
+        ------
+        ValueError
+            If no tag named `since` has been made.
         """
         if not self.active:
             return
@@ -46,6 +61,26 @@ class MarkerDTime(DTime):
         self._spans = [*getattr(self, "_spans", []), (name, (self.stats[-1][1] - start) / 1e6)]
 
     def report(self, debug=False):
+        """Print the timing table (or write it to file), then the benchmark markers.
+
+        The table, ECSV output, and profiler report are those of `DTime.report`. Afterwards one
+        ``DYSH_BENCH_STAGE_MS[<tag>]=<ms>`` line is printed per tag, giving the time since the previous
+        tag (the first tag is timed from when the timer was created), followed by any `span` stages and
+        ``DYSH_BENCH_SCRIPT_MS=<ms>``, the time since the timer was created. That excludes interpreter
+        startup and imports that happen before the timer is created. Repeated tag names are printed as
+        ``name``, ``name#2``, ``name#3``, ...
+
+        Parameters
+        ----------
+        debug : bool, optional
+            Passed to `DTime.report`, which prints every raw entry.
+
+        Raises
+        ------
+        Exception
+            From `DTime.report`, if the ``out`` file exists and neither ``append`` nor ``overwrite``
+            was requested.
+        """
         super().report(debug=debug)
         if not self.active:
             return
@@ -65,7 +100,20 @@ def add_dtime_args(parser):
 
     `DTime` reads ``out``, ``append``, ``overwrite``, ``profile``, ``statslines`` and ``sortkey``
     from ``vars(args)`` by bare key, so a driver missing any of them fails with a `KeyError`.
-    Adding them through this function guarantees they exist.
+    Adding them through this function guarantees they exist. The options are ``--out/-o``,
+    ``--append/-a``, ``--overwrite/-w``, ``--profile/-p``, ``--statslines/-e`` (default 25),
+    ``--sortkey/-x`` (default ``"cumulative"``) and ``--memory/-m``. The caller must not reuse
+    those short flags for other options.
+
+    Parameters
+    ----------
+    parser : `argparse.ArgumentParser`
+        Parser to add the options to.
+
+    Returns
+    -------
+    `argparse.ArgumentParser`
+        The same `parser`, for chaining.
     """
     # fmt: off
     parser.add_argument("--out",        "-o", action="store",      help="output filename (astropy Table)", required=False)
@@ -83,9 +131,21 @@ def resolve_data(canonical=None, **dysh_data_kwargs):
     """Return the benchmark data path.
 
     Resolution order: ``$DYSH_BENCH_DATA_PATH`` (how ``run_bench.py`` points a script at a
-    cold-cache copy), then ``canonical`` if it exists on this host, then
-    `dysh.util.files.dysh_data` called with the remaining arguments, e.g.
-    ``resolve_data(example="getps")``.
+    cold-cache copy), then `canonical` if it exists on this host, then `dysh.util.files.dysh_data`
+    called with the remaining keyword arguments, e.g. ``resolve_data(example="getps")``.
+
+    Parameters
+    ----------
+    canonical : str, optional
+        Preferred path on hosts where it exists, e.g. the GBO location of the dataset.
+    **dysh_data_kwargs
+        Keyword arguments for `dysh.util.files.dysh_data`, used when neither of the above applies.
+
+    Returns
+    -------
+    str or `~pathlib.Path` or None
+        A `str` if taken from the environment or `canonical`; otherwise whatever `dysh_data`
+        returns (a `~pathlib.Path`, or `None` if the data could not be found).
     """
     env_path = os.environ.get(DATA_PATH_ENV)
     if env_path:
@@ -98,12 +158,23 @@ def resolve_data(canonical=None, **dysh_data_kwargs):
 
 
 def summarize(times):
-    """Summary statistics of a list of timings, in the units of the input.
+    """Summarize a list of timings.
+
+    Parameters
+    ----------
+    times : list of float
+        Timings, in any single unit. Must not be empty.
 
     Returns
     -------
     dict
-        ``n``, ``mean``, ``std``, ``median``, ``min``, ``max`` and the raw ``times``.
+        ``n``, ``mean``, ``std`` (sample standard deviation, 0 for a single value), ``median``,
+        ``min``, ``max``, and a copy of the raw ``times``, all in the units of the input.
+
+    Raises
+    ------
+    statistics.StatisticsError
+        If `times` is empty.
     """
     return {
         "n": len(times),
