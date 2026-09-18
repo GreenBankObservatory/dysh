@@ -1,31 +1,31 @@
-import os
-import time
+import sys
+from pathlib import Path
 
 import numpy as np
 from astropy import units as u
 from astropy.time import Time
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))  # benchmark/
+from bench_common import MarkerDTime, resolve_data
 from dysh.fits import GBTFITSLoad
 from dysh.log import logger
 from dysh.util.weatherforecast import GBTWeatherForecast
 
 logger.info("START")
-script_t0 = time.perf_counter()
 
-path = os.environ.get(
-    "DYSH_BENCH_DATA_PATH",
-    "/home/scratch/ajschmie/training/dysh/datasets/argus/TGBT22A_603_05_vanecal.raw.vegas",
+dt = MarkerDTime(benchname="argus_vanecal")
+
+path = resolve_data(
+    "/home/scratch/ajschmie/training/dysh/datasets/argus/TGBT22A_603_05_vanecal.raw.vegas", example="otf4"
 )
 scan1 = 10
 ifnum = 0
 plnum = 0
 center_fdnum = 9
 
-stage_t0 = time.perf_counter()
 sdfits = GBTFITSLoad(path)
-print(f"DYSH_BENCH_STAGE_MS[GBTFITSLoad]={(time.perf_counter() - stage_t0) * 1000.0:.3f}")
+dt.tag("GBTFITSLoad")
 
-stage_t0 = time.perf_counter()
 center_meta = (
     sdfits.gettp(
         scan=scan1,
@@ -56,18 +56,16 @@ try:
 except ValueError:
     # Weather forecasts are only reachable at GBO; fall back to ambient temperature.
     tcal = center_meta["TAMBIENT"]
-print(f"DYSH_BENCH_STAGE_MS[setup_tcal]={(time.perf_counter() - stage_t0) * 1000.0:.3f}")
+dt.tag("setup_tcal")
 
-feed_loop_t0 = time.perf_counter()
 for i in range(16):
-    stage_t0 = time.perf_counter()
     print("FDnum = ", i)
     tsys = sdfits.vanecal(scan1, fdnum=i, ifnum=ifnum, plnum=plnum, tcal=tcal)
     print(f"TSYS_FDNUM_{i}={np.mean(tsys):.4f}")
     print("   tsys = ", tsys)
-    print(f"DYSH_BENCH_STAGE_MS[fdnum_{i}]={(time.perf_counter() - stage_t0) * 1000.0:.3f}")
-print(f"DYSH_BENCH_STAGE_MS[feed_loop_total]={(time.perf_counter() - feed_loop_t0) * 1000.0:.3f}")
+    dt.tag(f"fdnum_{i}")
+dt.span("feed_loop_total", since="setup_tcal")
 
-print(f"DYSH_BENCH_SCRIPT_MS={(time.perf_counter() - script_t0) * 1000.0:.3f}")
+dt.report()
 
 logger.info("END")

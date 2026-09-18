@@ -1,50 +1,17 @@
 """
-Usage: python verify.py dysh_stdout.txt gbtidl_stdout.txt
+Usage: python verify.py dysh_stdout.txt reference_stdout.txt
 
-Parses TSYS_FDNUM_N=value lines from dysh's captured stdout and
-TSYS_FDNUM_N=value lines from gbtidl's captured stdout, then checks
-that mean Tsys per feed agrees within absolute tolerance of 1 mK.
+Parses TSYS_FDNUM_N=value lines from each script's captured stdout and checks
+that the mean Tsys of each of the 16 ARGUS feeds agrees within an absolute
+tolerance of 1 mK.
 """
 
-import re
 import sys
+from pathlib import Path
 
-_PAT = re.compile(r"TSYS_FDNUM_\s*(\d+)\s*[= ]+\s*([0-9.eE+\-]+)")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # benchmark/workflows/
+import verify_common
 
+NFEEDS = 16
 
-def extract(path):
-    vals = {}
-    for m in _PAT.finditer(open(path).read()):
-        vals[int(m.group(1))] = float(m.group(2))
-    return vals
-
-
-dysh = extract(sys.argv[1])
-gbtidl = extract(sys.argv[2])
-
-#rtol = 0.02
-atol = 0.001 # 1 mK tolerance.
-ok = True
-feeds = sorted(set(dysh) | set(gbtidl))
-for fdnum in feeds:
-    if fdnum not in dysh:
-        print(f"FAIL FDNUM_{fdnum}: missing from dysh output")
-        ok = False
-        continue
-    if fdnum not in gbtidl:
-        print(f"FAIL FDNUM_{fdnum}: missing from gbtidl output")
-        ok = False
-        continue
-    d, g = dysh[fdnum], gbtidl[fdnum]
-    #rel = abs(d - g) / abs(g)
-    #status = "PASS" if rel < rtol else "FAIL"
-    #if rel >= rtol:
-    #    ok = False
-    #print(f"{status} TSYS_FDNUM_{fdnum}: dysh={d:.4f}  gbtidl={g:.4f}  rel_diff={rel:.2%}")
-    diff = abs(d - g)
-    status = "PASS" if diff < atol else "FAIL"
-    if diff >= atol:
-        ok = False
-    print(f"{status} TSYS_FDNUM_{fdnum}: dysh={d:.4f}  gbtidl={g:.4f}  abs_diff={diff:.3%}")
-
-sys.exit(0 if ok else 1)
+verify_common.run(r"TSYS_FDNUM_\s*(\d+)\s*[= ]+\s*([0-9.eE+\-]+)", range(NFEEDS), "TSYS_FDNUM_", key=int)

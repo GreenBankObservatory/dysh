@@ -1,44 +1,19 @@
 """
-Usage: python verify.py dysh_stdout.txt gbtidl_stdout.txt
+Usage: python verify.py dysh_stdout.txt reference_stdout.txt
 
 Parses RMS_BLUE / RMS_RED key=value lines from each script's captured stdout
-and checks that values agree within absolute tolerance of 1 mK.
+and checks that values agree within an absolute tolerance of 1 mK.
+
+1 mK is used rather than a relative tolerance because a small residual
+dysh/GBTIDL difference remains in the final RMS calculation (the explicit
+channel baseline windows in the benchmark already removed the larger mismatch
+from frequency-region handling).
 """
 
-import re
 import sys
+from pathlib import Path
 
-_PAT = re.compile(r"RMS_(BLUE|RED)[= ]+([0-9.eE+\-]+)")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # benchmark/workflows/
+import verify_common
 
-
-def extract(path):
-    vals = {}
-    for m in _PAT.finditer(open(path).read()):
-        vals[m.group(1)] = float(m.group(2))
-    return vals
-
-
-dysh = extract(sys.argv[1])
-gbtidl = extract(sys.argv[2])
-
-# The benchmark now uses explicit channel baseline windows, which removes the
-# large mismatch from frequency-region handling. There is still a small
-# residual dysh/GBTIDL semantics difference around the final RMS calculation,
-# so keep the verify threshold at 1 mK until that underlying issue is fixed.
-#rtol = 0.02
-atol = 0.001 # 1 mK tolerance.
-ok = True
-for key in ("BLUE", "RED"):
-    d, g = dysh[key], gbtidl[key]
-    #rel = abs(d - g) / abs(g)
-    #status = "PASS" if rel < rtol else "FAIL"
-    #if rel >= rtol:
-    #    ok = False
-    #print(f"{status} RMS_{key}: dysh={d:.4e}  gbtidl={g:.4e}  rel_diff={rel:.2%}")
-
-    diff = abs(d - g)
-    status = "PASS" if diff < atol else "FAIL"
-    if diff >= atol:
-        ok = False
-    print(f"{status} RMS_{key}: dysh={d:.4e}  gbtidl={g:.4e}  abs_diff={diff:.3%}")
-sys.exit(0 if ok else 1)
+verify_common.run(r"RMS_(BLUE|RED)[= ]+([0-9.eE+\-]+)", ("BLUE", "RED"), "RMS_", fmt=".4e")

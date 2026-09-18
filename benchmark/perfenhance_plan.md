@@ -66,7 +66,9 @@ interleaved fixes and reverts.
   `benchmark/workflows/scripts/argus_vanecal/verify.py on an
   absolute tolerance of 1 mK.  (done - Marc)
 
-- Compare HI system temperature $T_{sys}$ (done - Marc)
+- Compare HI system temperature $T_{sys}$ (NOT done; deferred until after the benchmark
+  refactor below — needs new `TSYS_*` markers in `hi_survey/dysh_script.py` and a golden
+  recapture). "Spectral average properties" comparison is likewise deferred.
 
 - No golden values need to be recaptured — `golden.txt` stores the raw dysh markers, not the tolerance; only the comparison logic in `verify.py` changes.
 
@@ -76,7 +78,7 @@ underlying values haven't changed, only how they're judged). (done - Marc)
 
 #### Bigger stuff ####
 
-- Figure out if it is possible to refactor the existing benchmark code and the new workflow benchmark code, as we now have two completely separate benchmark systems.
+- Figure out if it is possible to refactor the previous benchmark code in `benchmark` and the new benchmark code in `benchmark/workflow`, as we now have two completely separate benchmark systems.
 
 - **Blocks PR 1 onward:** later PRs' correctness gate is "verifiers pass against golden," so the gate itself must be right before it's relied on for every subsequent PR.
 
