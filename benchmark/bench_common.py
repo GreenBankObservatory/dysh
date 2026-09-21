@@ -15,9 +15,11 @@ branches of a performance PR.
 
 import os
 import time
-from statistics import mean, median, stdev
 
+from bench_stats import summarize
 from dysh.util.timers import DTime
+
+__all__ = ["DATA_PATH_ENV", "MarkerDTime", "add_dtime_args", "resolve_data", "summarize"]
 
 DATA_PATH_ENV = "DYSH_BENCH_DATA_PATH"
 
@@ -159,33 +161,3 @@ def resolve_data(canonical=None, **dysh_data_kwargs):
     from dysh.util.files import dysh_data
 
     return dysh_data(**dysh_data_kwargs)
-
-
-def summarize(times):
-    """Summarize a list of timings.
-
-    Parameters
-    ----------
-    times : list of float
-        Timings, in any single unit. Must not be empty.
-
-    Returns
-    -------
-    dict
-        ``n``, ``mean``, ``std`` (sample standard deviation, 0 for a single value), ``median``,
-        ``min``, ``max``, and a copy of the raw ``times``, all in the units of the input.
-
-    Raises
-    ------
-    statistics.StatisticsError
-        If `times` is empty.
-    """
-    return {
-        "n": len(times),
-        "mean": mean(times),
-        "std": stdev(times) if len(times) > 1 else 0.0,
-        "median": median(times),
-        "min": min(times),
-        "max": max(times),
-        "times": list(times),
-    }

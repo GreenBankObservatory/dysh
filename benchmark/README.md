@@ -14,7 +14,10 @@ both benchmarked the same way on the same machine.
    comes from the `dysh_data` aliases with `DYSH_DATA` set.
 2. **Warm runs** (default, for CPU-bound changes): run the relevant benchmark
    5 times, discard the first (import and lazy-load warm-up), report the
-   median and min/max of the timing tags.
+   median and min/max of the timing tags. `workflows/run_bench.py` prints
+   these as the `median` and `min-max` columns of its stage tables and stores
+   them in its JSON output; `--iterations 4` (it runs one untimed warm-up
+   first) is equivalent to 5 runs with the first discarded.
 3. **Cold runs** (only for I/O-bound changes, e.g. FITS reading): drop the
    page cache before each of 3 runs (`sync; echo 1 | sudo tee
    /proc/sys/vm/drop_caches`, or use `workflows/run_bench.py --mode cold`

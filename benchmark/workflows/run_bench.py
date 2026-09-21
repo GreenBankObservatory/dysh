@@ -39,11 +39,13 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from statistics import mean, stdev
 
 from rich.console import Console
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # benchmark/, for bench_stats
+from bench_stats import summarize
 
 console = Console()
 
@@ -762,26 +764,6 @@ def _run_verify(
 # ---------------------------------------------------------------------------
 
 
-def _stats(times: list[float]) -> dict:
-    """Summarize a list of timings.
-
-    Parameters
-    ----------
-    times : list of float
-        Timings in seconds (or any single unit).
-
-    Returns
-    -------
-    dict
-        ``n``, ``mean``, ``std`` (sample standard deviation, 0 for a single value), ``min``,
-        ``max``, and the raw ``times``.
-    """
-    n = len(times)
-    m = mean(times)
-    s = stdev(times) if n > 1 else 0.0
-    return {"n": n, "mean": m, "std": s, "min": min(times), "max": max(times), "times": times}
-
-
 def _stats_from_runs(runs: list[dict]) -> dict:
     """Summarize the runs of one benchmark.
 
@@ -793,26 +775,26 @@ def _stats_from_runs(runs: list[dict]) -> dict:
     Returns
     -------
     dict
-        The `_stats` summary of the total wall time, plus these keys when available:
+        The `~bench_stats.summarize` summary of the total wall time, plus these keys when available:
         ``peak_rss_mb`` (memory), ``script_body`` and ``startup_overhead`` (only if every run
         reported a script time), and ``stages`` (per-stage summaries, only for stages present
         in every run).
     """
-    stats = _stats([run["elapsed_s"] for run in runs])
+    stats = summarize([run["elapsed_s"] for run in runs])
     peak_rss_values = [run["peak_rss_mb"] for run in runs if run.get("peak_rss_mb") is not None]
     if peak_rss_values:
-        stats["peak_rss_mb"] = _stats(peak_rss_values)
+        stats["peak_rss_mb"] = summarize(peak_rss_values)
     script_times = [run["script_body_s"] for run in runs if run["script_body_s"] is not None]
     if len(script_times) == len(runs):
-        stats["script_body"] = _stats(script_times)
-        stats["startup_overhead"] = _stats([max(0.0, run["elapsed_s"] - run["script_body_s"]) for run in runs])
+        stats["script_body"] = summarize(script_times)
+        stats["startup_overhead"] = summarize([max(0.0, run["elapsed_s"] - run["script_body_s"]) for run in runs])
     all_stage_keys = sorted({key for run in runs for key in run.get("stage_s", {}).keys()})
     if all_stage_keys:
         stage_stats = {}
         for key in all_stage_keys:
             stage_times = [run["stage_s"][key] for run in runs if key in run.get("stage_s", {})]
             if len(stage_times) == len(runs):
-                stage_stats[key] = _stats(stage_times)
+                stage_stats[key] = summarize(stage_times)
         if stage_stats:
             stats["stages"] = stage_stats
     return stats
@@ -835,8 +817,8 @@ def _apply_zero_script_body(stats: dict) -> dict:
         The same `stats`, with ``script_body`` and ``startup_overhead`` set.
     """
     zeroes = [0.0] * stats["n"]
-    stats["script_body"] = _stats(zeroes)
-    stats["startup_overhead"] = _stats(list(stats["times"]))
+    stats["script_body"] = summarize(zeroes)
+    stats["startup_overhead"] = summarize(list(stats["times"]))
     return stats
 
 
@@ -850,7 +832,7 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
     modes : list of str
         Cache modes to print, in order.
     all_columns : bool, optional
-        Also show startup time, peak RSS, standard deviation, and startup speedup.
+        Also show startup time, peak RSS, standard deviation, min-max range, and startup speedup.
     """
     table = Table(show_header=True, header_style="bold")
     table.add_column("Benchmark")
@@ -858,11 +840,13 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
     table.add_column("Tool")
     table.add_column("N", justify="right")
     table.add_column("Total (s)", justify="right")
+    table.add_column("Median (s)", justify="right")
     table.add_column("Script (s)", justify="right")
     if all_columns:
         table.add_column("Startup (s)", justify="right")
         table.add_column("Peak RSS", justify="right")
         table.add_column("Std (s)", justify="right")
+        table.add_column("Min-Max (s)", justify="right")
     table.add_column("Total Speedup", justify="right")
     table.add_column("Script x", justify="right")
     if all_columns:
@@ -904,12 +888,14 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
                     tool,
                     str(st["n"]),
                     f"{st['mean']:.2f}",
+                    f"{st['median']:.2f}",
                     f"{st['script_body']['mean']:.2f}" if "script_body" in st else "",
                     *(
                         [
                             f"{st['startup_overhead']['mean']:.2f}" if "startup_overhead" in st else "",
                             f"{st['peak_rss_mb']['max']:.0f} MB" if "peak_rss_mb" in st else "",
                             f"{st['std']:.2f}",
+                            f"{st['min']:.2f}-{st['max']:.2f}",
                         ]
                         if all_columns
                         else []
@@ -943,7 +929,7 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
                 tool : str
                     Tool name, used in the table title and column headers.
                 stages : dict
-                    Stage name -> `_stats` summary. Nothing is printed if empty.
+                    Stage name -> `~bench_stats.summarize` summary. Nothing is printed if empty.
                 script_mean : float or None
                     Mean script time, used for the percentage column; the column is blank if `None` or 0.
                 _name : str, optional
@@ -963,11 +949,19 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
                 )
                 stage_table.add_column("Stage")
                 stage_table.add_column(f"{tool} (s)", justify="right")
+                stage_table.add_column("median (s)", justify="right")
+                stage_table.add_column("min-max (s)", justify="right")
                 stage_table.add_column(f"{tool} %", justify="right")
                 for stage, stage_stats in stages.items():
                     value = stage_stats["mean"]
                     share = f"{(100.0 * value / script_mean):.1f}%" if script_mean else ""
-                    stage_table.add_row(stage, f"{value:.3f}", share)
+                    stage_table.add_row(
+                        stage,
+                        f"{value:.3f}",
+                        f"{stage_stats['median']:.3f}",
+                        f"{stage_stats['min']:.3f}-{stage_stats['max']:.3f}",
+                        share,
+                    )
                 console.print()
                 console.print(stage_table)
 
@@ -980,6 +974,8 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
                 )
                 stage_table.add_column("Stage")
                 stage_table.add_column("dysh (s)", justify="right")
+                stage_table.add_column("dysh median (s)", justify="right")
+                stage_table.add_column("dysh min-max (s)", justify="right")
                 stage_table.add_column("gbtidl (s)", justify="right")
                 stage_table.add_column("dysh/gbtidl", justify="right")
                 stage_table.add_column("dysh %", justify="right")
@@ -989,7 +985,15 @@ def _print_results(results: dict, modes: list[str], all_columns: bool = False) -
                     gb = gbtidl_stages[stage]["mean"]
                     ratio = f"{dy / gb:.2f}x" if gb else ""
                     share = f"{(100.0 * dy / dysh_script_mean):.1f}%" if dysh_script_mean else ""
-                    stage_table.add_row(stage, f"{dy:.3f}", f"{gb:.3f}", ratio, share)
+                    stage_table.add_row(
+                        stage,
+                        f"{dy:.3f}",
+                        f"{dysh_stages[stage]['median']:.3f}",
+                        f"{dysh_stages[stage]['min']:.3f}-{dysh_stages[stage]['max']:.3f}",
+                        f"{gb:.3f}",
+                        ratio,
+                        share,
+                    )
                 console.print()
                 console.print(stage_table)
                 continue
