@@ -95,7 +95,7 @@ class MarkerDTime(DTime):
         print(f"DYSH_BENCH_SCRIPT_MS={(time.perf_counter_ns() - self.stats[0][1]) / 1e6:.3f}")
 
 
-def add_dtime_args(parser):
+def add_dtime_args(parser, memory=True):
     """Add the options every `DTime`-based benchmark shares.
 
     `DTime` reads ``out``, ``append``, ``overwrite``, ``profile``, ``statslines`` and ``sortkey``
@@ -109,6 +109,9 @@ def add_dtime_args(parser):
     ----------
     parser : `argparse.ArgumentParser`
         Parser to add the options to.
+    memory : bool, optional
+        Add ``--memory/-m``. Pass `False` for a driver that uses ``-m`` for something else.
+        ``--memory`` is accepted but not currently read by any driver. Default is `True`.
 
     Returns
     -------
@@ -122,7 +125,8 @@ def add_dtime_args(parser):
     parser.add_argument("--profile",    "-p", action="store_true", help="run the profiler")
     parser.add_argument("--statslines", "-e", action="store",      help="number of profiler statistics lines to print", default=25)
     parser.add_argument("--sortkey",    "-x", action="store",      help="How to sort the profiler statistics, 'cumulative' or 'time'", default="cumulative")
-    parser.add_argument("--memory",     "-m", action="store_true", help="track memory usage")
+    if memory:
+        parser.add_argument("--memory", "-m", action="store_true", help="track memory usage")
     # fmt: on
     return parser
 
