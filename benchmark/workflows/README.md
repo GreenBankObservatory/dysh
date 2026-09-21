@@ -27,6 +27,9 @@ are launched with `uv run --frozen`, so `uv.lock` is used as is and never rewrit
 directory:
 
 ```bash
+# list the benchmark names and what each is for, then exit
+uv run python run_bench.py --list
+
 # time everything available on this host, 3 iterations, warm cache
 uv run python run_bench.py
 
@@ -62,12 +65,14 @@ take the same path.
 
 ## Adding a benchmark
 
-Add an entry to `BENCHMARKS` in `run_bench.py`. `dysh_script` (and `gbtidl_script`) may be a
-path, or an argv list with the script first and its arguments after, and need not live under
-`scripts/`:
+Add an entry to `BENCHMARKS` in `run_bench.py`. Every entry needs a one-line `description`, which
+`run_bench.py --list` (or `-l`) prints along with the benchmark names. `dysh_script` (and
+`gbtidl_script`) may be a path, or an argv list with the script first and its arguments after, and
+need not live under `scripts/`:
 
 ```python
 "getps": {
+    "description": "one line saying what the benchmark is for",   # shown by --list
     "dysh_script": ["../bench_getps.py", "-t"],
     "gbtidl_script": None,
     "data_path": None,                        # no canonical GBO path

@@ -62,11 +62,13 @@ STAGE_MS_RE = re.compile(r"(?P<tool>DYSH|GBTIDL)_BENCH_STAGE_MS\[(?P<stage>[^\]]
 # Benchmark registry
 # ---------------------------------------------------------------------------
 
+# ``description`` is a one-line summary of what the benchmark is for, shown by ``--list``.
 # ``dysh_script`` / ``gbtidl_script`` are a `Script`: a path, or an argv list such as
 # ``["../bench_getps.py", "-t", "-l", "4"]``. Relative paths (the first item only) are resolved
 # against HERE, so a script need not live under ``scripts/``. ``verify_script`` is a path.
 BENCHMARKS = {
     "argus_vanecal": {
+        "description": "ARGUS vane calibration: Tsys from VANE/SKY scans across all 16 feeds",
         "dysh_script": "scripts/argus_vanecal/dysh_script.py",
         "gbtidl_script": "scripts/argus_vanecal/gbtidl.pro",
         # Canonical: vane/sky subset of TGBT22A_603_05 (GBO only). The otf4
@@ -78,6 +80,7 @@ BENCHMARKS = {
         "verify_needs_stdout": True,
     },
     "hi_survey": {
+        "description": "HI survey reduction: gettp/getsigref, averaging, smooth, baseline, RMS and CoG stats",
         "dysh_script": "scripts/hi_survey/dysh_script.py",
         "gbtidl_script": "scripts/hi_survey/gbtidl.pro",
         "data_path": "/home/astro-util/HIsurvey/Session02",
@@ -87,6 +90,7 @@ BENCHMARKS = {
         "verify_needs_stdout": True,
     },
     "nod_kfpa": {
+        "description": "KFPA nodding data: GBTFITSLoad of a nod-KFPA session (load time only)",
         "dysh_script": "scripts/nod_kfpa/dysh_script.py",
         "gbtidl_script": None,
         "data_path": "/home/dysh/example_data/nod-KFPA/data/TGBT22A_503_02.raw.vegas",
@@ -96,6 +100,7 @@ BENCHMARKS = {
     # Micro-benchmarks: the in-process DTime drivers in benchmark/. They have no GBTIDL equivalent and
     # no verifier; only dysh is timed. There is no canonical GBO path, so data comes from the alias.
     "getps": {
+        "description": "bench_getps.py -t: load, then repeated getps + timeaverage on the position-switch example",
         "dysh_script": ["../bench_getps.py", "-t"],
         "gbtidl_script": None,
         "data_path": None,
@@ -103,6 +108,7 @@ BENCHMARKS = {
         "has_output": False,
     },
     "calibration": {
+        "description": "bench_calibration.py: first vs warm getps, getspec with/without WCS, timeaverage, Spectrum ops",
         "dysh_script": ["../bench_calibration.py"],
         "gbtidl_script": None,
         "data_path": None,
@@ -110,6 +116,7 @@ BENCHMARKS = {
         "has_output": False,
     },
     "exit": {
+        "description": "Process-startup baseline (Python/dysh start and exit); subtract it from the others",
         "dysh_script": "scripts/exit/dysh_script.py",
         "gbtidl_script": "scripts/exit/gbtidl",
         "data_path": None,
@@ -883,6 +890,16 @@ def _apply_zero_script_body(stats: dict) -> dict:
     return stats
 
 
+def _print_benchmark_list() -> None:
+    """Print the name and description of every benchmark in `BENCHMARKS`, in registry order."""
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Benchmark")
+    table.add_column("Description")
+    for name, cfg in BENCHMARKS.items():
+        table.add_row(name, cfg["description"])
+    console.print(table)
+
+
 def _print_results(results: dict, modes: list[str], all_columns: bool = False) -> None:
     """Print the summary table and per-stage breakdown tables.
 
@@ -1085,6 +1102,12 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
+        "-l",
+        "--list",
+        action="store_true",
+        help="list the benchmark names and descriptions, then exit",
+    )
+    parser.add_argument(
         "--benchmarks",
         nargs="+",
         default=list(BENCHMARKS),
@@ -1149,6 +1172,10 @@ def main() -> None:
         help="show startup, RSS, stddev, and startup speedup columns in the summary table",
     )
     args = parser.parse_args()
+
+    if args.list:
+        _print_benchmark_list()
+        return
 
     modes = ["warm", "cold"] if args.mode == "both" else [args.mode]
     has_gbtidl = _gbtidl_available() and not args.dysh_only
