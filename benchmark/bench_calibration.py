@@ -8,10 +8,8 @@
 import argparse
 import sys
 
-from bench_common import add_dtime_args
+from bench_common import MarkerDTime, add_dtime_args, resolve_data
 from dysh.fits.gbtfitsload import GBTFITSLoad
-from dysh.util.files import dysh_data
-from dysh.util.timers import DTime
 
 benchname = "calibration"
 
@@ -30,12 +28,14 @@ if __name__ == "__main__":
     data_cols = ["nspec"]
     data_units = [""]
     data_types = [int]
-    dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
+    dt = MarkerDTime(
+        benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args)
+    )
 
     nspec = 0
     dt.tag("init", [nspec])
 
-    f1 = dysh_data(example=args.key)
+    f1 = resolve_data(example=args.key)
     print("Loading ", f1)
     sdf = GBTFITSLoad(f1, skipflags=args.skipflags)
     dt.tag("load", [nspec])

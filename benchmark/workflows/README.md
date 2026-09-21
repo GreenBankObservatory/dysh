@@ -13,6 +13,8 @@ users will feel an improvement.
 | `hi_survey`     | gettp/getsigref survey reduction + smooth/baseline/stats | yes    | RMS of two line-free regions, atol 1 mK |
 | `argus_vanecal` | Argus VANE/SKY Tsys calibration across 16 feeds          | yes    | mean Tsys per feed, atol 1 mK |
 | `nod_kfpa`      | KFPA nodding data load                                   | no     | none |
+| `getps`         | `../bench_getps.py -t`: load, then 4 `getps`+`timeaverage` on the `getps` example | no | none |
+| `calibration`   | `../bench_calibration.py`: first vs warm `getps`, `getspec` with/without WCS, `timeaverage`, `Spectrum` ops | no | none |
 | `exit`          | process-startup baseline (subtract from the others)      | yes    | none |
 
 
@@ -42,6 +44,22 @@ are skipped. Note for `argus_vanecal`: the canonical GBO dataset is a
 vane/sky-only subset; the `otf4` alias fallback is the full session, which
 inflates the `GBTFITSLoad` stage but leaves the vanecal stages comparable.
 
+## Micro-benchmarks
+
+`getps` and `calibration` run the in-process drivers `../bench_getps.py` and
+`../bench_calibration.py` under the same runner, so they get iterations, warm/cold modes, peak RSS,
+JSON output and the median/min-max stage tables. They have no GBTIDL equivalent and no verifier.
+Their data is the `getps` example (`dysh_data(example="getps")`); the drivers read
+`$DYSH_BENCH_DATA_PATH` first, so their `--key` option is ignored under `run_bench.py`. Note that
+`--benchmarks` defaults to every entry, so a plain `run_bench.py` now also runs these two.
+
+**The `.index` file changes what is measured.** With an `.index` next to the data file dysh loads
+metadata lazily (fast `GBTFITSLoad`, extra cost in the first `getps`); without it, it does a full
+load. The `getps` example ships with an `.index`. Keep it present (or absent) identically for the
+"before" and "after" runs of a PR. In `--mode cold` a single data file is copied together with
+every file in its directory named `<stem>.*` (`.index`, `.flag`, ...) so cold and warm runs
+take the same path.
+
 ## Adding a benchmark
 
 Add an entry to `BENCHMARKS` in `run_bench.py`. `dysh_script` (and `gbtidl_script`) may be a
@@ -49,13 +67,20 @@ path, or an argv list with the script first and its arguments after, and need no
 `scripts/`:
 
 ```python
-"getps": {"dysh_script": ["../bench_getps.py", "-t", "-l", "4"], "gbtidl_script": None, ...}
+"getps": {
+    "dysh_script": ["../bench_getps.py", "-t"],
+    "gbtidl_script": None,
+    "data_path": None,                        # no canonical GBO path
+    "data_alias": {"example": "getps"},       # dysh_data(example="getps")
+    "has_output": False,
+},
 ```
 
 Only the first item is resolved (relative to `run_bench.py`); the rest are passed unchanged. A
 script must print `DYSH_BENCH_SCRIPT_MS=<ms>` (and optionally `DYSH_BENCH_STAGE_MS[<stage>]=<ms>`
-lines), which `bench_common.MarkerDTime` does. In `--mode cold` the data path may be a file or a
-directory; the script must read it from `$DYSH_BENCH_DATA_PATH` (see `bench_common.resolve_data`).
+lines), which `bench_common.MarkerDTime` does. In `--mode cold` the data path may be a file (copied
+with its same-stem siblings) or a directory; the script must read it from `$DYSH_BENCH_DATA_PATH`
+(see `bench_common.resolve_data`).
 
 `--verify` reuses the stdout of the first timed run instead of running the script again.
 

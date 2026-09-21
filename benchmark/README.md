@@ -12,6 +12,21 @@ both benchmarked the same way on the same machine.
 1. **Pin the environment.** `uv sync --frozen`; record the Python version and
    hostname alongside the numbers. Set `OMP_NUM_THREADS=1` (see below). Data
    comes from the `dysh_data` aliases with `DYSH_DATA` set.
+   **Pin the `.index` state too.** Whether an `.index` file sits next to the
+   data changes which code path dysh takes: with one, metadata loads lazily
+   (fast `GBTFITSLoad`, but the first `get*` call pays the load cost); without
+   one, dysh does a full load up front. On the 45 MB `getps` example
+   `GBTFITSLoad` took ~0.10-0.16 s and the first `getps` ~1.5-1.9 s with the
+   index, versus ~0.25 s and no first-call penalty without it. So the "before"
+   and "after" runs must have the same index state, or the comparison measures
+   the index, not the change. Before each series, check for the `.index` file
+   beside the data (e.g. `ls AGBT05B_047_01.raw.acs.index`) and record whether
+   it is present. dysh may also write an `.index` on load (see
+   `index_file_threshold`), so re-check between the "before" and "after" runs.
+   `workflows/run_bench.py --mode cold` copies a data file together with its
+   same-stem siblings (`.index`, `.flag`, ...) so that cold and warm runs take
+   the same path. GBTIDL comparisons should be run with no index file (see
+   Notes below).
 2. **Warm runs** (default, for CPU-bound changes): run the relevant benchmark
    5 times, discard the first (import and lazy-load warm-up), report the
    median and min/max of the timing tags. `workflows/run_bench.py` prints

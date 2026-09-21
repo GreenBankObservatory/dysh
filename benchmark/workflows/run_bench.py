@@ -93,6 +93,22 @@ BENCHMARKS = {
         "data_alias": {"example": "nod"},
         "has_output": False,
     },
+    # Micro-benchmarks: the in-process DTime drivers in benchmark/. They have no GBTIDL equivalent and
+    # no verifier; only dysh is timed. There is no canonical GBO path, so data comes from the alias.
+    "getps": {
+        "dysh_script": ["../bench_getps.py", "-t"],
+        "gbtidl_script": None,
+        "data_path": None,
+        "data_alias": {"example": "getps"},
+        "has_output": False,
+    },
+    "calibration": {
+        "dysh_script": ["../bench_calibration.py"],
+        "gbtidl_script": None,
+        "data_path": None,
+        "data_alias": {"example": "getps"},
+        "has_output": False,
+    },
     "exit": {
         "dysh_script": "scripts/exit/dysh_script.py",
         "gbtidl_script": "scripts/exit/gbtidl",
@@ -103,11 +119,28 @@ BENCHMARKS = {
 }
 
 
+def _uses_data(cfg: dict) -> bool:
+    """Tell whether a benchmark needs a data set.
+
+    Parameters
+    ----------
+    cfg : dict
+        The benchmark's entry in `BENCHMARKS`.
+
+    Returns
+    -------
+    bool
+        `True` if the entry has a canonical ``data_path`` or a ``data_alias``. The process-startup
+        benchmark (``exit``) has neither.
+    """
+    return bool(cfg.get("data_path") or cfg.get("data_alias"))
+
+
 def _resolve_data_path(name: str, cfg: dict) -> str | None:
     """Resolve a benchmark's data path.
 
     Resolution order is the ``$DYSH_BENCH_DATA_PATH`` environment override, the canonical
-    GBO path if it exists on this host, then the `dysh.util.files.dysh_data` alias.
+    GBO path if it is set and exists on this host, then the `dysh.util.files.dysh_data` alias.
 
     Parameters
     ----------
@@ -121,15 +154,15 @@ def _resolve_data_path(name: str, cfg: dict) -> str | None:
     -------
     str or None
         The resolved path, or `None` if no data could be found. `None` is also returned for
-        benchmarks that use no data (``data_path`` is `None`) and have no environment override.
+        benchmarks that use no data (see `_uses_data`) and have no environment override.
     """
     env_path = os.environ.get("DYSH_BENCH_DATA_PATH")
     if env_path:
         return env_path
-    gbo_path = cfg.get("data_path")
-    if gbo_path is None:
+    if not _uses_data(cfg):
         return None
-    if Path(gbo_path).exists():
+    gbo_path = cfg.get("data_path")
+    if gbo_path is not None and Path(gbo_path).exists():
         return gbo_path
     alias = cfg.get("data_alias")
     if alias:
@@ -137,9 +170,11 @@ def _resolve_data_path(name: str, cfg: dict) -> str | None:
 
         resolved = dysh_data(**alias)
         if resolved is not None:
-            console.print(f"[dim]{name}: canonical path missing; using dysh_data alias {alias} -> {resolved}[/]")
+            why = "canonical path missing; " if gbo_path is not None else ""
+            console.print(f"[dim]{name}: {why}using dysh_data alias {alias} -> {resolved}[/]")
             return str(resolved)
-    console.print(f"[yellow]warn:[/] no data found for [bold]{name}[/] (tried {gbo_path} and alias {alias})")
+    tried = ", ".join(x for x in (gbo_path, f"alias {alias}" if alias else None) if x)
+    console.print(f"[yellow]warn:[/] no data found for [bold]{name}[/] (tried {tried})")
     return None
 
 
@@ -424,6 +459,36 @@ def _run_script(cmd: list[str], env: dict, verbose: bool = False, require_script
     }
 
 
+def _copy_dataset(src: Path, dest_dir: Path) -> Path:
+    """Copy a data set into `dest_dir`, keeping the files that dysh reads alongside it.
+
+    A directory is copied recursively. For a single file such as ``X.raw.acs.fits``, every file in
+    its directory whose name starts with the file's stem and a dot is copied too (``X.raw.acs.index``,
+    ``X.raw.acs.flag``, ...). Without those siblings dysh takes a different code path (no ``.index``
+    means a full metadata load instead of a lazy one), so a cold run would not be comparable to a warm
+    one.
+
+    Parameters
+    ----------
+    src : `~pathlib.Path`
+        A data directory, or a single data file.
+    dest_dir : `~pathlib.Path`
+        Existing directory to copy into.
+
+    Returns
+    -------
+    `~pathlib.Path`
+        Location of the copy of `src`, to be used as the script's data path.
+    """
+    if src.is_dir():
+        shutil.copytree(src, dest_dir / src.name)
+    else:
+        for f in sorted(src.parent.iterdir()):
+            if f.is_file() and (f == src or f.name.startswith(f"{src.stem}.")):
+                shutil.copy2(f, dest_dir / f.name)
+    return dest_dir / src.name
+
+
 def _run_one_cold(
     tool: str,
     script: Script,
@@ -435,9 +500,9 @@ def _run_one_cold(
 ) -> dict:
     """Run a script once against a fresh, page-cache-evicted copy of its data.
 
-    The data (a directory tree or a single file) is copied to a unique temporary directory,
-    evicted from the page cache, and the script is pointed at the copy through
-    ``$DYSH_BENCH_DATA_PATH``. The copy is removed afterwards.
+    The data (a directory tree, or a single file with its same-stem siblings; see `_copy_dataset`)
+    is copied to a unique temporary directory, evicted from the page cache, and the script is
+    pointed at the copy through ``$DYSH_BENCH_DATA_PATH``. The copy is removed afterwards.
 
     Parameters
     ----------
@@ -465,14 +530,10 @@ def _run_one_cold(
     try:
         env = dict(os.environ)
         if data_path:
-            tmp_data = tmp_root / Path(data_path).name
             if verbose:
-                console.print(f"  copying {data_path} -> {tmp_data}")
-            if Path(data_path).is_dir():
-                shutil.copytree(data_path, tmp_data)
-            else:
-                shutil.copy2(data_path, tmp_data)
-            _evict_from_pagecache(tmp_data, verbose=verbose)
+                console.print(f"  copying {data_path} -> {tmp_root}")
+            tmp_data = _copy_dataset(Path(data_path), tmp_root)
+            _evict_from_pagecache(tmp_root, verbose=verbose)
             env["DYSH_BENCH_DATA_PATH"] = str(tmp_data)
         if has_output:
             env["DYSH_BENCH_OUT_PATH"] = str(tmp_root / "output.fits")
@@ -1102,7 +1163,7 @@ def main() -> None:
     for name in args.benchmarks:
         cfg = BENCHMARKS[name]
         resolved_data[name] = args.data_path or _resolve_data_path(name, cfg)
-        if resolved_data[name] is None and cfg["data_path"] is not None:
+        if resolved_data[name] is None and _uses_data(cfg):
             console.print(f"[yellow]skip:[/] [bold]{name}[/] — no data available on this host")
             continue
         selected.append(name)

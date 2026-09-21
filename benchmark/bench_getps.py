@@ -7,10 +7,8 @@ import sys
 
 import numpy as np
 
-from bench_common import add_dtime_args
+from bench_common import MarkerDTime, add_dtime_args, resolve_data
 from dysh.fits.gbtfitsload import GBTFITSLoad
-from dysh.util.files import dysh_data
-from dysh.util.timers import DTime
 
 benchname = "getps"
 
@@ -42,7 +40,9 @@ if __name__ == "__main__":
     data_cols = ["skipflags", "ift", "FITS backend"]
     data_units = ["", "MB", ""]
     data_types = [str, int, str]
-    dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
+    dt = MarkerDTime(
+        benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args)
+    )
 
     sk = str(args.skipflags)
     fbe = str(args.backend)
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     else:
         ift = args.indexthreshold * 1024 * 1024  # convert to bytes
     print(f"Using {ift=}")
-    f1 = dysh_data(example=args.key)  # 'getps' = position switch example from notebooks/examples
+    f1 = resolve_data(example=args.key)  # 'getps' = position switch example from notebooks/examples
     print("Loading ", f1)
     if args.backend == "None":
         args.backend = None
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
         # read it one more time
 
-        f1 = dysh_data(example=args.key)  # 'getps' = position switch example from notebooks/examples
+        f1 = resolve_data(example=args.key)  # 'getps' = position switch example from notebooks/examples
         print("Loading ", f1)
         sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
         dt.tag("load", [sk])
