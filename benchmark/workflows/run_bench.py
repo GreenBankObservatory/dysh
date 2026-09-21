@@ -2,7 +2,8 @@
 """
 dysh vs GBTIDL workflow benchmark runner.
 
-Usage (run from the benchmark/workflows directory):
+Usage (from any directory; script, golden, and verifier paths are relative to this file, and
+every child process runs with this directory as its working directory):
     uv run python run_bench.py [--benchmarks NAME ...] --mode {warm,cold,both}
                                --iterations N [--tmpdir /path/to/tmp]
                                [--output results.json] [--verbose]
@@ -46,6 +47,12 @@ from rich.table import Table
 
 console = Console()
 
+HERE = Path(__file__).resolve().parent
+"""Directory containing this file: base for relative registry paths and cwd of child processes."""
+
+Script = str | list[str]
+"""A benchmark script: a path, or an argv list whose first item is the path and the rest are arguments."""
+
 SCRIPT_MS_RE = re.compile(r"(?P<tool>DYSH|GBTIDL)_BENCH_SCRIPT_MS=\s*(?P<ms>[0-9.dDeE+\-]+)")
 STAGE_MS_RE = re.compile(r"(?P<tool>DYSH|GBTIDL)_BENCH_STAGE_MS\[(?P<stage>[^\]]+)\]=\s*(?P<ms>[0-9.dDeE+\-]+)")
 
@@ -53,6 +60,9 @@ STAGE_MS_RE = re.compile(r"(?P<tool>DYSH|GBTIDL)_BENCH_STAGE_MS\[(?P<stage>[^\]]
 # Benchmark registry
 # ---------------------------------------------------------------------------
 
+# ``dysh_script`` / ``gbtidl_script`` are a `Script`: a path, or an argv list such as
+# ``["../bench_getps.py", "-t", "-l", "4"]``. Relative paths (the first item only) are resolved
+# against HERE, so a script need not live under ``scripts/``. ``verify_script`` is a path.
 BENCHMARKS = {
     "argus_vanecal": {
         "dysh_script": "scripts/argus_vanecal/dysh_script.py",
@@ -137,7 +147,7 @@ def _resolve_data_path(name: str, cfg: dict) -> str | None:
 
 
 def _evict_from_pagecache(path: Path, verbose: bool = False) -> None:
-    """Ask the OS to drop every file under `path` from the page cache.
+    """Ask the OS to drop `path`, or every file under it, from the page cache.
 
     Calls ``posix_fadvise(DONTNEED)`` on each file. This is a hint, not a guarantee; use
     ``drop_caches`` as root for a guaranteed cold cache. Failures are reported as warnings,
@@ -146,14 +156,14 @@ def _evict_from_pagecache(path: Path, verbose: bool = False) -> None:
     Parameters
     ----------
     path : `~pathlib.Path`
-        Directory to walk recursively.
+        A single file, or a directory to walk recursively.
     verbose : bool, optional
         Print each evicted file.
     """
     if not hasattr(os, "posix_fadvise"):
         console.print("[yellow]warn:[/] posix_fadvise not available on this platform — skipping eviction")
         return
-    for fpath in sorted(path.rglob("*")):
+    for fpath in [path] if path.is_file() else sorted(path.rglob("*")):
         if not fpath.is_file():
             continue
         try:
@@ -184,25 +194,66 @@ def _gbtidl_available() -> bool:
     return shutil.which("gbtidl") is not None
 
 
-def _make_cmd(tool: str, script: str) -> list[str]:
+def _resolve_path(path: str | Path) -> Path:
+    """Make a registry path absolute.
+
+    Parameters
+    ----------
+    path : str or `~pathlib.Path`
+        An absolute path, or one relative to `HERE`.
+
+    Returns
+    -------
+    `~pathlib.Path`
+        The absolute, normalized path (``..`` components removed). It need not exist.
+    """
+    path = Path(path)
+    return path if path.is_absolute() else (HERE / path).resolve()
+
+
+def _script_argv(script: Script) -> list[str]:
+    """Normalize a registry script entry to an argv list with an absolute script path.
+
+    Parameters
+    ----------
+    script : str or list of str
+        A path, or an argv list whose first item is the path. Only the first item is resolved
+        (see `_resolve_path`); the remaining items are arguments and are passed unchanged.
+
+    Returns
+    -------
+    list of str
+        The script's absolute path followed by its arguments.
+    """
+    argv = [script] if isinstance(script, str) else list(script)
+    return [str(_resolve_path(argv[0])), *argv[1:]]
+
+
+def _make_cmd(tool: str, script: Script) -> list[str]:
     """Build the command line that runs a benchmark script.
+
+    dysh scripts run with ``--frozen`` so that ``uv run`` uses ``uv.lock`` as is and never
+    re-locks or rewrites it, keeping the environment identical between the "before" and "after"
+    runs of a performance comparison.
 
     Parameters
     ----------
     tool : {"dysh", "gbtidl"}
         Which tool runs the script. Any value other than ``"dysh"`` is treated as GBTIDL.
-    script : str
-        Path to the script (``.py`` for dysh, ``.pro`` for GBTIDL).
+    script : str or list of str
+        The script path (``.py`` for dysh, ``.pro`` for GBTIDL), or an argv list with the script
+        path first and its arguments after. A relative path is resolved against `HERE`.
 
     Returns
     -------
     list of str
-        ``["uv", "run", "python", script]`` for dysh, ``["gbtidl", script]`` otherwise.
+        ``["uv", "run", "--frozen", "python", *argv]`` for dysh, ``["gbtidl", *argv]`` otherwise.
     """
+    argv = _script_argv(script)
     if tool == "dysh":
-        return ["uv", "run", "python", script]
+        return ["uv", "run", "--frozen", "python", *argv]
     else:
-        return ["gbtidl", script]
+        return ["gbtidl", *argv]
 
 
 # ---------------------------------------------------------------------------
@@ -303,7 +354,7 @@ def _run_script(cmd: list[str], env: dict, verbose: bool = False, require_script
     Parameters
     ----------
     cmd : list of str
-        Command to run, from `_make_cmd`.
+        Command to run, from `_make_cmd`. It runs with `HERE` as its working directory.
     env : dict
         Environment for the child process.
     verbose : bool, optional
@@ -330,6 +381,7 @@ def _run_script(cmd: list[str], env: dict, verbose: bool = False, require_script
     proc = subprocess.Popen(
         cmd,
         env=env,
+        cwd=HERE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -372,7 +424,7 @@ def _run_script(cmd: list[str], env: dict, verbose: bool = False, require_script
 
 def _run_one_cold(
     tool: str,
-    script: str,
+    script: Script,
     data_path: str | None,
     has_output: bool,
     tmpdir: str | None,
@@ -381,19 +433,18 @@ def _run_one_cold(
 ) -> dict:
     """Run a script once against a fresh, page-cache-evicted copy of its data.
 
-    The data directory is copied to a unique temporary directory, evicted from the page cache,
-    and the script is pointed at the copy through ``$DYSH_BENCH_DATA_PATH``. The copy is
-    removed afterwards.
+    The data (a directory tree or a single file) is copied to a unique temporary directory,
+    evicted from the page cache, and the script is pointed at the copy through
+    ``$DYSH_BENCH_DATA_PATH``. The copy is removed afterwards.
 
     Parameters
     ----------
     tool : {"dysh", "gbtidl"}
         Which tool runs the script.
-    script : str
-        Path to the script.
+    script : str or list of str
+        The script path, or an argv list (see `_make_cmd`).
     data_path : str or None
-        Data directory to copy. Must be a directory, not a single file. `None` for benchmarks
-        that use no data.
+        Data file or directory to copy. `None` for benchmarks that use no data.
     has_output : bool
         Set ``$DYSH_BENCH_OUT_PATH`` to a file inside the temporary directory.
     tmpdir : str or None
@@ -415,7 +466,10 @@ def _run_one_cold(
             tmp_data = tmp_root / Path(data_path).name
             if verbose:
                 console.print(f"  copying {data_path} -> {tmp_data}")
-            shutil.copytree(data_path, tmp_data)
+            if Path(data_path).is_dir():
+                shutil.copytree(data_path, tmp_data)
+            else:
+                shutil.copy2(data_path, tmp_data)
             _evict_from_pagecache(tmp_data, verbose=verbose)
             env["DYSH_BENCH_DATA_PATH"] = str(tmp_data)
         if has_output:
@@ -429,7 +483,7 @@ def _run_one_cold(
 def _run_iterations(
     tool: str,
     label: str,
-    script: str,
+    script: Script,
     data_path: str | None,
     has_output: bool,
     cache_mode: str,
@@ -452,8 +506,8 @@ def _run_iterations(
         Which tool runs the script.
     label : str
         Name shown in progress output.
-    script : str
-        Path to the script.
+    script : str or list of str
+        The script path, or an argv list (see `_make_cmd`).
     data_path : str or None
         Data to run against; `None` for benchmarks that use no data.
     has_output : bool
@@ -538,12 +592,12 @@ def _golden_path(cfg: dict) -> Path:
     Returns
     -------
     `~pathlib.Path`
-        ``golden.txt`` next to the benchmark's dysh script. It may not exist.
+        Absolute path of ``golden.txt`` next to the benchmark's dysh script. It may not exist.
     """
-    return Path(cfg["dysh_script"]).parent / "golden.txt"
+    return _resolve_path(_script_argv(cfg["dysh_script"])[0]).parent / "golden.txt"
 
 
-def _capture_stdout(tool: str, name: str, script: str, env: dict, verbose: bool) -> str:
+def _capture_stdout(tool: str, name: str, script: Script, env: dict, verbose: bool) -> str:
     """Run one script and return its stdout.
 
     Parameters
@@ -552,8 +606,8 @@ def _capture_stdout(tool: str, name: str, script: str, env: dict, verbose: bool)
         Which tool runs the script.
     name : str
         Benchmark name, used in messages.
-    script : str
-        Path to the script.
+    script : str or list of str
+        The script path, or an argv list (see `_make_cmd`).
     env : dict
         Environment for the child process.
     verbose : bool
@@ -571,7 +625,7 @@ def _capture_stdout(tool: str, name: str, script: str, env: dict, verbose: bool)
     """
     if verbose:
         console.print(f"[dim]verify: capturing {tool} stdout for {name}[/]")
-    result = subprocess.run(_make_cmd(tool, script), env=env, capture_output=True, text=True)
+    result = subprocess.run(_make_cmd(tool, script), env=env, cwd=HERE, capture_output=True, text=True)
     if result.returncode != 0:
         console.print(f"[red bold]VERIFY FAIL[/] {name} ({tool} exited with code {result.returncode})")
         if result.stdout:
@@ -615,12 +669,21 @@ def _capture_golden(name: str, cfg: dict, data_path: str | None, verbose: bool) 
     console.print(f"[green]golden:[/] wrote {golden} (data: {data_path})")
 
 
-def _run_verify(name: str, cfg: dict, data_path: str | None, has_gbtidl: bool, verbose: bool) -> None:
+def _run_verify(
+    name: str,
+    cfg: dict,
+    data_path: str | None,
+    has_gbtidl: bool,
+    verbose: bool,
+    dysh_stdout: str | None = None,
+    gbtidl_stdout: str | None = None,
+) -> None:
     """Run a benchmark's ``verify.py`` once, capturing script stdout as needed.
 
     The reference is GBTIDL when available, otherwise the committed golden capture. The check
     is skipped, with a message, if there is no ``verify.py``, the verifier does not use stdout,
-    or neither GBTIDL nor a golden file is available.
+    or neither GBTIDL nor a golden file is available. Output already captured by a timed run
+    can be passed in, which avoids re-running the script.
 
     Parameters
     ----------
@@ -634,6 +697,11 @@ def _run_verify(name: str, cfg: dict, data_path: str | None, has_gbtidl: bool, v
         Whether to run GBTIDL to produce the reference instead of using the golden file.
     verbose : bool
         Print progress notes.
+    dysh_stdout : str, optional
+        Output of an earlier dysh run of the script. If `None`, the script is run again.
+    gbtidl_stdout : str, optional
+        Output of an earlier GBTIDL run of the script. If `None` and `has_gbtidl`, the script is
+        run again.
 
     Raises
     ------
@@ -641,7 +709,7 @@ def _run_verify(name: str, cfg: dict, data_path: str | None, has_gbtidl: bool, v
         If a script fails or the verifier reports a mismatch.
     """
     verify_script = cfg.get("verify_script")
-    if not verify_script or not Path(verify_script).exists():
+    if not verify_script or not _resolve_path(verify_script).exists():
         console.print(f"[yellow]verify:[/] no verify.py for [bold]{name}[/], skipping")
         return
 
@@ -661,16 +729,21 @@ def _run_verify(name: str, cfg: dict, data_path: str | None, has_gbtidl: bool, v
     dysh_out = Path(tempfile.mktemp(suffix=f".{name}.dysh.out"))
     gbtidl_out = Path(tempfile.mktemp(suffix=f".{name}.gbtidl.out"))
     try:
-        dysh_out.write_text(_capture_stdout("dysh", name, cfg["dysh_script"], env, verbose))
+        if dysh_stdout is None:
+            dysh_stdout = _capture_stdout("dysh", name, cfg["dysh_script"], env, verbose)
+        dysh_out.write_text(dysh_stdout)
         if has_gbtidl:
-            gbtidl_out.write_text(_capture_stdout("gbtidl", name, cfg["gbtidl_script"], env, verbose))
+            if gbtidl_stdout is None:
+                gbtidl_stdout = _capture_stdout("gbtidl", name, cfg["gbtidl_script"], env, verbose)
+            gbtidl_out.write_text(gbtidl_stdout)
             reference = gbtidl_out
         else:
             console.print(f"[dim]verify: gbtidl not available, comparing against {golden}[/]")
             reference = golden
 
         result = subprocess.run(
-            ["uv", "run", "python", verify_script, str(dysh_out), str(reference)],
+            _make_cmd("dysh", [verify_script, str(dysh_out), str(reference)]),
+            cwd=HERE,
             capture_output=False,
             text=True,
         )
@@ -1061,6 +1134,7 @@ def main() -> None:
             data_path = resolved_data[name]
             has_output = cfg.get("has_output", False)
             results[name] = {}
+            dysh_stdout = gbtidl_stdout = None  # first timed run's output, reused by --verify
 
             for mode in modes:
                 results[name][mode] = {}
@@ -1080,6 +1154,8 @@ def main() -> None:
                     progress,
                     require_script_marker,
                 )
+                if dysh_stdout is None and runs:
+                    dysh_stdout = runs[0]["stdout"]
                 dysh_stats = _stats_from_runs(runs)
                 if cfg.get("script_body_zero"):
                     dysh_stats = _apply_zero_script_body(dysh_stats)
@@ -1100,13 +1176,15 @@ def main() -> None:
                         progress,
                         require_script_marker,
                     )
+                    if gbtidl_stdout is None and runs:
+                        gbtidl_stdout = runs[0]["stdout"]
                     gbtidl_stats = _stats_from_runs(runs)
                     if cfg.get("script_body_zero"):
                         gbtidl_stats = _apply_zero_script_body(gbtidl_stats)
                     results[name][mode]["gbtidl"] = gbtidl_stats
 
             if args.verify:
-                _run_verify(name, cfg, data_path, has_gbtidl, args.verbose)
+                _run_verify(name, cfg, data_path, has_gbtidl, args.verbose, dysh_stdout, gbtidl_stdout)
 
     if args.verbose:
         _run_all(None, None)

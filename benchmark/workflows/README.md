@@ -18,7 +18,11 @@ users will feel an improvement.
 
 ## Running
 
-From this directory:
+`run_bench.py` can be run from any directory (`uv run --project <repo> python
+<path>/run_bench.py ...`). Script, golden and verifier paths are relative to `run_bench.py`,
+and every child process runs with `benchmark/workflows/` as its working directory. dysh scripts
+are launched with `uv run --frozen`, so `uv.lock` is used as is and never rewritten. From this
+directory:
 
 ```bash
 # time everything available on this host, 3 iterations, warm cache
@@ -37,6 +41,23 @@ canonical GBO path if it exists on this host, then the `dysh_data` alias
 are skipped. Note for `argus_vanecal`: the canonical GBO dataset is a
 vane/sky-only subset; the `otf4` alias fallback is the full session, which
 inflates the `GBTFITSLoad` stage but leaves the vanecal stages comparable.
+
+## Adding a benchmark
+
+Add an entry to `BENCHMARKS` in `run_bench.py`. `dysh_script` (and `gbtidl_script`) may be a
+path, or an argv list with the script first and its arguments after, and need not live under
+`scripts/`:
+
+```python
+"getps": {"dysh_script": ["../bench_getps.py", "-t", "-l", "4"], "gbtidl_script": None, ...}
+```
+
+Only the first item is resolved (relative to `run_bench.py`); the rest are passed unchanged. A
+script must print `DYSH_BENCH_SCRIPT_MS=<ms>` (and optionally `DYSH_BENCH_STAGE_MS[<stage>]=<ms>`
+lines), which `bench_common.MarkerDTime` does. In `--mode cold` the data path may be a file or a
+directory; the script must read it from `$DYSH_BENCH_DATA_PATH` (see `bench_common.resolve_data`).
+
+`--verify` reuses the stdout of the first timed run instead of running the script again.
 
 ## Golden captures
 
