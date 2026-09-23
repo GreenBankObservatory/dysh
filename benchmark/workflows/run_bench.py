@@ -101,7 +101,7 @@ BENCHMARKS = {
     # no verifier; only dysh is timed. There is no canonical GBO path, so data comes from the alias.
     "getps": {
         "description": "bench_getps.py -t: load, then repeated getps + timeaverage on the position-switch example",
-        "dysh_script": ["../bench_getps.py", "-t"],
+        "dysh_script": ["../development/bench_getps.py", "-t"],
         "gbtidl_script": None,
         "data_path": None,
         "data_alias": {"example": "getps"},
@@ -109,7 +109,7 @@ BENCHMARKS = {
     },
     "calibration": {
         "description": "bench_calibration.py: first vs warm getps, getspec with/without WCS, timeaverage, Spectrum ops",
-        "dysh_script": ["../bench_calibration.py"],
+        "dysh_script": ["../development/bench_calibration.py"],
         "gbtidl_script": None,
         "data_path": None,
         "data_alias": {"example": "getps"},
