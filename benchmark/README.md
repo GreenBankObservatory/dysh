@@ -62,4 +62,3 @@ The relevant drivers: `run_bench.py` (end-to-end user workflows, GBTIDL
 comparison, and the `getps`/`calibration` micro-benchmarks below), plus the
 rest of `development/` (per-spectrum overhead, SDFITS loading, and so on;
 see `development/README.md`).
-
