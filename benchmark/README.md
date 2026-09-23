@@ -1,7 +1,15 @@
 # Notes for benchmarking Dysh
 
 The purpose of this benchmarking is to find and address the various
-CPU and I/O bottlenecks in dysh. 
+CPU and I/O bottlenecks in dysh.
+
+- `run_bench.py` (this directory): the runner for the workflow and micro-benchmarks below,
+  and the before/after protocol.
+- `workflows/`: end-to-end user-workflow benchmarks (GBTIDL comparison, verifiers, goldens);
+  see `workflows/README.md`.
+- `development/`: earlier, ad hoc `DTime`/ECSV benchmarks from the Q8-Q12 development phase
+  (`bench_getps.py`, `bench_calibration.py`, `bench_gbtfitsload.py`, and others); `getps` and
+  `calibration` are also runnable through `run_bench.py`. See `development/README.md`.
 
 ## Before/after protocol for performance PRs
 
@@ -23,19 +31,19 @@ both benchmarked the same way on the same machine.
    beside the data (e.g. `ls AGBT05B_047_01.raw.acs.index`) and record whether
    it is present. dysh may also write an `.index` on load (see
    `index_file_threshold`), so re-check between the "before" and "after" runs.
-   `workflows/run_bench.py --mode cold` copies a data file together with its
+   `run_bench.py --mode cold` copies a data file together with its
    same-stem siblings (`.index`, `.flag`, ...) so that cold and warm runs take
    the same path. GBTIDL comparisons should be run with no index file (see
    Notes below).
 2. **Warm runs** (default, for CPU-bound changes): run the relevant benchmark
    5 times, discard the first (import and lazy-load warm-up), report the
-   median and min/max of the timing tags. `workflows/run_bench.py` prints
+   median and min/max of the timing tags. `run_bench.py` prints
    these as the `median` and `min-max` columns of its stage tables and stores
    them in its JSON output; `--iterations 4` (it runs one untimed warm-up
    first) is equivalent to 5 runs with the first discarded.
 3. **Cold runs** (only for I/O-bound changes, e.g. FITS reading): drop the
    page cache before each of 3 runs (`sync; echo 1 | sudo tee
-   /proc/sys/vm/drop_caches`, or use `workflows/run_bench.py --mode cold`
+   /proc/sys/vm/drop_caches`, or use `run_bench.py --mode cold`
    which evicts with `posix_fadvise`); report all 3. If NFS-mounted data is
    available, include one NFS run — I/O optimizations are disproportionately
    an NFS win.
@@ -47,11 +55,11 @@ both benchmarked the same way on the same machine.
    `example="getpslarge"` (7.5 GB, cold I/O and lazy-load benchmarks), plus
    the workflow datasets (see `workflows/README.md`).
 6. **Regression gate:** `uv run pytest -m "not gbo_only and not
-   requires_internet"` passes, and `workflows/run_bench.py --verify` passes,
+   requires_internet"` passes, and `run_bench.py --verify` passes,
    before any numbers are reported.
 
-The relevant drivers: `workflows/run_bench.py` (end-to-end user workflows,
-GBTIDL comparison), `bench_calibration.py` (per-spectrum overhead: getspec
-with/without WCS, timeaverage, Spectrum ops), `bench_getps.py`,
-`bench_gbtfitsload.py`, and the others below.
+The relevant drivers: `run_bench.py` (end-to-end user workflows, GBTIDL
+comparison, and the `getps`/`calibration` micro-benchmarks below), plus the
+rest of `development/` (per-spectrum overhead, SDFITS loading, and so on;
+see `development/README.md`).
 

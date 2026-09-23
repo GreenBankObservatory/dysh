@@ -4,10 +4,12 @@
 import argparse
 import os
 import sys
+from pathlib import Path
 
 import astropy.units as u
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # benchmark/
 from bench_common import add_dtime_args
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.log import init_logging

@@ -2,9 +2,9 @@
 
 End-to-end benchmarks that reproduce real user reductions, with GBTIDL
 equivalents where they exist. Ported from the benchmark harness developed in
-PR #1049. These complement the micro-benchmarks in the parent `benchmark/`
-directory: micro-benchmarks localize a cost, workflow benchmarks show whether
-users will feel an improvement.
+PR #1049. These complement the micro-benchmarks in `../development/`:
+micro-benchmarks localize a cost, workflow benchmarks show whether users will
+feel an improvement. Both run through `../run_bench.py`.
 
 ## Benchmarks
 
@@ -13,18 +13,18 @@ users will feel an improvement.
 | `hi_survey`     | gettp/getsigref survey reduction + smooth/baseline/stats | yes    | RMS of two line-free regions, atol 1 mK |
 | `argus_vanecal` | Argus VANE/SKY Tsys calibration across 16 feeds          | yes    | mean Tsys per feed, atol 1 mK |
 | `nod_kfpa`      | KFPA nodding data load                                   | no     | none |
-| `getps`         | `../bench_getps.py -t`: load, then 4 `getps`+`timeaverage` on the `getps` example | no | none |
-| `calibration`   | `../bench_calibration.py`: first vs warm `getps`, `getspec` with/without WCS, `timeaverage`, `Spectrum` ops | no | none |
+| `getps`         | `development/bench_getps.py -t`: load, then 4 `getps`+`timeaverage` on the `getps` example | no | none |
+| `calibration`   | `development/bench_calibration.py`: first vs warm `getps`, `getspec` with/without WCS, `timeaverage`, `Spectrum` ops | no | none |
 | `exit`          | process-startup baseline (subtract from the others)      | yes    | none |
 
 
 ## Running
 
-`run_bench.py` can be run from any directory (`uv run --project <repo> python
-<path>/run_bench.py ...`). Script, golden and verifier paths are relative to `run_bench.py`,
-and every child process runs with `benchmark/workflows/` as its working directory. dysh scripts
-are launched with `uv run --frozen`, so `uv.lock` is used as is and never rewritten. From this
-directory:
+`../run_bench.py` (one level up, in `benchmark/`) can be run from any directory (`uv run
+--project <repo> python <path>/run_bench.py ...`). Script, golden and verifier paths are relative
+to `run_bench.py`, and every child process runs with `benchmark/` as its working directory. dysh
+scripts are launched with `uv run --frozen`, so `uv.lock` is used as is and never rewritten. From
+`benchmark/`:
 
 ```bash
 # list the benchmark names and what each is for, then exit
@@ -49,8 +49,8 @@ inflates the `GBTFITSLoad` stage but leaves the vanecal stages comparable.
 
 ## Micro-benchmarks
 
-`getps` and `calibration` run the in-process drivers `../bench_getps.py` and
-`../bench_calibration.py` under the same runner, so they get iterations, warm/cold modes, peak RSS,
+`getps` and `calibration` run the in-process drivers `development/bench_getps.py` and
+`development/bench_calibration.py` under the same runner, so they get iterations, warm/cold modes, peak RSS,
 JSON output and the median/min-max stage tables. They have no GBTIDL equivalent and no verifier.
 Their data is the `getps` example (`dysh_data(example="getps")`); the drivers read
 `$DYSH_BENCH_DATA_PATH` first, so their `--key` option is ignored under `run_bench.py`. Note that
@@ -65,15 +65,15 @@ take the same path.
 
 ## Adding a benchmark
 
-Add an entry to `BENCHMARKS` in `run_bench.py`. Every entry needs a one-line `description`, which
-`run_bench.py --list` (or `-l`) prints along with the benchmark names. `dysh_script` (and
+Add an entry to `BENCHMARKS` in `../run_bench.py`. Every entry needs a one-line `description`,
+which `run_bench.py --list` (or `-l`) prints along with the benchmark names. `dysh_script` (and
 `gbtidl_script`) may be a path, or an argv list with the script first and its arguments after, and
-need not live under `scripts/`:
+need not live under `workflows/scripts/`:
 
 ```python
 "getps": {
     "description": "one line saying what the benchmark is for",   # shown by --list
-    "dysh_script": ["../bench_getps.py", "-t"],
+    "dysh_script": ["development/bench_getps.py", "-t"],
     "gbtidl_script": None,
     "data_path": None,                        # no canonical GBO path
     "data_alias": {"example": "getps"},       # dysh_data(example="getps")
@@ -81,7 +81,8 @@ need not live under `scripts/`:
 },
 ```
 
-Only the first item is resolved (relative to `run_bench.py`); the rest are passed unchanged. A
+Only the first item is resolved (relative to `run_bench.py`, i.e. `benchmark/`); the rest are
+passed unchanged. A
 script must print `DYSH_BENCH_SCRIPT_MS=<ms>` (and optionally `DYSH_BENCH_STAGE_MS[<stage>]=<ms>`
 lines), which `bench_common.MarkerDTime` does. In `--mode cold` the data path may be a file (copied
 with its same-stem siblings) or a directory; the script must read it from `$DYSH_BENCH_DATA_PATH`
@@ -92,8 +93,8 @@ with its same-stem siblings) or a directory; the script must read it from `$DYSH
 ## Golden captures
 
 Where GBTIDL is unavailable, `--verify` compares dysh's verification values
-(`RMS_*`, `TSYS_FDNUM_*` stdout markers) against `scripts/<name>/golden.txt`,
-using an absolute tolerance of 1 mK (see PR 0.5 in `perfenhance_plan.md`).
+(`RMS_*`, `TSYS_FDNUM_*` stdout markers) against `workflows/scripts/<name>/golden.txt`,
+using an absolute tolerance of 1 mK (see PR 0.5 in `../perfenhance_plan.md`).
 Regenerate goldens with:
 
 ```bash

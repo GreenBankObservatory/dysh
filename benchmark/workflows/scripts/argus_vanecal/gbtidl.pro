@@ -4,8 +4,8 @@ bench_t0 = systime(/sec)
 stage_t0 = systime(/sec)
 dirin, path
 print, 'GBTIDL_BENCH_STAGE_MS[GBTFITSLoad]=', (systime(/sec) - stage_t0) * 1000.0
-.compile scripts/argus_vanecal/getatmos.pro
-.compile scripts/argus_vanecal/vanecal.pro
+.compile workflows/scripts/argus_vanecal/getatmos.pro
+.compile workflows/scripts/argus_vanecal/vanecal.pro
 stage_t0 = systime(/sec)
 vanecal, 10
 print, 'GBTIDL_BENCH_STAGE_MS[vanecal_total]=', (systime(/sec) - stage_t0) * 1000.0

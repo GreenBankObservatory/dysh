@@ -21,7 +21,7 @@ Subtract the 'exit' baseline from other benchmarks to get net data-processing
 time (the 'exit' benchmark measures Python/dysh process-startup overhead only).
 
 Verification: --verify compares dysh output against GBTIDL when gbtidl is on
-PATH, otherwise against a committed golden capture (scripts/<name>/golden.txt,
+PATH, otherwise against a committed golden capture (workflows/scripts/<name>/golden.txt,
 created with --capture-golden on the canonical dataset at a known-good
 baseline). Golden values are dataset-dependent: only compare against them when
 running on the canonical dataset.
@@ -44,7 +44,6 @@ from rich.console import Console
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # benchmark/, for bench_stats
 from bench_stats import summarize
 
 console = Console()
@@ -64,34 +63,35 @@ STAGE_MS_RE = re.compile(r"(?P<tool>DYSH|GBTIDL)_BENCH_STAGE_MS\[(?P<stage>[^\]]
 
 # ``description`` is a one-line summary of what the benchmark is for, shown by ``--list``.
 # ``dysh_script`` / ``gbtidl_script`` are a `Script`: a path, or an argv list such as
-# ``["../bench_getps.py", "-t", "-l", "4"]``. Relative paths (the first item only) are resolved
-# against HERE, so a script need not live under ``scripts/``. ``verify_script`` is a path.
+# ``["development/bench_getps.py", "-t", "-l", "4"]``. Relative paths (the first item only) are
+# resolved against HERE, so a script need not live under ``workflows/scripts/``.
+# ``verify_script`` is a path.
 BENCHMARKS = {
     "argus_vanecal": {
         "description": "ARGUS vane calibration: Tsys from VANE/SKY scans across all 16 feeds",
-        "dysh_script": "scripts/argus_vanecal/dysh_script.py",
-        "gbtidl_script": "scripts/argus_vanecal/gbtidl.pro",
+        "dysh_script": "workflows/scripts/argus_vanecal/dysh_script.py",
+        "gbtidl_script": "workflows/scripts/argus_vanecal/gbtidl.pro",
         # Canonical: vane/sky subset of TGBT22A_603_05 (GBO only). The otf4
         # alias is the full session (same vane scans, bigger load stage).
         "data_path": "/home/scratch/ajschmie/training/dysh/datasets/argus/TGBT22A_603_05_vanecal.raw.vegas",
         "data_alias": {"example": "otf4"},
         "has_output": False,
-        "verify_script": "scripts/argus_vanecal/verify.py",
+        "verify_script": "workflows/scripts/argus_vanecal/verify.py",
         "verify_needs_stdout": True,
     },
     "hi_survey": {
         "description": "HI survey reduction: gettp/getsigref, averaging, smooth, baseline, RMS and CoG stats",
-        "dysh_script": "scripts/hi_survey/dysh_script.py",
-        "gbtidl_script": "scripts/hi_survey/gbtidl.pro",
+        "dysh_script": "workflows/scripts/hi_survey/dysh_script.py",
+        "gbtidl_script": "workflows/scripts/hi_survey/gbtidl.pro",
         "data_path": "/home/astro-util/HIsurvey/Session02",
         "data_alias": {"example": "survey"},
         "has_output": False,
-        "verify_script": "scripts/hi_survey/verify.py",
+        "verify_script": "workflows/scripts/hi_survey/verify.py",
         "verify_needs_stdout": True,
     },
     "nod_kfpa": {
         "description": "KFPA nodding data: GBTFITSLoad of a nod-KFPA session (load time only)",
-        "dysh_script": "scripts/nod_kfpa/dysh_script.py",
+        "dysh_script": "workflows/scripts/nod_kfpa/dysh_script.py",
         "gbtidl_script": None,
         "data_path": "/home/dysh/example_data/nod-KFPA/data/TGBT22A_503_02.raw.vegas",
         "data_alias": {"example": "nod"},
@@ -101,7 +101,7 @@ BENCHMARKS = {
     # no verifier; only dysh is timed. There is no canonical GBO path, so data comes from the alias.
     "getps": {
         "description": "bench_getps.py -t: load, then repeated getps + timeaverage on the position-switch example",
-        "dysh_script": ["../development/bench_getps.py", "-t"],
+        "dysh_script": ["development/bench_getps.py", "-t"],
         "gbtidl_script": None,
         "data_path": None,
         "data_alias": {"example": "getps"},
@@ -109,7 +109,7 @@ BENCHMARKS = {
     },
     "calibration": {
         "description": "bench_calibration.py: first vs warm getps, getspec with/without WCS, timeaverage, Spectrum ops",
-        "dysh_script": ["../development/bench_calibration.py"],
+        "dysh_script": ["development/bench_calibration.py"],
         "gbtidl_script": None,
         "data_path": None,
         "data_alias": {"example": "getps"},
@@ -117,8 +117,8 @@ BENCHMARKS = {
     },
     "exit": {
         "description": "Process-startup baseline (Python/dysh start and exit); subtract it from the others",
-        "dysh_script": "scripts/exit/dysh_script.py",
-        "gbtidl_script": "scripts/exit/gbtidl",
+        "dysh_script": "workflows/scripts/exit/dysh_script.py",
+        "gbtidl_script": "workflows/scripts/exit/gbtidl",
         "data_path": None,
         "has_output": False,
         "script_body_zero": True,
@@ -1164,7 +1164,7 @@ def main() -> None:
     parser.add_argument(
         "--capture-golden",
         action="store_true",
-        help="instead of timing, capture dysh stdout as scripts/<name>/golden.txt for later --verify runs",
+        help="instead of timing, capture dysh stdout as workflows/scripts/<name>/golden.txt for later --verify runs",
     )
     parser.add_argument(
         "--all-columns",
