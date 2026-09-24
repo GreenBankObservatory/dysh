@@ -12,16 +12,38 @@ import time
 import tracemalloc
 import warnings
 from datetime import datetime
-from statistics import mean, stdev
+from statistics import mean
 
 import psutil
+
+from bench_stats import summarize
 
 # Configure logging
 logger = logging.getLogger("dysh.benchmark")
 
 
 def setup_logging(verbose=False):
-    """Set up benchmark logging. Default INFO, -v for DEBUG."""
+    """Set up benchmark logging.
+
+    Attaches a stream handler that prints bare messages to the ``dysh.benchmark`` logger, and
+    initializes dysh's own logger at the matching verbosity.
+
+    Parameters
+    ----------
+    verbose : bool, optional
+        If `True`, log at DEBUG level (dysh verbosity 3); otherwise at INFO level (verbosity 2).
+        Default is `False`.
+
+    Returns
+    -------
+    `logging.Logger`
+        The ``dysh.benchmark`` logger.
+
+    Notes
+    -----
+    Each call adds another handler to the logger, so calling this more than once in a process
+    prints every message more than once.
+    """
     level = logging.DEBUG if verbose else logging.INFO
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter("%(message)s"))
@@ -79,7 +101,7 @@ def time_operation(func, n_iterations=5, warmup=1, silent_errors=False, track_me
     Returns
     -------
     dict
-        Statistics including mean_ms, std_ms, min_ms, max_ms, n_iterations,
+        Statistics including mean_ms, std_ms, median_ms, min_ms, max_ms, n_iterations,
         and memory stats if track_memory=True
     """
     op_name = name or func.__name__
@@ -127,11 +149,13 @@ def time_operation(func, n_iterations=5, warmup=1, silent_errors=False, track_me
         )
         del result
 
+    summary = summarize(times)
     stats = {
-        "mean_ms": round(mean(times), 2),
-        "std_ms": round(stdev(times), 2) if len(times) > 1 else 0,
-        "min_ms": round(min(times), 2),
-        "max_ms": round(max(times), 2),
+        "mean_ms": round(summary["mean"], 2),
+        "std_ms": round(summary["std"], 2) if len(times) > 1 else 0,
+        "median_ms": round(summary["median"], 2),
+        "min_ms": round(summary["min"], 2),
+        "max_ms": round(summary["max"], 2),
         "n_iterations": n_iterations,
     }
 
@@ -177,7 +201,22 @@ def create_results_dict(quick_mode=False, extra_metadata=None):
 
 
 def save_results(results, output_path):
-    """Save results to JSON file."""
+    """Save benchmark results to a JSON file and print where they went.
+
+    Parameters
+    ----------
+    results : dict
+        Results to save, e.g. from `create_results_dict`. Must be JSON serializable.
+    output_path : str or `~pathlib.Path`
+        File to write. An existing file is overwritten.
+
+    Raises
+    ------
+    TypeError
+        If `results` contains a value that is not JSON serializable.
+    OSError
+        If the file cannot be written.
+    """
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved to: {output_path}")
@@ -251,7 +290,25 @@ def compare_results(file1, file2):
 
 
 def print_summary(results):
-    """Print a summary of benchmark results."""
+    """Print a table of benchmark results, one row per benchmark.
+
+    Each entry in ``results["benchmarks"]`` is shown according to its keys: ``error`` prints the
+    error message, ``skipped`` prints the skip reason (``reason``, default "not supported"), and
+    ``mean_ms`` prints the mean time with the peak allocation and mean memory change if a
+    ``memory`` entry is present (otherwise "n/a"). Entries with none of these keys are not
+    printed.
+
+    Parameters
+    ----------
+    results : dict
+        Results with a ``"benchmarks"`` mapping of benchmark name to its statistics, e.g. from
+        `create_results_dict` filled with `time_operation` output.
+
+    Raises
+    ------
+    KeyError
+        If `results` has no ``"benchmarks"`` key.
+    """
     print("\n" + "=" * 70)
     print("RESULTS SUMMARY")
     print("=" * 70)

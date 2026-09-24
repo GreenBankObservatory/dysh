@@ -5,9 +5,12 @@
 
 import argparse
 import sys
+from pathlib import Path
 
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # benchmark/
+from bench_common import add_dtime_args
 from dysh.util.timers import DTime
 
 benchname = "sdmath"
@@ -69,12 +72,7 @@ if __name__ == "__main__":
     parser.add_argument("--mode",        "-m", action="store",       help="initialization mode", default=0)
     parser.add_argument("--timeaverage", "-t", action="store_true",  help="time average as well")
 
-    parser.add_argument("--out",         "-o", action="store",       help="output filename (astropy Table)", required=False)
-    parser.add_argument("--append",      "-a", action="store_true",  help="append to previous output file (astropy Table)", required=False)
-    parser.add_argument("--overwrite",   "-w", action="store_true",  help="overwrite a previous output file (astropy Table)", required=False)
-    parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
-    parser.add_argument("--sortkey",     "-x", action="store",       help="How to sort the profiler statistics, 'cumulative' or 'time'", default="cumulative")
-    parser.add_argument("--statslines",  "-e", action="store",       help="number of profiler statistics lines to print", default=25)
+    add_dtime_args(parser, memory=False)
     parser.add_argument("--quit",        "-q", action="store_true",  help="quit early")
     # fmt: on
     args = parser.parse_args()
