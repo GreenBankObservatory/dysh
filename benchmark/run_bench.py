@@ -48,11 +48,11 @@ from bench_stats import summarize
 
 console = Console()
 
+# Directory containing this file: base for relative registry paths and cwd of child processes.
 HERE = Path(__file__).resolve().parent
-"""Directory containing this file: base for relative registry paths and cwd of child processes."""
 
+# A benchmark script: a path, or an argv list whose first item is the path and the rest are arguments.
 Script = str | list[str]
-"""A benchmark script: a path, or an argv list whose first item is the path and the rest are arguments."""
 
 SCRIPT_MS_RE = re.compile(r"(?P<tool>DYSH|GBTIDL)_BENCH_SCRIPT_MS=\s*(?P<ms>[0-9.dDeE+\-]+)")
 STAGE_MS_RE = re.compile(r"(?P<tool>DYSH|GBTIDL)_BENCH_STAGE_MS\[(?P<stage>[^\]]+)\]=\s*(?P<ms>[0-9.dDeE+\-]+)")
