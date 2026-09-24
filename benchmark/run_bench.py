@@ -1146,6 +1146,11 @@ def main() -> None:
         help="skip gbtidl runs even if gbtidl is on PATH",
     )
     parser.add_argument(
+        "--gbtidl-only",
+        action="store_true",
+        help="only run gbtidl (skip dysh); requires gbtidl on PATH, and only for benchmarks that have a gbtidl_script",
+    )
+    parser.add_argument(
         "--data-path",
         default=None,
         metavar="PATH",
@@ -1177,10 +1182,21 @@ def main() -> None:
         _print_benchmark_list()
         return
 
+    if args.dysh_only and args.gbtidl_only:
+        parser.error("--dysh-only and --gbtidl-only are mutually exclusive")
+    if args.gbtidl_only and args.verify:
+        parser.error("--gbtidl-only has no dysh output to verify against; drop --verify or --gbtidl-only")
+
     modes = ["warm", "cold"] if args.mode == "both" else [args.mode]
-    has_gbtidl = _gbtidl_available() and not args.dysh_only
+    gbtidl_on_path = _gbtidl_available()
+    if args.gbtidl_only and not gbtidl_on_path:
+        parser.error("--gbtidl-only requires gbtidl on PATH")
+    run_dysh = not args.gbtidl_only
+    has_gbtidl = gbtidl_on_path and not args.dysh_only
     if args.dysh_only:
         console.print("[dim]--dysh-only: skipping gbtidl runs[/]\n")
+    elif args.gbtidl_only:
+        console.print("[dim]--gbtidl-only: skipping dysh runs[/]\n")
     elif not has_gbtidl:
         console.print("[yellow]warn:[/] gbtidl not found on PATH — skipping GBTIDL runs\n")
 
@@ -1192,6 +1208,9 @@ def main() -> None:
         resolved_data[name] = args.data_path or _resolve_data_path(name, cfg)
         if resolved_data[name] is None and _uses_data(cfg):
             console.print(f"[yellow]skip:[/] [bold]{name}[/] — no data available on this host")
+            continue
+        if args.gbtidl_only and not cfg["gbtidl_script"]:
+            console.print(f"[yellow]skip:[/] [bold]{name}[/] — no gbtidl_script")
             continue
         selected.append(name)
 
@@ -1205,7 +1224,10 @@ def main() -> None:
     # Compute total steps: each tool run = n_iterations timed + 1 warmup (warm mode only)
     steps_per_run = args.iterations + (1 if args.mode != "cold" else 0)
     n_total_steps = sum(
-        steps_per_run * (1 + (1 if has_gbtidl and BENCHMARKS[n]["gbtidl_script"] else 0)) * len(modes) for n in selected
+        steps_per_run
+        * ((1 if run_dysh else 0) + (1 if has_gbtidl and BENCHMARKS[n]["gbtidl_script"] else 0))
+        * len(modes)
+        for n in selected
     )
 
     def _run_all(overall, progress):
@@ -1232,26 +1254,27 @@ def main() -> None:
                 results[name][mode] = {}
                 require_script_marker = not cfg.get("script_body_zero", False)
 
-                runs = _run_iterations(
-                    "dysh",
-                    f"dysh ({name})",
-                    cfg["dysh_script"],
-                    data_path,
-                    has_output,
-                    mode,
-                    args.iterations,
-                    args.tmpdir,
-                    args.verbose,
-                    overall,
-                    progress,
-                    require_script_marker,
-                )
-                if dysh_stdout is None and runs:
-                    dysh_stdout = runs[0]["stdout"]
-                dysh_stats = _stats_from_runs(runs)
-                if cfg.get("script_body_zero"):
-                    dysh_stats = _apply_zero_script_body(dysh_stats)
-                results[name][mode]["dysh"] = dysh_stats
+                if run_dysh:
+                    runs = _run_iterations(
+                        "dysh",
+                        f"dysh ({name})",
+                        cfg["dysh_script"],
+                        data_path,
+                        has_output,
+                        mode,
+                        args.iterations,
+                        args.tmpdir,
+                        args.verbose,
+                        overall,
+                        progress,
+                        require_script_marker,
+                    )
+                    if dysh_stdout is None and runs:
+                        dysh_stdout = runs[0]["stdout"]
+                    dysh_stats = _stats_from_runs(runs)
+                    if cfg.get("script_body_zero"):
+                        dysh_stats = _apply_zero_script_body(dysh_stats)
+                    results[name][mode]["dysh"] = dysh_stats
 
                 if has_gbtidl and cfg["gbtidl_script"]:
                     runs = _run_iterations(
@@ -1275,7 +1298,7 @@ def main() -> None:
                         gbtidl_stats = _apply_zero_script_body(gbtidl_stats)
                     results[name][mode]["gbtidl"] = gbtidl_stats
 
-            if args.verify:
+            if args.verify and run_dysh:
                 _run_verify(name, cfg, data_path, has_gbtidl, args.verbose, dysh_stdout, gbtidl_stdout)
 
     if args.verbose:

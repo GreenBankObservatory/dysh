@@ -47,6 +47,12 @@ are skipped. Note for `argus_vanecal`: the canonical GBO dataset is a
 vane/sky-only subset; the `otf4` alias fallback is the full session, which
 inflates the `GBTFITSLoad` stage but leaves the vanecal stages comparable.
 
+By default both dysh and GBTIDL (when it's on `PATH`) are run. `--dysh-only` skips GBTIDL even if
+it's available; `--gbtidl-only` skips dysh instead (it requires GBTIDL on `PATH`, and benchmarks
+with no `gbtidl_script`, such as `getps` and `calibration`, are skipped). The two are mutually
+exclusive, and `--gbtidl-only` cannot be combined with `--verify` (there is no dysh output to
+verify against).
+
 ## Micro-benchmarks
 
 `getps` and `calibration` run the in-process drivers `development/bench_getps.py` and
