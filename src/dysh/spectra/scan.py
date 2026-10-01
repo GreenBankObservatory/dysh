@@ -2878,9 +2878,9 @@ class FSScan(ScanBase):
 
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=True, shift_method="fft", sig_weight=1, ref_weight=1):
             """ """
-            chan_shift = (ref_freq[0] - sig_freq[0]) / np.diff(sig_freq).mean()
+            chan_shift = ((ref_freq[0] - sig_freq[0]) / np.diff(sig_freq).mean()).value
             logger.debug(f"do_fold: sig_freq0={sig_freq[0]}, ref_freq0={ref_freq[0]}, chan_shift={chan_shift}")
-            ref_shift = core.data_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
+            ref_shift = core.data_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method, pad=False)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 weight_sum = np.nansum(
@@ -2967,7 +2967,6 @@ class FSScan(ScanBase):
                         self._calibrated[i] = cal_sig_fold
                     else:
                         self._calibrated[i] = cal_ref_fold
-
                 elif self._use_sig:
                     self._calibrated[i] = cal_sig
                     self._tsys[i] = tsys_ref
