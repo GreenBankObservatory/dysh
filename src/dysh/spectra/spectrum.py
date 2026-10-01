@@ -423,11 +423,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         print(f"baseline model {self._baseline_model}")
 
     @copy_docstring(sp.SpectrumPlot.plot)
-    def plot(self, **kwargs):
+    def plot(self, *args, **kwargs):
         """ """
 
-        self._plotter = sp.SpectrumPlot(self, **kwargs)
-        self._plotter.plot(**kwargs)
+        self._plotter = sp.SpectrumPlot(self, *args, **kwargs)
+        self._plotter.plot(*args, **kwargs)
         return self._plotter
 
     def get_selected_regions(self, unit=None, ignore_incomplete=True):
