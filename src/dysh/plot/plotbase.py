@@ -244,11 +244,11 @@ class PlotBase:
         if hidebuttons:
             for button in self.figure._localaxes[1:]:
                 button.set_visible(False)
-            self.figure.savefig(file, *kwargs)
+            self.figure.savefig(file, **kwargs)
             for button in self.figure._localaxes[1:]:
                 button.set_visible(True)
         else:
-            self.figure.savefig(file, *kwargs)
+            self.figure.savefig(file, **kwargs)
 
     def _update_home(self, xlim: tuple[float, float], ylim: tuple[float, float]):
         """

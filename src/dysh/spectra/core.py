@@ -880,7 +880,7 @@ def fft_pad(y):
 def fft_shift(
     y,
     shift,
-    pad=True,
+    pad=False,
     window=True,
     nan_treatment="fill",
     fill_value=0,
@@ -945,9 +945,14 @@ def fft_shift(
 
     # Array of indices for computing the phase shift at each channel.
     harr = np.arange(0, new_len // 2)
+    # Dirty trick to handle uneven number of samples.
+    if len(harr) * 2 == len(phs) - 1:
+        _harr = np.append(harr, harr[-1] + 1)
+    else:
+        _harr = harr
     # Index the phase shift samples this way to
     # get a Hermite-symmetric complex exponential.
-    farr = np.hstack((harr, harr - new_len // 2))
+    farr = np.hstack((_harr, harr - new_len // 2))
 
     # Shift and apply window if needed.
     phs += farr * phase_shift
