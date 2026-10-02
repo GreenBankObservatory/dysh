@@ -143,7 +143,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
     valid_scales: tuple[str, str, str] = ("ta", "ta*", "flux")
 
-    def __init__(self, gain_correction_table: Path = None):  # noqa: RUF013
+    def __init__(self, gain_correction_table: Path | None = None):
         if gain_correction_table is None:
             gain_correction_table = get_project_data() / "gaincorrection.tab"
         self._gct = QTable.read(gain_correction_table, format="ascii.ecsv")
@@ -308,7 +308,7 @@ class GBTGainCorrection(BaseGainCorrection):
         angle: Angle | Quantity,
         date: Time,
         zd: bool = False,
-        surface_error: None | Quantity = None,
+        surface_error: Quantity | None = None,
         **kwargs,
     ) -> float | np.ndarray:
         r"""

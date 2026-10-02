@@ -95,7 +95,7 @@ class CalibratorTable:
         with open(self.calibrator_table_file) as f:
             self.data = json.load(f)
 
-    def valid_names(self, scale: None | str = None):
+    def valid_names(self, scale: str | None = None):
         """
         Recognized calibrator names and their alises
         defined in the json table.
