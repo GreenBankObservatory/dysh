@@ -4,6 +4,7 @@ Plot a spectrum using matplotlib
 
 import warnings
 from copy import deepcopy
+from functools import partial
 
 import astropy.units as u
 import matplotlib as mpl
@@ -193,6 +194,10 @@ class ScanPlot(PlotBase):
             locator = AutoLocator()
         self.axes.xaxis.set_major_locator(locator)
         self.axes.set_ylim(self.spectrogram.shape[0], 0)
+        ax_int_x_axis_fmt = partial(
+            self._x_axis_fmt, locs=np.arange(self.spectrogram.shape[1]), labels=self._xtick_labels
+        )
+        self.axes.fmt_xdata = ax_int_x_axis_fmt
 
         # second "plot" to get different scales on x2, y2 axes
         if spectral_unit is not None:
@@ -214,8 +219,9 @@ class ScanPlot(PlotBase):
         for numints in self._nint_nos:
             tick_locs.append(acc)
             acc += numints
-        self._axis3.set_xticks(tick_locs)
-        self._axis3.set_xticklabels(self._scan_numbers)
+        self._axis3.set_xticks(tick_locs, labels=self._scan_numbers)
+        ax3_scan_x_axis_fmt = partial(self._x_axis_fmt, locs=tick_locs, labels=self._scan_numbers)
+        self._axis3.fmt_xdata = ax3_scan_x_axis_fmt
         fsize = 15
         x1_alt_padding = mpl.rcParams["axes.labelpad"] + fsize
         self._axis3.tick_params(
@@ -235,6 +241,26 @@ class ScanPlot(PlotBase):
 
         self.show()
         self.figure.canvas.draw_idle()
+
+    @staticmethod
+    def _x_axis_fmt(x, locs=None, labels=None):
+        """
+        Converts between x values (pixel) and labels for the x axis.
+
+        Parameters
+        ----------
+        locs : list | None
+            x tick locations in unit of `x`.
+        labels : list | None
+            x tick labels.
+        """
+        if locs is None or labels is None:
+            raise ValueError(f"Empty lists for locs ({locs}) or values (labels)")
+        for i, loc in enumerate(locs):
+            if x < loc:
+                return f"{labels[i - 1]}"
+        if x > locs[-1]:
+            return f"{labels[-1]}"
 
     def _set_labels(self):
         # x1: bottom
