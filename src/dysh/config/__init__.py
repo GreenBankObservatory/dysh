@@ -4,9 +4,6 @@
 
 import astropy.config as astropyconfig
 
-from dysh.config import core
-from dysh.config.core import *
-
 
 class ConfigNamespace(astropyconfig.ConfigNamespace):
     rootname = "dysh"
@@ -17,7 +14,6 @@ class ConfigItem(astropyconfig.ConfigItem):
 
 
 __all__ = [
-    "core",
     "ConfigNamespace",
     "ConfigItem",
-] + core.__all__
+]

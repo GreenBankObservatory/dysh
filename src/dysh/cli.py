@@ -11,7 +11,7 @@ import os
 import sys
 import time
 import traceback
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dysh.fits import GBTOnline, gbtfitsload, index_file, sdfitsload
@@ -339,7 +339,7 @@ def cmd_online(args):
         df = sdf.get_summary(columns=columns, add_columns=add_columns)
 
         # Add timestamp column showing when we detected this data
-        df["RENDERED"] = datetime.now(timezone.utc).strftime("%H:%M:%S")
+        df["RENDERED"] = datetime.now(UTC).strftime("%H:%M:%S")
 
         last_summary_count = len(df)
         last_raw_count = len(sdf._index) if sdf._index is not None else 0
@@ -395,7 +395,7 @@ def cmd_online(args):
                 # First, reload new data from disk
                 if args.verbosity >= 3:
                     print(
-                        f"[DEBUG] Checking for new data at {datetime.now(timezone.utc).strftime('%H:%M:%S')}",
+                        f"[DEBUG] Checking for new data at {datetime.now(UTC).strftime('%H:%M:%S')}",
                         file=sys.stderr,
                     )
 
@@ -409,7 +409,7 @@ def cmd_online(args):
 
                 # Detect if file was reset (fewer rows than before)
                 if current_raw_count < last_raw_count:
-                    timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                    timestamp = datetime.now(UTC).strftime("%H:%M:%S")
                     logger.warning(
                         f"Data reset detected: {last_raw_count} → {current_raw_count} rows. "
                         "File may have been recreated."
@@ -428,7 +428,7 @@ def cmd_online(args):
                     df = sdf.get_summary(columns=columns, add_columns=add_columns)
 
                     # Add timestamp column showing when we detected this data
-                    df["RENDERED"] = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                    df["RENDERED"] = datetime.now(UTC).strftime("%H:%M:%S")
 
                     current_summary_count = len(df)
 
@@ -438,7 +438,7 @@ def cmd_online(args):
                         new_scan_nums = current_scans - seen_scans
                         if not new_scan_nums and current_summary_count > last_summary_count:
                             # We have new rows but no new scan numbers - must be duplicates
-                            timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                            timestamp = datetime.now(UTC).strftime("%H:%M:%S")
                             logger.warning("Duplicate scan numbers detected. Session may have restarted.")
                             print(
                                 f"[{timestamp}] WARNING: Duplicate scan numbers detected (session may have restarted)",
@@ -449,7 +449,7 @@ def cmd_online(args):
                         # Detect scan number regression (current scan lower than previous)
                         current_scan_num = int(df["SCAN"].iloc[-1])
                         if last_scan_num is not None and current_scan_num < last_scan_num:
-                            timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                            timestamp = datetime.now(UTC).strftime("%H:%M:%S")
                             logger.warning(
                                 f"Scan number regression: {last_scan_num} → {current_scan_num}. "
                                 "Unexpected scan sequence."
@@ -469,7 +469,7 @@ def cmd_online(args):
 
                     # Always show status update when raw data changes
                     if current_raw_count > last_raw_count:
-                        timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                        timestamp = datetime.now(UTC).strftime("%H:%M:%S")
                         latest_scan = df["SCAN"].iloc[-1] if "SCAN" in df.columns else "?"
                         print(
                             f"[{timestamp}] Scan {latest_scan}: "
@@ -479,7 +479,7 @@ def cmd_online(args):
                         last_raw_count = current_raw_count
                     elif has_new_data:
                         # File changed but no new rows - still notify
-                        timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                        timestamp = datetime.now(UTC).strftime("%H:%M:%S")
                         print(f"[{timestamp}] Data refreshed (no new rows)", flush=True)
 
             except Exception as e:
