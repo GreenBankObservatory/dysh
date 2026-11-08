@@ -1885,10 +1885,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         def vel2idx(vel, wcs, spectral_axis, coo, sto):
             eq = get_spectral_equivalency(spectral_axis.doppler_rest, spectral_axis.doppler_convention)
-            # Make `vel` a `SpectralCoord`.
-            vel_sp = spectral_axis.to(unit=vel.unit).replicate(value=vel.value, unit=vel.unit)
             with u.set_enabled_equivalencies(eq):
-                idxs = wcs.world_to_pixel(coo, vel_sp, sto)
+                wcs_val = vel.to(wcs.world_axis_units[0])
+            # Make a `SpectralCoord`.
+            wcs_sp = spectral_axis.to(unit=wcs_val.unit).replicate(value=wcs_val.value, unit=wcs_val.unit)
+            idxs = wcs.world_to_pixel(coo, wcs_sp, sto)
             return int(np.round(idxs[0]))
 
         def wav2idx(wav, wcs, spectral_axis, coo, sto):

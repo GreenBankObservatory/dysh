@@ -2,7 +2,7 @@
 name = "dysh"
 description = ''
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {file = "LICENSE"}
 keywords = []
 dynamic = ["version"]
@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
   "httpx",
-  "astropy>=6.1,<8",
+  "astropy>=8.0",
   "astroquery",
   "ipython",
   "jplephem",

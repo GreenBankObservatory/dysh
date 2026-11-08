@@ -2,6 +2,18 @@
 What's New?
 ***********
 
+
+Version 1.3.0
+=============
+
+.. _v1-3-0-functionality:
+
+Functionality & Enhancements
+----------------------------
+
+- Support for astropy 8
+
+
 Version 1.2.0
 =============
 

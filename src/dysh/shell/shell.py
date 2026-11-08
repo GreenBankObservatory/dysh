@@ -4,11 +4,14 @@ import sys
 from pathlib import Path
 
 import IPython
+from astropy.config import create_config_file
 from traitlets.config import Config
 
+import dysh.config
 import dysh.fits
 from dysh import __version__, system_info
-from dysh.config import create_config_file
+
+# from dysh.config import create_config_file
 from dysh.fits.sdfitsload import SDFITSLoad
 from dysh.log import init_logging, instance_logger
 
