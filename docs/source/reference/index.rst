@@ -99,4 +99,4 @@ Reference Guides
     sdfits_files/index
     dysh-for-gbtidl-users
     glossary
-    sdmath
+    sdmath/sdmath
