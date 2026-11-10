@@ -359,7 +359,7 @@ class GBTForecastScriptInterface:
         If True, don't check that `path` exists.  This is useful for testing when not on GBO network. Default: False
     """
 
-    def __init__(self, path: Path | str = "/users/rmaddale/bin/getForecastValues", **kwargs):
+    def __init__(self, path: Path | str = "/home/cleoversions/Cleo/mainscreens/getForecastValues.tcl", **kwargs):
         self._testmode = kwargs.get("testmode", False)
         self._path = Path(path)
         self._fit = None
